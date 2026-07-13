@@ -1,0 +1,5 @@
+# Nunca subir segredos nem a fotografia do banco pro git
+clone.env
+snapshot/
+.generated/
+seed_*.sql

@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1920,initial-scale=1">
+  <title>+ que Vencedores Recording</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100vw; height: 100vh; overflow: hidden;
+      background: #0a0a0a; color: #fff;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    .stage { position: relative; width: 100%; height: 100%; }
+    .full { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
+    .full-cover { width: 100%; height: 100%; object-fit: cover; background: #000; display: block; }
+    /* Branding logo (canto superior DIREITO) — selo anti-pirataria */
+    .brand {
+      position: absolute; top: 22px; right: 26px; z-index: 30;
+      display: flex; align-items: center;
+      filter: drop-shadow(0 2px 12px rgba(0,0,0,0.7));
+      opacity: 0.92;
+    }
+    .brand img { height: 36px; width: auto; display: block; }
+    /* Watermark central translucido — selo de autoria espalhado pelo video */
+    .watermark {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-12deg);
+      z-index: 5; opacity: 0.04; pointer-events: none;
+    }
+    .watermark img { width: 60vw; max-width: 1100px; height: auto; }
+    /* Camera bubble — canto inferior DIREITO (sobreposto a tela compartilhada) */
+    .bubbles {
+      position: absolute; right: 36px; bottom: 36px; z-index: 20;
+      display: flex; flex-direction: column-reverse; gap: 20px;
+    }
+    /* Tile quadrado com cantos arredondados (padrao Zoom/Meet), NAO redondo.
+       Borda dourada fina por padrao; quem esta falando ganha borda + glow. */
+    .bubble {
+      position: relative;
+      border-radius: 22px; overflow: hidden;
+      border: 3px solid rgba(250,200,0,0.45);
+      box-shadow: 0 18px 48px rgba(0,0,0,0.7);
+      background: #000;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .bubble.speaking {
+      border-color: #FAC800;
+      box-shadow: 0 0 0 4px rgba(250,200,0,0.38), 0 18px 48px rgba(0,0,0,0.7);
+    }
+    .bubble video { width: 100%; height: 100%; object-fit: cover; }
+    .bubble .nm {
+      position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
+      color: #fff; font-size: 12px; font-weight: 600;
+      padding: 4px 12px; border-radius: 9999px; white-space: nowrap;
+    }
+    .b-1 { width: 320px; height: 200px; }   /* host tile (16:10) */
+    .b-n { width: 220px; height: 138px; }   /* outros participantes */
+    /* Screen share: tela + FAIXA LATERAL de cameras (nunca sobrepoe a tela). */
+    .share-wrap { display: flex; width: 100%; height: 100%; background: #000; }
+    .share-main { flex: 1 1 auto; min-width: 0; position: relative; background: #000; }
+    .share-main video { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
+    .share-rail {
+      width: 236px; flex: 0 0 236px; height: 100%; box-sizing: border-box;
+      background: #0a0a0a; border-left: 2px solid rgba(250,200,0,0.28);
+      display: flex; flex-direction: column; gap: 8px; padding: 10px; overflow: hidden;
+    }
+    .share-rail .rtile {
+      position: relative; width: 100%; height: 128px; flex: 0 0 auto;
+      border-radius: 14px; overflow: hidden; background: #000;
+      border: 3px solid rgba(250,200,0,0.45);
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .share-rail .rtile.speaking { border-color: #FAC800; box-shadow: 0 0 0 4px rgba(250,200,0,0.38); }
+    .share-rail .rtile video { width: 100%; height: 100%; object-fit: cover; }
+    .share-rail .rtile .nm {
+      position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.65); color: #fff; font-size: 12px; font-weight: 600;
+      padding: 3px 10px; border-radius: 9999px; white-space: nowrap; max-width: 90%;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    /* Two-people split */
+    .split2 { display: grid; grid-template-columns: 1fr 1fr; width: 100%; height: 100%; gap: 3px; background: #FAC800; }
+    .split2 .pane { position: relative; background: #000; }
+    .split2 .pane video { width: 100%; height: 100%; object-fit: cover; }
+    .split2 .pane .nm {
+      position: absolute; bottom: 18px; left: 18px;
+      background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
+      color: #fff; font-size: 14px; font-weight: 600;
+      padding: 5px 14px; border-radius: 9999px;
+    }
+    .split2 .pane.speaking { box-shadow: inset 0 0 0 4px #FAC800; }
+    /* Grid */
+    .grid { display: grid; gap: 6px; padding: 6px; width: 100%; height: 100%; background: #0a0a0a; }
+    .grid .cell { position: relative; background: #000; border-radius: 16px; overflow: hidden;
+      border: 2px solid rgba(250,200,0,0.32); transition: border-color .15s ease, box-shadow .15s ease; }
+    .grid .cell.speaking { border-color: #FAC800; box-shadow: 0 0 0 3px rgba(250,200,0,0.35); }
+    .grid .cell video { width: 100%; height: 100%; object-fit: cover; }
+    .grid .cell .nm {
+      position: absolute; bottom: 10px; left: 10px;
+      background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+      color: #fff; font-size: 12px; font-weight: 600;
+      padding: 3px 11px; border-radius: 9999px;
+    }
+    .splash { width: 100%; height: 100%; display: grid; place-items: center; gap: 18px; }
+    .splash img { width: 360px; max-width: 60%; height: auto; filter: drop-shadow(0 4px 24px rgba(250,200,0,0.15)); }
+    .splash p { font-size: 13px; color: #888; }
+    #status-debug {
+      position: absolute; bottom: 8px; right: 12px; z-index: 5;
+      font-size: 10px; color: rgba(255,255,255,0.35);
+      font-family: ui-monospace, monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <div class="brand">
+      <img src="/squaad-logo.png" alt="+ que Vencedores" />
+    </div>
+    <div class="watermark">
+      <img src="/squaad-logo.png" alt="" />
+    </div>
+    <div class="splash" id="splash">
+      <img src="/squaad-logo.png" alt="+ que Vencedores Business Solutions" />
+      <p id="splash-msg">Conectando...</p>
+    </div>
+    <div id="layout"></div>
+    <!-- Audio sink: tracks de audio sao atachadas aqui pra Chrome reproduzir.
+         O egress captura o output via PulseAudio, entao tem que tocar de fato. -->
+    <div id="audio-sink" style="position:absolute;width:0;height:0;overflow:hidden;pointer-events:none"></div>
+    <div id="status-debug"></div>
+  </div>
+
+  <script type="module">
+    import { Room, RoomEvent, Track } from 'https://cdn.jsdelivr.net/npm/livekit-client@2.18.1/+esm';
+
+    const params = new URLSearchParams(window.location.search);
+    const url = params.get('url') || '';
+    const token = params.get('token') || '';
+    const dbg = (s) => { const el = document.getElementById('status-debug'); if (el) el.textContent = s; console.log('[REC]', s); };
+
+    // LK Egress contract: sinaliza via console quando rendering esta pronto
+    // pra capturar (START_RECORDING) e quando deve parar (END_RECORDING).
+    // Sem START_RECORDING o egress fica aguardando indefinidamente e o pipeline
+    // nunca arranca. Disparamos START_RECORDING no primeiro track renderizado.
+    let startSignaled = false;
+    function signalStart() {
+      if (startSignaled) return;
+      startSignaled = true;
+      console.log('START_RECORDING');
+    }
+    function signalEnd() {
+      console.log('END_RECORDING');
+    }
+
+    if (!url || !token) {
+      dbg('missing url/token');
+      document.getElementById('splash-msg').textContent = 'URL/token ausentes';
+      // sinaliza mesmo sem URL pro egress nao travar — vai gravar tela de erro
+      setTimeout(signalStart, 500);
+    } else {
+      const room = new Room({ adaptiveStream: false, dynacast: false });
+      window.__room = room;
+
+      const layoutEl = document.getElementById('layout');
+      const splashEl = document.getElementById('splash');
+      const stageEl = document.getElementById('stage');
+      const audioSink = document.getElementById('audio-sink');
+
+      // Track <video> elements per "participantSid|source" so we can re-attach
+      // without flicker on every refresh.
+      // Quem esta falando agora (por participant sid) — borda dourada no tile.
+      let activeSpeakerSids = new Set();
+
+      const videoElCache = new Map();
+      function makeVideoEl(track, key, classes='') {
+        let v = videoElCache.get(key);
+        if (!v) {
+          v = document.createElement('video');
+          v.autoplay = true;
+          v.playsInline = true;
+          v.muted = true; // video tag silencioso; audio vem via <audio> dedicado
+          v.className = classes;
+          videoElCache.set(key, v);
+        }
+        try { track.attach(v); } catch (e) { dbg('attach err: ' + e.message); }
+        return v;
+      }
+
+      // Audio pipeline por track:
+      //   source → HPF(80Hz) → preGain(+6dB) → limiter(shared) → destination
+      //
+      // - HPF remove rumble/HVAC/handling (<80Hz) que dava sensacao de "voz longe".
+      // - preGain de +6dB sobe o nivel medio das vozes ANTES do limiter; o limiter
+      //   captura os peaks resultantes mantendo headroom. Resultado: voz mais
+      //   presente sem clipping.
+      // - Limiter foi suavizado (threshold -1dB, soft knee, ratio 12, release 200ms)
+      //   pra evitar pumping/breathing das gravacoes anteriores (que faziam vozes
+      //   parecerem distantes/gravadas em outra sala).
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const limiter = audioCtx.createDynamicsCompressor();
+      limiter.threshold.value = -1;     // so atua nos peaks
+      limiter.knee.value = 6;           // soft knee = transparente
+      limiter.ratio.value = 12;         // limita peaks sem esmagar dinamica
+      limiter.attack.value = 0.003;     // 3ms — segura peaks rapidos
+      limiter.release.value = 0.2;      // 200ms — recovery natural, sem pumping
+      limiter.connect(audioCtx.destination);
+      const audioElCache = new Map();
+      function attachAudioTrack(track, key) {
+        let entry = audioElCache.get(key);
+        if (!entry) {
+          const a = document.createElement('audio');
+          a.autoplay = true;
+          a.muted = true; // muta o output direto — vamos rotear via Web Audio
+          audioSink.appendChild(a);
+          entry = { audio: a, source: null, hpf: null, gain: null };
+          audioElCache.set(key, entry);
+        }
+        try {
+          track.attach(entry.audio);
+          entry.audio.play().catch(() => {});
+          // Cadeia de processamento por track (cria nodes apenas uma vez).
+          if (!entry.source && entry.audio.srcObject) {
+            try {
+              entry.source = audioCtx.createMediaStreamSource(entry.audio.srcObject);
+              entry.hpf = audioCtx.createBiquadFilter();
+              entry.hpf.type = 'highpass';
+              entry.hpf.frequency.value = 80;       // remove rumble abaixo de 80Hz
+              entry.hpf.Q.value = 0.707;            // Butterworth: sem ressonancia
+              entry.gain = audioCtx.createGain();
+              entry.gain.value = 2.0;               // +6dB de presenca pre-limiter
+              entry.source.connect(entry.hpf);
+              entry.hpf.connect(entry.gain);
+              entry.gain.connect(limiter);
+            } catch (e) { dbg('source create err: ' + e.message); }
+          }
+        } catch (e) { dbg('audio attach err: ' + e.message); }
+      }
+
+      function gatherTracks() {
+        const tiles = [];
+        for (const p of room.remoteParticipants.values()) {
+          for (const pub of p.trackPublications.values()) {
+            if (!pub.isSubscribed || !pub.track) continue;
+            const key = p.sid + '|' + pub.source;
+            // Audio tracks: atacha invisivel pro Chrome reproduzir
+            if (pub.kind === 'audio' || pub.source === Track.Source.Microphone || pub.source === Track.Source.ScreenShareAudio) {
+              attachAudioTrack(pub.track, key);
+              continue;
+            }
+            // Video tracks: vao pro layout
+            if (pub.kind === 'video') {
+              tiles.push({
+                id: key,
+                sid: p.sid,
+                participantName: p.name || p.identity,
+                track: pub.track,
+                source: pub.source,
+              });
+            }
+          }
+        }
+        return tiles;
+      }
+
+      function render() {
+        const tiles = gatherTracks();
+        const screen = tiles.find(t => t.source === Track.Source.ScreenShare);
+        const cams = tiles.filter(t => t.source === Track.Source.Camera);
+
+        if (tiles.length === 0) {
+          splashEl.style.display = 'grid';
+          layoutEl.innerHTML = '';
+          dbg('no tracks');
+          return;
+        }
+        splashEl.style.display = 'none';
+
+        layoutEl.innerHTML = '';
+
+        if (screen) {
+          // Tela compartilhada + FAIXA LATERAL de cameras (a direita). As cameras
+          // NUNCA sobrepoem a tela — ninguem tapa os itens compartilhados.
+          const wrap = document.createElement('div');
+          wrap.className = 'share-wrap';
+
+          const main = document.createElement('div');
+          main.className = 'share-main';
+          main.appendChild(makeVideoEl(screen.track, screen.id, 'full'));
+          wrap.appendChild(main);
+
+          // Sem camera, nao desenha faixa (tela ocupa 100%).
+          if (cams.length > 0) {
+            const rail = document.createElement('div');
+            rail.className = 'share-rail';
+            // Cap em 5 pra caber a 720p sem cortar; prioriza quem fala e o host.
+            const ordered = cams.slice().sort((a, b) => {
+              const sa = activeSpeakerSids.has(a.sid) ? 1 : 0;
+              const sb = activeSpeakerSids.has(b.sid) ? 1 : 0;
+              return sb - sa;
+            });
+            ordered.slice(0, 5).forEach((c) => {
+              const tile = document.createElement('div');
+              tile.className = 'rtile' + (activeSpeakerSids.has(c.sid) ? ' speaking' : '');
+              tile.appendChild(makeVideoEl(c.track, c.id));
+              const nm = document.createElement('div');
+              nm.className = 'nm';
+              nm.textContent = c.participantName;
+              tile.appendChild(nm);
+              rail.appendChild(tile);
+            });
+            wrap.appendChild(rail);
+          }
+
+          layoutEl.appendChild(wrap);
+          dbg('screen + ' + cams.length + ' cams (faixa lateral)');
+        } else if (cams.length === 1) {
+          const v = makeVideoEl(cams[0].track, cams[0].id, 'full-cover');
+          layoutEl.appendChild(v);
+          dbg('solo cam');
+        } else if (cams.length === 2) {
+          const sp = document.createElement('div');
+          sp.className = 'split2';
+          cams.forEach((c) => {
+            const pane = document.createElement('div');
+            pane.className = 'pane' + (activeSpeakerSids.has(c.sid) ? ' speaking' : '');
+            pane.appendChild(makeVideoEl(c.track, c.id));
+            const nm = document.createElement('div');
+            nm.className = 'nm';
+            nm.textContent = c.participantName;
+            pane.appendChild(nm);
+            sp.appendChild(pane);
+          });
+          layoutEl.appendChild(sp);
+          dbg('split 2 cams');
+        } else {
+          const cols = Math.ceil(Math.sqrt(cams.length));
+          const grid = document.createElement('div');
+          grid.className = 'grid';
+          grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+          cams.forEach((c) => {
+            const cell = document.createElement('div');
+            cell.className = 'cell' + (activeSpeakerSids.has(c.sid) ? ' speaking' : '');
+            cell.appendChild(makeVideoEl(c.track, c.id));
+            const nm = document.createElement('div');
+            nm.className = 'nm';
+            nm.textContent = c.participantName;
+            cell.appendChild(nm);
+            grid.appendChild(cell);
+          });
+          layoutEl.appendChild(grid);
+          dbg('grid ' + cams.length);
+        }
+      }
+
+      room
+        .on(RoomEvent.Connected, () => {
+          dbg('connected ' + room.name);
+          render();
+          // Fallback: se nao chegar nenhum track em 5s, sinaliza mesmo assim
+          // pro egress comecar a capturar (vai gravar splash ate alguem publicar).
+          setTimeout(signalStart, 5000);
+        })
+        .on(RoomEvent.Disconnected, () => { dbg('disconnected'); signalEnd(); })
+        .on(RoomEvent.TrackSubscribed, () => { signalStart(); render(); })
+        .on(RoomEvent.TrackUnsubscribed, render)
+        .on(RoomEvent.ParticipantConnected, render)
+        .on(RoomEvent.ParticipantDisconnected, render)
+        .on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+          // Borda dourada de quem fala. Re-render so quando o set muda de verdade.
+          const next = new Set((speakers || []).map((s) => s.sid));
+          let changed = next.size !== activeSpeakerSids.size;
+          if (!changed) { for (const id of next) { if (!activeSpeakerSids.has(id)) { changed = true; break; } } }
+          activeSpeakerSids = next;
+          if (changed) render();
+        });
+
+      room.connect(url, token, { autoSubscribe: true })
+        .then(() => {
+          dbg('connect ok');
+          // Forca audio playback no Chrome do egress (mesmo com autoplay
+          // policy permissiva, melhor garantir que o AudioContext esta ativo).
+          try { room.startAudio && room.startAudio().catch(() => {}); } catch (e) {}
+          try { audioCtx.resume && audioCtx.resume().catch(() => {}); } catch (e) {}
+          render();
+        })
+        .catch((e) => {
+          dbg('connect fail: ' + e.message);
+          document.getElementById('splash-msg').textContent = 'Falha: ' + e.message;
+          // sinaliza pro egress nao travar mesmo em caso de falha de conexao
+          setTimeout(signalStart, 1000);
+        });
+    }
+  </script>
+</body>
+</html>

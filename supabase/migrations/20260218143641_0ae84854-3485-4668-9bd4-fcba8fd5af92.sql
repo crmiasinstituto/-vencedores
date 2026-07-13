@@ -1,0 +1,1 @@
+ALTER TABLE public.whatsapp_instances ADD COLUMN IF NOT EXISTS channel text NOT NULL DEFAULT 'comercial';

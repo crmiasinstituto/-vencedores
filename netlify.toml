@@ -1,0 +1,89 @@
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "20"
+  # Alvo do proxy DNS-bypass (/__sb/*) servido por netlify/edge-functions/sb.ts
+  SUPABASE_PROXY_TARGET = "https://iymlwsawrmghhbawiavz.supabase.co"
+
+# DNS-bypass proxy is served by a Netlify Edge Function at
+# netlify/edge-functions/sb.ts (path: /__sb/*). The edge function intercepts
+# all HTTP methods (POST/PATCH/DELETE included) and forwards to Supabase.
+
+[[edge_functions]]
+  path = "/__sb/*"
+  function = "sb"
+
+# URL limpa da apresentacao Masterclass (sem .html), serve o arquivo estatico
+[[redirects]]
+  from = "/apresentacoes/masterclass-ia-negocios"
+  to = "/apresentacoes/masterclass-ia-negocios.html"
+  status = 200
+
+# URL limpa da imersao MasteryIA
+[[redirects]]
+  from = "/apresentacoes/mastery-ia"
+  to = "/apresentacoes/mastery-ia.html"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # SAMEORIGIN permite o iframe do /telao dentro da apresentação HTML same-origin
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(self), microphone=(self), geolocation=(self)"
+
+# A apresentacao Masterclass muda direto: sempre revalidar pra nunca servir versao antiga
+[[headers]]
+  for = "/apresentacoes/masterclass-ia-negocios*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/assets/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.woff2"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.jpg"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.jpeg"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.webp"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.avif"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

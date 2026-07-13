@@ -1,0 +1,8 @@
+# Security redirects
+/.env     /404.html  404
+/.git/*   /404.html  404
+
+# SPA redirect for React Router
+# (The /__sb/* proxy is handled by the Netlify Edge Function declared in
+# netlify.toml, which intercepts before this catch-all rule.)
+/*    /index.html   200

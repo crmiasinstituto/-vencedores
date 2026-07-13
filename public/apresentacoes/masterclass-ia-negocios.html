@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Masterclass IA para Negócios — Carlos Eduardo | + que Vencedores</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --black:#000; --yellow:#FAC800; --white:#FFF;
+            --red:#ff3b30; --green:#22c55e;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family:'Inter',sans-serif; background:var(--black); color:var(--white);
+            overflow:hidden; height:100vh; width:100vw;
+        }
+        .slides-container { width:100vw; height:100vh; position:relative; }
+        .slide {
+            position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+            opacity:0; padding:18px 26px 50px; flex-direction:column; overflow:hidden; background:var(--black);
+        }
+        .slide.active { display:flex; opacity:1; animation:fadeIn .5s ease; }
+        .slide.skip { display:none !important; } /* slide oculto da apresentação, mantido no arquivo */
+        @keyframes fadeIn { from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:translateY(0)} }
+
+        .progress-bar { position:fixed; top:0; left:0; height:3px; background:var(--yellow); z-index:1001; transition:width .4s; }
+        .nav-controls { position:fixed; bottom:28px; right:35px; display:flex; gap:10px; z-index:1000; }
+        .nav-btn {
+            width:44px; height:44px; border:2px solid var(--yellow); background:rgba(0,0,0,.85);
+            color:var(--yellow); border-radius:50%; cursor:pointer; font-size:16px;
+            display:flex; align-items:center; justify-content:center; transition:all .3s;
+        }
+        .nav-btn:hover { background:var(--yellow); color:var(--black); }
+        .slide-counter { position:fixed; bottom:32px; left:35px; font-family:'Space Grotesk'; font-size:13px; color:rgba(255,255,255,.35); z-index:1000; }
+        .slide-counter span { color:var(--yellow); font-weight:700; font-size:18px; }
+        .slide-counter .total { color:rgba(255,255,255,.25); font-size:13px; font-weight:400; }
+        .ig-watermark { position:fixed; bottom:32px; left:50%; transform:translateX(-50%); z-index:999; font-family:'Space Grotesk'; font-size:1rem; font-weight:700; letter-spacing:1.5px; color:rgba(250,200,0,.5); display:flex; align-items:center; gap:8px; }
+
+        h1 { font-family:'Space Grotesk'; font-size:4.8rem; font-weight:800; line-height:1.08; margin-bottom:16px; letter-spacing:-1px; }
+        h2 { font-family:'Space Grotesk'; font-size:3.7rem; font-weight:700; line-height:1.12; margin-bottom:16px; }
+        .hl { color:var(--yellow); }
+        .hl-box { background:var(--yellow); color:var(--black); padding:2px 14px; display:inline-block; }
+        .sub { font-size:1.55rem; color:rgba(255,255,255,.62); line-height:1.55; max-width:1300px; }
+        .tag { display:inline-block; background:var(--yellow); color:var(--black); padding:6px 20px; border-radius:30px; font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:2px; margin-bottom:22px; }
+        .kicker { font-family:'Space Grotesk'; font-weight:700; font-size:.85rem; letter-spacing:5px; color:rgba(250,200,0,.7); text-transform:uppercase; margin-bottom:20px; }
+        .source { margin-top:24px; font-family:'Space Grotesk'; font-size:.78rem; color:rgba(255,255,255,.3); letter-spacing:.5px; }
+        .sc { position:relative; z-index:1; max-width:1580px; width:100%; text-align:center; }
+
+        .silence { font-family:'Space Grotesk'; font-size:5.1rem; font-weight:800; text-align:center; line-height:1.12; max-width:1480px; }
+
+        /* COVER */
+        .cover-glow { position:absolute; border-radius:50%; border:1px solid rgba(250,200,0,.06); animation:glowExp 6s ease-in-out infinite; pointer-events:none; }
+        .cover-glow:nth-child(1){width:460px;height:460px}
+        .cover-glow:nth-child(2){width:620px;height:620px;animation-delay:2s}
+        .cover-glow:nth-child(3){width:780px;height:780px;animation-delay:4s}
+        @keyframes glowExp { 0%,100%{transform:scale(1);opacity:.25} 50%{transform:scale(1.12);opacity:.7} }
+        .cover-title { font-family:'Space Grotesk'; font-size:5.2rem; font-weight:900; letter-spacing:-2px; position:relative; z-index:10; line-height:1.04; }
+        .cover-title .l2 { color:var(--yellow); display:block; font-size:6rem; }
+        .cover-line { width:70px; height:3px; background:var(--yellow); margin:20px auto; position:relative; z-index:10; }
+        .cover-sub { font-size:1.2rem; color:rgba(255,255,255,.55); max-width:760px; position:relative; z-index:10; margin-top:14px; }
+        .cover-kicker { font-family:'Space Grotesk'; font-weight:800; font-size:.8rem; letter-spacing:6px; color:var(--yellow); text-transform:uppercase; margin-bottom:24px; position:relative; z-index:10; }
+        .cover-promise { font-size:1.5rem; color:rgba(255,255,255,.82); max-width:840px; line-height:1.5; position:relative; z-index:10; margin:22px auto 0; }
+        .cover-promise .hl { color:var(--yellow); font-weight:700; }
+        .cover-promise strong { color:#fff; font-weight:700; }
+        .cover-author { margin-top:38px; position:relative; z-index:10; }
+        .cover-author .name { font-family:'Space Grotesk'; font-weight:700; font-size:1.1rem; }
+        .cover-author .role { font-size:.85rem; color:rgba(255,255,255,.4); margin-top:4px; }
+
+        .huge-text { font-family:'Space Grotesk'; font-weight:900; font-size:6.4rem; line-height:1.04; letter-spacing:-3px; }
+
+        /* STATS */
+        .stats-row { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; width:100%; max-width:1320px; }
+        .stat-card { background:#111; border:1px solid rgba(250,200,0,.15); border-radius:18px; padding:32px 22px; text-align:center; }
+        .stat-card.feat { background:var(--yellow); color:var(--black); border:none; }
+        .stat-card .big { font-family:'Space Grotesk'; font-size:3.4rem; font-weight:900; color:var(--yellow); line-height:1; margin-bottom:10px; }
+        .stat-card.feat .big { color:var(--black); }
+        .stat-card .lbl { font-size:1.02rem; color:rgba(255,255,255,.6); line-height:1.4; }
+        .stat-card.feat .lbl { color:rgba(0,0,0,.7); }
+
+        /* REVEAL LIST */
+        .reveal-list { display:flex; flex-direction:column; gap:22px; text-align:center; }
+        .reveal-list .rl-item { font-family:'Space Grotesk'; font-size:2.8rem; font-weight:800; color:rgba(255,255,255,.85); line-height:1.1; }
+        .reveal-list .rl-item.big { font-size:3.6rem; color:var(--yellow); }
+        .reveal-list .rl-item.strike { color:rgba(255,255,255,.32); }
+
+        /* PROVA CLINICA */
+        .clin-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin:24px auto 0; max-width:1240px; }
+        .clin-card { background:linear-gradient(180deg, rgba(250,200,0,.05), rgba(255,255,255,.02)); border:1px solid rgba(255,255,255,.12); border-radius:18px; padding:22px 16px; text-align:center; }
+        .clin-card.feat { background:linear-gradient(180deg, rgba(250,200,0,.14), rgba(250,200,0,.04)); border:1.5px solid rgba(250,200,0,.55); box-shadow:0 12px 40px rgba(250,200,0,.18); }
+        .clin-card .ck { font-family:'Space Grotesk'; font-weight:800; font-size:.7rem; letter-spacing:3px; color:rgba(255,255,255,.55); text-transform:uppercase; margin-bottom:14px; }
+        .clin-card.feat .ck { color:var(--yellow); }
+        .clin-card .cy { font-family:'Space Grotesk'; font-weight:700; font-size:.68rem; letter-spacing:2px; color:rgba(255,255,255,.45); text-transform:uppercase; }
+        .clin-card .v-old { font-family:'Space Grotesk'; font-weight:700; font-size:1.35rem; color:#fff; line-height:1.1; margin-top:2px; }
+        .clin-card .cy.now { color:var(--yellow); }
+        .clin-card .v-new { font-family:'Space Grotesk'; font-weight:900; font-size:1.85rem; color:var(--yellow); line-height:1.1; margin-top:2px; }
+        .clin-div { height:1px; background:linear-gradient(90deg, transparent, rgba(250,200,0,.4), transparent); margin:9px 0; }
+        .clin-badge { margin-top:14px; display:inline-block; padding:5px 13px; background:rgba(34,197,94,.12); border:1px solid rgba(34,197,94,.45); border-radius:999px; font-family:'Space Grotesk'; font-weight:800; font-size:.88rem; color:#22c55e; }
+        .clin-mosaic { display:grid; grid-template-columns:1.5fr 1fr 1fr; grid-template-rows:1fr 1fr; gap:12px; width:100%; max-width:1400px; height:440px; margin:0 auto 14px; }
+        .clin-tile { overflow:hidden; border-radius:14px; border:1px solid rgba(250,200,0,.28); box-shadow:0 14px 36px rgba(0,0,0,.45); position:relative; background:#0a0a0a; }
+        .clin-tile-hero { grid-row:1 / span 2; }
+        .clin-tile img { width:100%; height:100%; object-fit:cover; object-position:center; display:block; transform-origin:center; user-select:none; -webkit-user-drag:none; }
+        .clin-mosaic.editing .clin-tile { outline:2px dashed var(--yellow); cursor:grab; }
+        .clin-mosaic.editing .clin-tile:active { cursor:grabbing; }
+        .clin-mosaic.editing .clin-tile::after { content:'Arraste · scroll = zoom'; position:absolute; left:0; right:0; bottom:0; background:rgba(0,0,0,.55); color:var(--yellow); font-family:'Space Grotesk'; font-weight:700; font-size:.6rem; letter-spacing:.5px; text-align:center; padding:4px; pointer-events:none; }
+        .clin-edit-btn { display:inline-flex; align-items:center; gap:8px; margin:0 auto; padding:8px 18px; border-radius:30px; background:rgba(255,255,255,.06); border:1px solid rgba(250,200,0,.35); color:rgba(255,255,255,.75); font-family:'Space Grotesk'; font-weight:700; font-size:.8rem; cursor:pointer; transition:all .2s; }
+        .clin-edit-btn:hover { border-color:var(--yellow); color:#fff; }
+        .clin-edit-btn.active { background:var(--yellow); color:#000; border-color:var(--yellow); }
+        .p-from2 { font-family:'Space Grotesk'; font-weight:900; font-size:2rem; color:#fff; line-height:1; margin-top:8px; }
+        .p-from2 small { display:block; font-family:'Space Grotesk'; font-weight:700; font-size:.72rem; letter-spacing:1.5px; text-transform:uppercase; color:rgba(255,255,255,.5); margin-bottom:3px; }
+        .pitch4-value .p-feats { flex:0 0 auto; }
+
+        /* DEPOIMENTO */
+        .depo { display:grid; grid-template-columns:1fr 1fr; gap:30px; width:100%; max-width:1160px; }
+        .depo-card { background:#0e0e0e; border:1px solid rgba(250,200,0,.18); border-radius:20px; padding:30px 28px; text-align:left; }
+        .depo-card .quote-i { font-size:2.4rem; color:var(--yellow); opacity:.85; margin-bottom:12px; }
+        .depo-card .q { font-family:'Space Grotesk'; font-weight:600; font-size:1.2rem; color:rgba(255,255,255,.92); line-height:1.5; margin-bottom:18px; }
+        .depo-card .who { font-family:'Space Grotesk'; font-weight:800; font-size:1.15rem; color:#fff; }
+        .depo-card .role { font-size:.95rem; color:rgba(255,255,255,.6); margin-top:4px; }
+        /* depoimentos em vídeo */
+        .depo-vid { display:flex; gap:48px; justify-content:center; align-items:flex-start; width:100%; max-width:1400px; flex-wrap:wrap; }
+        .depo-vid .dv { display:flex; flex-direction:column; align-items:center; gap:14px; }
+        .depo-vid video { max-height:440px; max-width:360px; width:auto; background:#000; border-radius:18px; border:2px solid rgba(250,200,0,.3); box-shadow:0 22px 60px rgba(250,200,0,.16); display:block; }
+        .depo-vid .who { font-family:'Space Grotesk'; font-weight:800; font-size:1.35rem; color:#fff; }
+        .depo-vid .role { font-size:.95rem; color:rgba(255,255,255,.6); text-align:center; max-width:320px; line-height:1.4; }
+        /* 5 demos ao vivo */
+        .demo-list { display:flex; flex-direction:column; gap:14px; width:100%; max-width:1320px; text-align:left; }
+        .demo-row { display:flex; align-items:center; gap:20px; background:#0e0e0e; border:1px solid rgba(250,200,0,.18); border-radius:16px; padding:18px 24px; transition:border-color .25s, background .25s; text-decoration:none; color:inherit; cursor:pointer; }
+        .demo-row:hover { border-color:rgba(250,200,0,.5); background:#131313; }
+        .demo-n { font-family:'Space Grotesk'; font-weight:900; font-size:2rem; color:var(--yellow); min-width:42px; text-align:center; line-height:1; }
+        .demo-c { flex:1; }
+        .demo-t { font-family:'Space Grotesk'; font-weight:800; font-size:1.3rem; color:#fff; line-height:1.15; }
+        .demo-d { font-size:1rem; color:rgba(255,255,255,.62); margin-top:3px; line-height:1.4; }
+        .demo-open { display:flex; align-items:center; gap:8px; color:rgba(250,200,0,.55); font-family:'Space Grotesk'; font-weight:700; font-size:.78rem; letter-spacing:1px; text-transform:uppercase; white-space:nowrap; transition:all .2s; }
+        .demo-open i { font-size:1rem; }
+        .demo-row:hover .demo-open { color:var(--yellow); transform:translateX(3px); }
+        /* agenda 3 partes */
+        .agenda-list { display:flex; flex-direction:column; gap:18px; width:100%; max-width:1240px; text-align:left; }
+        .agenda-item { display:flex; align-items:center; gap:30px; background:#0e0e0e; border:1px solid rgba(250,200,0,.18); border-left:5px solid var(--yellow); border-radius:16px; padding:30px 36px; }
+        .agenda-n { font-family:'Space Grotesk'; font-weight:900; font-size:3rem; color:var(--yellow); min-width:84px; line-height:1; }
+        .agenda-t { font-family:'Space Grotesk'; font-weight:700; font-size:1.95rem; color:#fff; line-height:1.2; }
+        /* CRM ao vivo (overlay tecla C) */
+        .live-crm-overlay { position:fixed; inset:0; z-index:2000; background:#000; display:none; }
+        .live-crm-overlay.open { display:block; }
+        .live-crm-overlay iframe { position:absolute; inset:0; width:100%; height:100%; border:none; display:block; background:#000; }
+        .live-crm-close { position:fixed; top:18px; right:22px; z-index:2001; background:rgba(0,0,0,.7); border:1px solid var(--yellow); color:var(--yellow); font-family:'Space Grotesk'; font-weight:700; font-size:.85rem; padding:8px 16px; border-radius:30px; cursor:pointer; }
+        .live-crm-close:hover { background:var(--yellow); color:#000; }
+        /* FOME pulsante por voz */
+        .fome-word { display:inline-block; transition:transform .2s ease; }
+        .fome-word.pulse { animation:fomeBoom .85s cubic-bezier(.16,1,.3,1); }
+        @keyframes fomeBoom {
+            0%   { transform:scale(1);    text-shadow:0 0 90px rgba(250,200,0,.45); }
+            28%  { transform:scale(1.24); text-shadow:0 0 240px rgba(250,200,0,1), 0 0 100px rgba(250,200,0,.85); }
+            100% { transform:scale(1);    text-shadow:0 0 90px rgba(250,200,0,.45); }
+        }
+        .fome-mic { margin-top:30px; display:inline-flex; align-items:center; gap:9px; padding:9px 18px; border-radius:30px; background:rgba(255,255,255,.06); border:1px solid rgba(250,200,0,.35); color:rgba(255,255,255,.7); font-family:'Space Grotesk'; font-weight:700; font-size:.8rem; letter-spacing:1px; text-transform:uppercase; cursor:pointer; transition:all .2s; }
+        .fome-mic.active { background:rgba(250,200,0,.1); border-color:var(--yellow); color:var(--yellow); }
+        .fome-mic-dot { width:9px; height:9px; border-radius:50%; background:rgba(255,255,255,.35); }
+        .fome-mic.active .fome-mic-dot { background:#FAC800; box-shadow:0 0 10px rgba(250,200,0,.8); animation:fomeMicDot 1.2s infinite; }
+        @keyframes fomeMicDot { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+        /* OBJECOES — lista (a cabeça da pessoa) */
+        .obj-cloud { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; width:100%; max-width:1320px; text-align:left; }
+        .obj-bubble { display:flex; align-items:center; gap:14px; background:rgba(255,59,48,.05); border:1px solid rgba(255,59,48,.22); border-radius:14px; padding:16px 20px; }
+        .obj-bubble i { color:#ff5a5a; font-size:1.1rem; flex-shrink:0; }
+        .obj-bubble span { font-family:'Space Grotesk'; font-weight:600; font-size:1.12rem; color:rgba(255,255,255,.82); font-style:italic; }
+
+        /* OBJECOES — quebra (desculpa -> verdade) */
+        .break-grid { display:flex; flex-direction:column; gap:10px; width:100%; max-width:1160px; text-align:left; }
+        .break-row { display:grid; grid-template-columns:1fr auto 1.2fr; gap:18px; align-items:center; background:#0d0d0d; border:1px solid rgba(255,255,255,.07); border-radius:14px; padding:14px 22px; }
+        .break-lie { font-family:'Space Grotesk'; font-weight:600; font-size:1.02rem; color:rgba(255,255,255,.45); font-style:italic; text-decoration:line-through; text-decoration-color:rgba(255,90,90,.6); }
+        .break-arrow { color:var(--yellow); font-size:1.1rem; }
+        .break-truth { font-size:1.05rem; color:#fff; line-height:1.35; }
+        .break-truth b { color:var(--yellow); }
+
+        /* 10 FORMAS — um slide */
+        .ways-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px 22px; width:100%; max-width:1180px; text-align:left; }
+        .way-item { display:flex; align-items:center; gap:15px; padding:11px 6px; border-bottom:1px solid rgba(255,255,255,.06); }
+        .way-item .n { font-family:'Space Grotesk'; font-weight:900; font-size:1.45rem; color:var(--yellow); min-width:36px; text-align:center; }
+        .way-item .t { font-size:1.08rem; color:rgba(255,255,255,.9); line-height:1.3; }
+        .way-item .t b { color:#fff; }
+
+        /* PITCH 4 NIVEIS */
+        .pitch-head { text-align:center; margin-bottom:14px; }
+        .pitch-tag { display:inline-block; background:var(--yellow); color:#000; font-family:'Space Grotesk'; font-weight:800; font-size:.68rem; letter-spacing:3px; padding:6px 18px; border-radius:30px; text-transform:uppercase; margin-bottom:16px; }
+        .pitch-title { font-family:'Space Grotesk'; font-weight:900; font-size:3rem; line-height:1.04; color:#fff; letter-spacing:-1px; }
+        .pitch-sub { font-size:1rem; color:rgba(255,255,255,.55); margin-top:10px; }
+        .pitch4 { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; width:100%; max-width:1280px; align-items:stretch; }
+        .p-card { position:relative; background:#0c0c0c; border:1px solid rgba(255,255,255,.09); border-radius:20px; padding:18px 18px 16px; text-align:left; display:flex; flex-direction:column; }
+        .p-card.feat { border:1.5px solid var(--yellow); background:linear-gradient(180deg, rgba(250,200,0,.08), rgba(12,12,12,1) 55%); transform:scale(1.05); z-index:3; box-shadow:0 26px 70px rgba(250,200,0,.22); }
+        .p-badge { position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:var(--yellow); color:#000; padding:4px 16px; border-radius:20px; font-family:'Space Grotesk'; font-weight:800; font-size:.64rem; letter-spacing:1.5px; white-space:nowrap; }
+        .p-name { font-family:'Space Grotesk'; font-weight:800; font-size:1.3rem; color:#fff; margin-bottom:6px; }
+        .p-moment { font-size:.82rem; color:var(--yellow); font-weight:600; line-height:1.3; min-height:0; margin-bottom:8px; }
+        .p-dur { font-size:.7rem; color:rgba(255,255,255,.4); margin-bottom:4px; letter-spacing:.5px; }
+        .p-anchor { font-family:'Space Grotesk'; font-size:.7rem; color:rgba(255,255,255,.5); font-style:italic; margin-bottom:10px; min-height:28px; }
+        .p-price { font-family:'Space Grotesk'; font-weight:900; font-size:2.1rem; color:var(--yellow); line-height:1.05; }
+        .p-price small { display:block; font-family:'Space Grotesk'; font-weight:700; font-size:.82rem; letter-spacing:1px; opacity:.65; margin-bottom:1px; }
+        .p-card:not(.feat) .p-price { color:#fff; }
+        .p-inst { font-size:.78rem; color:rgba(255,255,255,.45); margin-top:5px; margin-bottom:14px; }
+        .p-feats { list-style:none; padding:0; margin:0 0 8px; flex:1; display:grid; grid-template-columns:1fr 1fr; gap:0 14px; align-content:start; }
+        .p-feats li { display:flex; align-items:flex-start; gap:7px; padding:2px 0; font-size:.84rem; color:rgba(255,255,255,.85); line-height:1.18; }
+        .p-feats li i { color:var(--yellow); font-size:.76rem; margin-top:3px; flex-shrink:0; }
+        .p-feats li.no { color:rgba(255,255,255,.3); text-decoration:line-through; text-decoration-color:rgba(255,90,90,.55); }
+        .p-feats li.no i { color:rgba(255,90,90,.6); }
+        .p-foot { font-family:'Space Grotesk'; font-weight:700; font-size:.76rem; text-align:center; padding-top:11px; border-top:1px solid rgba(255,255,255,.08); color:rgba(255,255,255,.55); }
+        .p-card.feat .p-foot { color:var(--yellow); }
+        .pitch-reverse { margin:14px auto 0; max-width:1280px; width:100%; display:flex; align-items:center; justify-content:center; gap:14px; background:rgba(34,197,94,.06); border:1px solid rgba(34,197,94,.3); border-radius:14px; padding:9px 22px; font-size:.92rem; color:rgba(255,255,255,.85); }
+        .pitch-reverse i { color:var(--green); font-size:1.25rem; }
+        .pitch-reverse b { color:#fff; }
+        .p-was { font-family:'Space Grotesk'; font-weight:700; font-size:1.05rem; color:rgba(255,255,255,.45); text-decoration:line-through; text-decoration-color:var(--red); margin-top:8px; margin-bottom:5px; }
+        .p-offer-tag { display:inline-block; background:var(--red); color:#fff; font-family:'Space Grotesk'; font-weight:800; font-size:.6rem; letter-spacing:1.5px; padding:3px 11px; border-radius:20px; margin-bottom:10px; text-transform:uppercase; }
+        .p-bonus { margin-top:8px; background:rgba(250,200,0,.1); border:1px dashed rgba(250,200,0,.5); border-radius:10px; padding:9px 11px; font-size:.78rem; color:var(--yellow); display:flex; gap:8px; align-items:flex-start; line-height:1.3; font-weight:600; }
+        .p-bonus i { margin-top:2px; flex-shrink:0; }
+        .pitch-teaser { margin-top:22px; font-family:'Space Grotesk'; font-weight:700; font-size:1.2rem; color:rgba(255,255,255,.7); }
+        .pitch-teaser .hl { color:var(--yellow); }
+
+        /* VALUE STACK (slide valor: cada entregável com preço + total) */
+        .vstack { display:flex; flex-direction:column; gap:6px; width:100%; max-width:1240px; margin:0 auto; text-align:left; }
+        .vs-row { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:9px 24px; background:#0d0d0d; border:1px solid rgba(255,255,255,.07); border-radius:12px; }
+        .vs-name { font-size:1.18rem; color:rgba(255,255,255,.92); display:flex; align-items:center; gap:13px; line-height:1.2; }
+        .vs-name i { color:var(--yellow); font-size:.95rem; flex-shrink:0; }
+        .vs-price { font-family:'Space Grotesk'; font-weight:700; font-size:1.22rem; color:#fff; white-space:nowrap; }
+        .vs-total { display:flex; align-items:center; justify-content:space-between; gap:16px; max-width:1240px; margin:15px auto 0; padding:20px 30px; background:linear-gradient(180deg, rgba(250,200,0,.14), rgba(250,200,0,.04)); border:1.5px solid rgba(250,200,0,.55); border-radius:14px; box-shadow:0 14px 40px rgba(250,200,0,.16); }
+        .vs-total .vt-label { font-family:'Space Grotesk'; font-weight:800; font-size:1.25rem; color:#fff; text-align:left; line-height:1.2; }
+        .vs-total .vt-label small { display:block; font-weight:700; font-size:.72rem; letter-spacing:1.5px; text-transform:uppercase; color:rgba(255,255,255,.5); margin-bottom:2px; }
+        .vs-total .vt-value { font-family:'Space Grotesk'; font-weight:900; font-size:2.7rem; color:var(--yellow); line-height:1; white-space:nowrap; }
+
+        /* SLIDE BÔNUS ROMÂNTICO (reforço do bônus, patrocínio TuttiBelle) */
+        .romance { background:radial-gradient(circle at 50% 32%, #7a0f1f 0%, #44081a 52%, #1a0308 100%) !important; }
+        .romance .sc { max-width:1320px; position:relative; z-index:2; }
+        .romance-hearts { position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:1; }
+        .romance-hearts i { position:absolute; bottom:-50px; color:rgba(255,90,120,.4); animation:floatHeart linear infinite; }
+        @keyframes floatHeart { 0%{transform:translateY(0) scale(.7) rotate(-8deg); opacity:0} 12%{opacity:.85} 88%{opacity:.7} 100%{transform:translateY(-118vh) scale(1.15) rotate(8deg); opacity:0} }
+        .romance-gift { font-size:4.6rem; color:#ff4d6d; filter:drop-shadow(0 0 30px rgba(255,77,109,.65)); margin-bottom:12px; animation:giftPulse 1.8s ease-in-out infinite; }
+        @keyframes giftPulse { 0%,100%{transform:scale(1) rotate(0)} 50%{transform:scale(1.09) rotate(-3deg)} }
+        .romance-kicker { font-family:'Space Grotesk'; font-weight:800; font-size:1rem; letter-spacing:5px; text-transform:uppercase; color:#ff9bb0; margin-bottom:14px; }
+        .romance-title { font-family:'Space Grotesk'; font-weight:900; font-size:4.6rem; line-height:1.04; color:#fff; letter-spacing:-1px; }
+        .romance-title .hl { color:#ff4d6d; }
+        .romance-sub { font-size:1.5rem; color:rgba(255,225,230,.88); max-width:980px; margin:18px auto 0; line-height:1.5; }
+        .romance-bonus { display:flex; gap:24px; justify-content:center; margin:34px auto 0; max-width:1140px; flex-wrap:wrap; }
+        .rb-card { flex:1 1 320px; background:rgba(255,255,255,.06); border:1.5px solid rgba(255,120,140,.5); border-radius:22px; padding:30px 28px; box-shadow:0 20px 55px rgba(255,77,109,.2); text-align:left; }
+        .rb-card .rb-ic { font-size:2.3rem; color:#ff6b85; margin-bottom:14px; }
+        .rb-card .rb-t { font-family:'Space Grotesk'; font-weight:800; font-size:1.7rem; color:#fff; margin-bottom:10px; line-height:1.15; }
+        .rb-card .rb-d { font-size:1.18rem; color:rgba(255,225,230,.82); line-height:1.45; }
+        .romance-sponsor { margin:36px auto 0; display:flex; flex-direction:column; align-items:center; gap:10px; }
+        .romance-sponsor .rs-label { font-family:'Space Grotesk'; font-weight:700; font-size:.8rem; letter-spacing:3px; text-transform:uppercase; color:rgba(255,200,210,.65); }
+        .romance-sponsor img { height:96px; width:auto; filter:drop-shadow(0 6px 22px rgba(0,0,0,.45)); }
+
+        .urgency-bar { background:linear-gradient(90deg,var(--red),var(--yellow)); padding:11px 28px; text-align:center; font-weight:700; color:var(--black); font-size:.95rem; border-radius:10px; margin-top:22px; animation:urgPulse 2s infinite; }
+        @keyframes urgPulse { 0%,100%{box-shadow:0 0 0 0 rgba(250,200,0,.3)} 50%{box-shadow:0 0 18px 4px rgba(250,200,0,.2)} }
+
+        .blacked-out * { visibility:hidden !important; }
+        .blacked-out { background:#000 !important; }
+        .key-hint { position:fixed; bottom:35px; left:50%; transform:translateX(-50%); font-size:11px; color:rgba(255,255,255,.15); z-index:1000; }
+        .key-hint kbd { background:rgba(255,255,255,.08); padding:2px 7px; border-radius:3px; margin:0 2px; }
+
+        @media(max-width:1024px) {
+            .slide{padding:30px 35px 80px}
+            h1{font-size:2.4rem} h2{font-size:1.9rem}
+            .cover-title{font-size:3rem} .cover-title .l2{font-size:3.5rem}
+            .huge-text{font-size:3.4rem} .silence{font-size:2.4rem}
+            .pitch4{grid-template-columns:1fr 1fr} .pitch-title{font-size:2rem}
+            .stats-row, .depo, .obj-cloud, .ways-grid{grid-template-columns:1fr}
+            .break-row{grid-template-columns:1fr; gap:6px} .break-arrow{display:none}
+        }
+    </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+<div class="slides-container" id="slidesContainer">
+
+<!-- ═══════════ CAPA ═══════════ -->
+<div class="slide active" data-block="ABERTURA" data-music="settle">
+    <div class="cover-glow"></div><div class="cover-glow"></div><div class="cover-glow"></div>
+    <div class="sc">
+        <div class="cover-kicker">Masterclass · ao vivo</div>
+        <div class="cover-title">IA para<span class="l2">Negócios</span></div>
+        <div class="cover-line"></div>
+        <div class="cover-promise">Como faturar de <span class="hl">R$ 10 mil a R$ 30 mil por mês</span> com Inteligência Artificial, <strong>mesmo começando do zero.</strong></div>
+        <div class="cover-author">
+            <div class="name">Carlos Eduardo</div>
+            <div class="role">FullStack AI · Fundador + que Vencedores</div>
+        </div>
+    </div>
+</div>
+
+<!-- AGENDA · 3 PARTES -->
+<div class="slide" data-block="ABERTURA">
+    <div class="sc">
+        <div class="kicker">Como vai funcionar</div>
+        <h2 style="margin-bottom:36px;">Esse workshop em <span class="hl">3 partes</span></h2>
+        <div class="agenda-list">
+            <div class="agenda-item">
+                <div class="agenda-n">01</div>
+                <div class="agenda-t">Por que a maioria das pessoas não faz dinheiro com IA</div>
+            </div>
+            <div class="agenda-item">
+                <div class="agenda-n">02</div>
+                <div class="agenda-t">5 formas de fazer R$ 10 a R$ 30 mil por mês com IA</div>
+            </div>
+            <div class="agenda-item">
+                <div class="agenda-n">03</div>
+                <div class="agenda-t">Como faturar R$ 10 a R$ 30 mil com IA</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ BLOCO 1 · DOR ═══════════ -->
+
+<!-- DOR -->
+<div class="slide" data-block="1 · DOR">
+    <div class="sc">
+        <div class="kicker">A verdade que ninguém te conta</div>
+        <div class="silence">
+            Seu negócio<br>
+            depende de <span class="hl-box">você</span><br>
+            pra não parar.
+        </div>
+    </div>
+</div>
+
+<!-- DOR AMPLIFICADA -->
+<div class="slide" data-block="1 · DOR">
+    <div class="sc">
+        <div class="huge-text" style="font-size:3.6rem; line-height:1.22; max-width:1320px; margin:0 auto;">
+            Você trabalha <span class="hl">mais</span><br>
+            do que nunca, e ainda assim<br>
+            sente que está <span class="hl">ficando pra trás.</span>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ BLOCO 2 · CONSCIENTIZAÇÃO ═══════════ -->
+
+<!-- A VIRADA DE CONSCIÊNCIA -->
+<div class="slide" data-block="2 · CONSCIÊNCIA">
+    <div class="sc">
+        <div class="reveal-list">
+            <div class="rl-item strike">O problema não é falta de esforço.</div>
+            <div class="rl-item strike">O problema não é a sua equipe.</div>
+            <div class="rl-item big">Falta <span class="hl-box">inteligência</span> dentro do negócio.</div>
+        </div>
+    </div>
+</div>
+
+<!-- O REFRAME: IA SOB MEDIDA, NÃO CHATGPT GENÉRICO -->
+<div class="slide skip" data-block="2 · CONSCIÊNCIA">
+    <div class="sc">
+        <div class="kicker">E preste atenção nisso</div>
+        <h2>ChatGPT genérico <span class="hl">todo mundo tem</span>.</h2>
+        <div class="huge-text" style="font-size:3.2rem; line-height:1.2; max-width:1320px; margin:18px auto 0;">
+            O que muda o jogo é IA<br>
+            <span class="hl">treinada no SEU negócio.</span>
+        </div>
+        <div class="sub" style="margin:30px auto 0; font-size:1.25rem;">
+            No seu atendimento, na sua operação, no seu jeito de vender. Não é ferramenta de prateleira. É inteligência sob medida, construída pra resolver a SUA dor. É disso que eu vivo.
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ BLOCO 3 · AUTORIDADE ═══════════ -->
+
+<!-- QUEM SOU EU -->
+<div class="slide" data-block="3 · AUTORIDADE">
+    <div class="sc">
+        <div class="kicker">Quem está no palco</div>
+        <h2>Eu vivi <span class="hl">a sua dor.</span></h2>
+        <div class="sub" style="margin:20px auto 0; font-size:1.3rem;">
+            Negócio travado, processo na mão, lead perdido. Foi isso que me empurrou pra IA. Não como hobby de tecnologia, mas como questão de sobrevivência da minha clínica. Eu não estudei IA pra falar bonito. Eu construí IA pra resolver o meu próprio problema. E funcionou tão bem que virou o que eu faço pros outros.
+        </div>
+    </div>
+</div>
+
+<!-- RECONHECIMENTO FULLSTACK AI -->
+<div class="slide" data-block="3 · AUTORIDADE">
+    <div class="sc">
+        <div class="tag">A PROVA DAQUELE "5"</div>
+        <h2>Reconhecimento <span class="hl">FullStack AI</span></h2>
+        <div style="display:flex; gap:48px; align-items:center; justify-content:center; margin:25px auto 0; max-width:1200px;">
+            <div style="flex:0 0 auto;">
+                <img src="https://iymlwsawrmghhbawiavz.supabase.co/storage/v1/object/public/masterclass-assets/foto_fullstack.jpg" alt="Reconhecimento FullStack AI, Alphaville São Paulo" style="width:380px; height:auto; border-radius:18px; border:3px solid rgba(250,200,0,.45); box-shadow:0 25px 70px rgba(250,200,0,.18); display:block;">
+            </div>
+            <div style="flex:1 1 0; text-align:left; max-width:560px;">
+                <div style="font-family:'Space Grotesk'; font-weight:800; font-size:2rem; color:#fff; line-height:1.25; margin-bottom:18px;">
+                    Nível 5 · <span class="hl">FullStack AI</span> conquistado.
+                </div>
+                <div style="font-size:1.2rem; color:rgba(255,255,255,.85); line-height:1.55;">
+                    Selecionado entre os primeiros do Brasil em <strong class="hl">Alphaville · São Paulo.</strong>
+                </div>
+                <div style="font-size:1.05rem; color:rgba(255,255,255,.55); margin-top:18px; padding-top:14px; border-top:1px solid rgba(250,200,0,.18);">
+                    Não é teoria. Não é promessa.<br>
+                    É a <strong style="color:#fff;">certificação</strong> que poucos no país têm.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ BLOCO 4 · DEPOIMENTOS ═══════════ -->
+<div class="slide" data-block="4 · DEPOIMENTOS">
+    <div class="sc">
+        <div class="kicker">Quem me viu construir de verdade</div>
+        <h2 style="margin-bottom:26px;">Não sou só eu <span class="hl">falando</span></h2>
+        <div class="depo-vid">
+            <div class="dv">
+                <video controls preload="metadata" playsinline src="https://iymlwsawrmghhbawiavz.supabase.co/storage/v1/object/public/masterclass-assets/depoimentos/hebert.mp4"></video>
+                <div class="who">Hebert Barbosa</div>
+                <div class="role">Agência de Marketing</div>
+            </div>
+            <div class="dv">
+                <video controls preload="metadata" playsinline src="https://iymlwsawrmghhbawiavz.supabase.co/storage/v1/object/public/masterclass-assets/depoimentos/fabio.mp4"></video>
+                <div class="who">Fabio Petrillo</div>
+                <div class="role">Ex-diretor de tecnologia do Corinthians</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PROVA REAL · CLÍNICA -->
+<div class="slide" data-block="3 · AUTORIDADE">
+    <div class="sc">
+        <div class="tag">PROVA REAL · MINHA CLÍNICA</div>
+        <h2 style="font-size:2.4rem; line-height:1.15;">Mesmo negócio, mesma equipe. <span class="hl">IA sob medida aplicada.</span></h2>
+        <div class="clin-mosaic" id="clinMosaic">
+            <div class="clin-tile clin-tile-hero" data-img="fachada"><img src="/apresentacoes/assets/clinica/fachada.jpg" alt="Fachada da clínica TuttiBelle" loading="lazy"></div>
+            <div class="clin-tile" data-img="c1"><img src="/apresentacoes/assets/clinica/clinica-1.jpg" alt="Clínica TuttiBelle por dentro" loading="lazy"></div>
+            <div class="clin-tile" data-img="c2"><img src="/apresentacoes/assets/clinica/clinica-2.jpg" alt="Clínica TuttiBelle por dentro" loading="lazy"></div>
+            <div class="clin-tile" data-img="c5"><img src="/apresentacoes/assets/clinica/clinica-5.jpg" alt="Clínica TuttiBelle por dentro" loading="lazy"></div>
+            <div class="clin-tile" data-img="c6"><img src="/apresentacoes/assets/clinica/clinica-6.jpg" alt="Clínica TuttiBelle por dentro" loading="lazy"></div>
+        </div>
+        <button class="clin-edit-btn" id="clinEditBtn" type="button"><i class="fas fa-crop-simple"></i> Ajustar fotos</button>
+        <div class="clin-grid">
+            <div class="clin-card">
+                <div class="ck">Faturamento</div>
+                <div class="cy">2025</div><div class="v-old">R$ 293.606</div>
+                <div class="clin-div"></div>
+                <div class="cy now">2026</div><div class="v-new">R$ 481.567</div>
+                <div class="clin-badge">+64%</div>
+            </div>
+            <div class="clin-card">
+                <div class="ck">Volume</div>
+                <div class="cy">2025</div><div class="v-old">R$ 434.894</div>
+                <div class="clin-div"></div>
+                <div class="cy now">2026</div><div class="v-new">R$ 700.037</div>
+                <div class="clin-badge">+61%</div>
+            </div>
+            <div class="clin-card feat">
+                <div class="ck">Ticket médio</div>
+                <div class="cy">2025</div><div class="v-old">R$ 392</div>
+                <div class="clin-div"></div>
+                <div class="cy now">2026</div><div class="v-new">R$ 672</div>
+                <div class="clin-badge">+71%</div>
+            </div>
+            <div class="clin-card">
+                <div class="ck">Orçamentos</div>
+                <div class="cy">2025</div><div class="v-old">843</div>
+                <div class="clin-div"></div>
+                <div class="cy now">2026</div><div class="v-new">861</div>
+                <div class="clin-badge" style="background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.2); color:rgba(255,255,255,.85);">ticket 71% maior</div>
+            </div>
+        </div>
+        <div class="source">Dados extraídos do CRM, comparativo janeiro a abril, ano a ano</div>
+    </div>
+</div>
+
+<!-- ANCORA DE DADO · SÍNDROME DO IMPOSTOR (ponte pras objeções) -->
+<div class="slide" data-block="5 · OBJEÇÕES">
+    <div class="sc">
+        <div class="kicker">Antes de você arrumar uma desculpa</div>
+        <div style="font-family:'Space Grotesk'; font-weight:900; font-size:13rem; line-height:.9; letter-spacing:-6px; color:var(--yellow); text-shadow:0 0 90px rgba(250,200,0,.45);">82%</div>
+        <div class="huge-text" style="font-size:3rem; line-height:1.2; max-width:1280px; margin:14px auto 0;">
+            das pessoas vivem a <span class="hl">síndrome do impostor</span><br>
+            sem nem saber que é isso.
+        </div>
+        <div class="sub" style="margin:30px auto 0; font-size:1.3rem; max-width:1080px;">
+            É a voz que diz "não é pra você", "você não dá conta", "melhor esperar". Ela não te protege, ela te paralisa. E é dela que nascem <strong class="hl">todas as desculpas</strong> que eu vou ouvir agora.
+        </div>
+        <div class="source">Revisão de 62 estudos · Journal of General Internal Medicine, 2020</div>
+    </div>
+</div>
+
+<!-- ═══════════ BLOCO 5 · OBJEÇÕES (quebrar todas) ═══════════ -->
+
+<!-- AS DESCULPAS -->
+<div class="slide" data-block="5 · OBJEÇÕES">
+    <div class="sc">
+        <div class="kicker">Eu sei o que está passando na sua cabeça</div>
+        <h2 style="margin-bottom:28px;">As desculpas que te <span class="hl">mantêm preso</span></h2>
+        <div class="obj-cloud">
+            <div class="obj-bubble"><i class="fas fa-xmark"></i><span>"Já tentei IA e não funcionou."</span></div>
+            <div class="obj-bubble"><i class="fas fa-xmark"></i><span>"Meu negócio é muito específico."</span></div>
+            <div class="obj-bubble"><i class="fas fa-xmark"></i><span>"Não tenho tempo pra isso."</span></div>
+            <div class="obj-bubble"><i class="fas fa-xmark"></i><span>"Acho que é muito caro."</span></div>
+            <div class="obj-bubble"><i class="fas fa-xmark"></i><span>"Tenho medo de perder o lado humano."</span></div>
+            <div class="obj-bubble"><i class="fas fa-xmark"></i><span>"Não entendo nada de tecnologia."</span></div>
+            <div class="obj-bubble"><i class="fas fa-xmark"></i><span>"Melhor esperar amadurecer."</span></div>
+            <div class="obj-bubble"><i class="fas fa-xmark"></i><span>"Aprendi com quem só fala, não faz."</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ BLOCO 6 · O CAMINHO ═══════════ -->
+
+<!-- 5 DEMOS AO VIVO NO PRÓPRIO SISTEMA -->
+<div class="slide" data-block="6 · O CAMINHO">
+    <div class="sc">
+        <div class="kicker">Chega de teoria, vamos ao vivo</div>
+        <h2 style="margin-bottom:26px;">7 coisas que eu vou te mostrar <span class="hl">agora, no meu sistema</span></h2>
+        <div class="demo-list">
+            <a class="demo-row" href="/admin/prospeccao" target="_blank" rel="noopener">
+                <div class="demo-n">1</div>
+                <div class="demo-c">
+                    <div class="demo-t">Prospecção Ativa automatizada</div>
+                    <div class="demo-d">A IA acha os leads, raspa as fontes certas e te entrega o diagnóstico. Tudo na nossa plataforma.</div>
+                </div>
+                <div class="demo-open">Abrir <i class="fas fa-arrow-up-right-from-square"></i></div>
+            </a>
+            <a class="demo-row" href="https://tuttibelleclinic.com.br/admin/sales-goals" target="_blank" rel="noopener">
+                <div class="demo-n">2</div>
+                <div class="demo-c">
+                    <div class="demo-t">Gerente Comercial com IA</div>
+                    <div class="demo-d">Um gerente de IA que lê todos os dados da empresa e entrega ações pro time em tempo real, pra decisões mais rápidas e certeiras.</div>
+                </div>
+                <div class="demo-open">Abrir <i class="fas fa-arrow-up-right-from-square"></i></div>
+            </a>
+            <a class="demo-row" href="/admin/crm" target="_blank" rel="noopener">
+                <div class="demo-n">3</div>
+                <div class="demo-c">
+                    <div class="demo-t">Ligação no WhatsApp pelo nosso CRM</div>
+                    <div class="demo-d">WaVoIP ligando de verdade, com transcrição em tempo real e o sales coach guiando a conversa.</div>
+                </div>
+                <div class="demo-open">Abrir <i class="fas fa-arrow-up-right-from-square"></i></div>
+            </a>
+            <a class="demo-row" href="/membros" target="_blank" rel="noopener">
+                <div class="demo-n">4</div>
+                <div class="demo-c">
+                    <div class="demo-t">Área de Membros própria</div>
+                    <div class="demo-d">Nossa plataforma de aulas, trilhas, ranking e gamificação. Pronta pra você ou pro seu cliente.</div>
+                </div>
+                <div class="demo-open">Abrir <i class="fas fa-arrow-up-right-from-square"></i></div>
+            </a>
+            <a class="demo-row" href="https://tuttibelleclinic.com.br/admin/marketing-cockpit" target="_blank" rel="noopener">
+                <div class="demo-n">5</div>
+                <div class="demo-c">
+                    <div class="demo-t">Tráfego pago com IA</div>
+                    <div class="demo-d">Nosso Cockpit de mídia lendo a Meta Ads ao vivo e dando as recomendações na hora.</div>
+                </div>
+                <div class="demo-open">Abrir <i class="fas fa-arrow-up-right-from-square"></i></div>
+            </a>
+            <a class="demo-row" href="/admin/marketing/criativos/lab" target="_blank" rel="noopener">
+                <div class="demo-n">6</div>
+                <div class="demo-c">
+                    <div class="demo-t">Criativos com IA</div>
+                    <div class="demo-d">Nosso Laboratório de Criativos gerando a peça do anúncio na hora, do briefing à arte.</div>
+                </div>
+                <div class="demo-open">Abrir <i class="fas fa-arrow-up-right-from-square"></i></div>
+            </a>
+            <a class="demo-row" href="https://app.iautomatize.me/flow/f167955#/livechat" target="_blank" rel="noopener">
+                <div class="demo-n">7</div>
+                <div class="demo-c">
+                    <div class="demo-t">IA de Atendimento e SDR</div>
+                    <div class="demo-d">Atende, qualifica, agenda, faz o lembrete e ainda toca o follow up sozinha, 24 horas por dia.</div>
+                </div>
+                <div class="demo-open">Abrir <i class="fas fa-arrow-up-right-from-square"></i></div>
+            </a>
+        </div>
+        <div class="sub" style="margin:24px auto 0; font-size:1.1rem;">
+            Não é slide. É o <strong class="hl">sistema rodando</strong> na sua frente.
+        </div>
+    </div>
+</div>
+
+<!-- A VIRADA / PONTE -->
+<div class="slide" data-block="6 · O CAMINHO">
+    <div class="sc">
+        <div class="silence">
+            Saber o caminho não é<br>
+            o mesmo que <span class="hl-box">andar nele.</span>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ FOME ═══════════ -->
+<div class="slide fome-slide" data-block="6 · O CAMINHO">
+    <div class="sc">
+        <div class="kicker">A única coisa que de verdade te separa do resultado</div>
+        <div id="fomeWord" class="fome-word" style="font-family:'Space Grotesk'; font-weight:900; font-size:23rem; line-height:.86; letter-spacing:-10px; color:var(--yellow); text-shadow:0 0 100px rgba(250,200,0,.5);">FOME</div>
+        <div class="sub" style="margin:30px auto 0; font-size:1.4rem; max-width:980px;">
+            Não é dinheiro. Não é tempo. Não é talento. É <strong class="hl">fome de mudar.</strong> Quem tem fome age hoje. Quem não tem continua exatamente onde está, assistindo o vizinho passar na frente.
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ BLOCO 7 · PITCH ═══════════ -->
+
+<!-- PERGUNTA DE ENGAJAMENTO (levanta a mão antes do pitch) -->
+<div class="slide" data-block="7 · PITCH">
+    <div class="sc">
+        <div class="kicker">Deixa eu te perguntar</div>
+        <div class="silence">
+            Quem aqui gostaria de ter o<br>
+            <span class="hl">meu acompanhamento de perto</span><br>
+            pra faturar de <span class="hl-box">R$ 10 a 30 mil por mês</span><br>
+            com IA?
+        </div>
+        <div class="sub" style="margin:36px auto 0; font-size:1.25rem;">
+            Levanta a mão. Pode ser bem alto.
+        </div>
+    </div>
+</div>
+
+<!-- PITCH PARTE 1 · O VALOR (sem preço) -->
+<div class="slide" data-block="7 · PITCH" data-music="buy">
+    <div class="sc">
+        <div class="pitch-head">
+            <div class="pitch-tag">O VALOR REAL</div>
+            <div class="pitch-title">Quanto custaria <span class="hl">peça por peça</span></div>
+        </div>
+        <div class="vstack">
+            <div class="vs-row"><span class="vs-name"><i class="fas fa-check"></i> CRM</span><span class="vs-price">R$ 2.500</span></div>
+            <div class="vs-row"><span class="vs-name"><i class="fas fa-check"></i> Integração com WhatsApp</span><span class="vs-price">R$ 500</span></div>
+            <div class="vs-row"><span class="vs-name"><i class="fas fa-check"></i> Agente SDR</span><span class="vs-price">R$ 3.500</span></div>
+            <div class="vs-row"><span class="vs-name"><i class="fas fa-check"></i> Landing page</span><span class="vs-price">R$ 2.000</span></div>
+            <div class="vs-row"><span class="vs-name"><i class="fas fa-check"></i> Ligação no WhatsApp com transcrição e análise de IA</span><span class="vs-price">R$ 3.500</span></div>
+            <div class="vs-row"><span class="vs-name"><i class="fas fa-check"></i> Sala de Reunião</span><span class="vs-price">R$ 2.000</span></div>
+            <div class="vs-row"><span class="vs-name"><i class="fas fa-check"></i> Área de Membros</span><span class="vs-price">R$ 10.000</span></div>
+            <div class="vs-row"><span class="vs-name"><i class="fas fa-check"></i> Prospecção Ativa</span><span class="vs-price">R$ 2.500</span></div>
+            <div class="vs-row"><span class="vs-name"><i class="fas fa-check"></i> Social Selling</span><span class="vs-price">R$ 3.200</span></div>
+            <div class="vs-row"><span class="vs-name"><i class="fas fa-check"></i> Criativos com IA</span><span class="vs-price">R$ 1.200</span></div>
+            <div class="vs-row"><span class="vs-name"><i class="fas fa-check"></i> Gestor de Tráfego</span><span class="vs-price">R$ 6.000</span></div>
+            <div class="vs-row"><span class="vs-name"><i class="fas fa-check"></i> Email Marketing</span><span class="vs-price">R$ 1.900</span></div>
+            <div class="vs-row"><span class="vs-name"><i class="fas fa-check"></i> WhatsApp Oficial da Meta</span><span class="vs-price">R$ 1.500</span></div>
+            <div class="vs-row"><span class="vs-name"><i class="fas fa-check"></i> Suporte 2x por semana</span><span class="vs-price">R$ 450</span></div>
+            <div class="vs-row"><span class="vs-name"><i class="fas fa-check"></i> 12 Hotseat ao vivo</span><span class="vs-price">R$ 12.000</span></div>
+        </div>
+        <div class="vs-total">
+            <div class="vt-label"><small>Valor total de tudo isso</small>Se fosse comprar separado</div>
+            <div class="vt-value">R$ 52.750</div>
+        </div>
+        <div class="pitch-teaser">E você não vai pagar nem perto disso. <span class="hl">Te mostro agora.</span></div>
+    </div>
+</div>
+
+<!-- PITCH PARTE 2 · O INVESTIMENTO (reveal de preço) -->
+<div class="slide" data-block="7 · PITCH" data-music="buy">
+    <div class="sc" style="max-width:1840px;">
+        <div class="pitch-head">
+            <div class="pitch-tag">O INVESTIMENTO</div>
+            <div class="pitch-title">Onde você <span class="hl">entra</span>?</div>
+        </div>
+        <div class="pitch4" style="grid-template-columns:repeat(2,1fr); max-width:1480px; gap:20px;">
+            <div class="p-card feat">
+                <div class="p-badge">MAIS POPULAR</div>
+                <div class="p-name">Método + que Vencedores</div>
+                <div class="p-moment">Virar prestador e faturar com IA</div>
+                <div class="p-dur">12 meses de acompanhamento</div>
+                <ul class="p-feats">
+                    <li><i class="fas fa-check"></i> Construção de CRM</li>
+                    <li><i class="fas fa-check"></i> Integração com WhatsApp</li>
+                    <li><i class="fas fa-check"></i> Agente de atendimento / SDR</li>
+                    <li><i class="fas fa-check"></i> Landing page e Site</li>
+                    <li><i class="fas fa-check"></i> Integração com checkout</li>
+                    <li><i class="fas fa-check"></i> Ligação WA com transcrição e análise de IA</li>
+                    <li><i class="fas fa-check"></i> Aulas gravadas completas</li>
+                    <li><i class="fas fa-check"></i> Sala de Reunião</li>
+                    <li><i class="fas fa-check"></i> Área de Membros</li>
+                    <li><i class="fas fa-check"></i> Prospecção Ativa</li>
+                    <li><i class="fas fa-check"></i> Social Selling no Instagram (curte, reage, comenta, chama no direct)</li>
+                    <li><i class="fas fa-check"></i> Criativos com IA</li>
+                    <li><i class="fas fa-check"></i> Tráfego pago com IA</li>
+                    <li><i class="fas fa-check"></i> Email Marketing com IA</li>
+                    <li><i class="fas fa-check"></i> WhatsApp Oficial da Meta</li>
+                    <li><i class="fas fa-check"></i> Suporte 2x por semana</li>
+                    <li><i class="fas fa-check"></i> Hotseat ao vivo</li>
+                    <li><i class="fas fa-check"></i> Indicação de projetos reais</li>
+                    <li><i class="fas fa-check"></i> Acesso a novos módulos</li>
+                    <li><i class="fas fa-check"></i> Metodologia de vendas e prospecção</li>
+                </ul>
+                <div class="p-offer-tag">Oferta exclusiva de hoje</div>
+                <div class="p-was">De R$ 40.000</div>
+                <div class="p-price"><small>12x de</small>R$ 1.497,00</div>
+                <div class="p-inst">ou R$ 14.997 à vista</div>
+                <div class="p-foot">O caminho completão</div>
+            </div>
+            <div class="p-card">
+                <div class="p-name">MentorIA</div>
+                <div class="p-moment">Começar do zero com segurança</div>
+                <div class="p-dur">3 meses de transformação</div>
+                <ul class="p-feats">
+                    <li><i class="fas fa-check"></i> Construção de CRM</li>
+                    <li><i class="fas fa-check"></i> Integração com WhatsApp</li>
+                    <li><i class="fas fa-check"></i> Agente de atendimento / SDR</li>
+                    <li><i class="fas fa-check"></i> Landing page e Site</li>
+                    <li><i class="fas fa-check"></i> Integração com checkout</li>
+                    <li><i class="fas fa-check"></i> Ligação WA com transcrição e análise de IA</li>
+                    <li><i class="fas fa-check"></i> Aulas gravadas completas</li>
+                    <li><i class="fas fa-check"></i> Suporte tira-dúvidas semanal</li>
+                    <li><i class="fas fa-check"></i> Comunidade exclusiva</li>
+                    <li><i class="fas fa-check"></i> Do zero ao primeiro projeto</li>
+                    <li class="no"><i class="fas fa-xmark"></i> Sala de Reunião</li>
+                    <li class="no"><i class="fas fa-xmark"></i> Área de Membros</li>
+                    <li class="no"><i class="fas fa-xmark"></i> Prospecção Ativa</li>
+                    <li class="no"><i class="fas fa-xmark"></i> Social Selling no Instagram</li>
+                    <li class="no"><i class="fas fa-xmark"></i> Criativos com IA</li>
+                    <li class="no"><i class="fas fa-xmark"></i> Tráfego pago com IA</li>
+                    <li class="no"><i class="fas fa-xmark"></i> Email Marketing com IA</li>
+                    <li class="no"><i class="fas fa-xmark"></i> WhatsApp Oficial da Meta</li>
+                    <li class="no"><i class="fas fa-xmark"></i> Suporte 2x por semana</li>
+                    <li class="no"><i class="fas fa-xmark"></i> Hotseat ao vivo</li>
+                    <li class="no"><i class="fas fa-xmark"></i> Indicação de projetos reais</li>
+                    <li class="no"><i class="fas fa-xmark"></i> Acesso a novos módulos</li>
+                    <li class="no"><i class="fas fa-xmark"></i> Metodologia de vendas e prospecção</li>
+                </ul>
+                <div class="p-was">De R$ 9.000</div>
+                <div class="p-price"><small>12x de</small>R$ 597,00</div>
+                <div class="p-inst">ou R$ 5.997 à vista</div>
+                <div class="p-foot">Ideal pra quem quer começar</div>
+            </div>
+        </div>
+        <div class="pitch-reverse">
+            <i class="fas fa-shield-halved"></i>
+            <span>A gente te ajuda a escolher o nível certo pro <b>seu</b> momento. Você começa hoje, sem risco.</span>
+        </div>
+    </div>
+</div>
+
+<!-- BÔNUS ROMÂNTICO · reforço do bônus (patrocínio TuttiBelle) -->
+<div class="slide romance" data-block="7 · PITCH" data-music="buy">
+    <div class="romance-hearts">
+        <i class="fas fa-heart" style="left:6%;  font-size:16px; animation-duration:9s;  animation-delay:0s"></i>
+        <i class="fas fa-heart" style="left:18%; font-size:26px; animation-duration:11s; animation-delay:2.5s"></i>
+        <i class="fas fa-heart" style="left:32%; font-size:13px; animation-duration:8s;  animation-delay:1s"></i>
+        <i class="fas fa-heart" style="left:46%; font-size:22px; animation-duration:12s; animation-delay:4s"></i>
+        <i class="fas fa-heart" style="left:58%; font-size:15px; animation-duration:9.5s;animation-delay:.6s"></i>
+        <i class="fas fa-heart" style="left:70%; font-size:30px; animation-duration:13s; animation-delay:3s"></i>
+        <i class="fas fa-heart" style="left:82%; font-size:18px; animation-duration:10s; animation-delay:1.8s"></i>
+        <i class="fas fa-heart" style="left:92%; font-size:14px; animation-duration:8.5s;animation-delay:5s"></i>
+    </div>
+    <div class="sc">
+        <div class="romance-gift"><i class="fas fa-gift"></i></div>
+        <div class="romance-kicker">E ainda tem mais, com carinho</div>
+        <div class="romance-title">Vamos reforçar <span class="hl">esse bônus</span></div>
+        <div class="romance-sub">Quem entra no <b>Método + que Vencedores</b> hoje não leva só método. Leva um presente nosso, de coração.</div>
+        <div class="romance-bonus">
+            <div class="rb-card">
+                <div class="rb-ic"><i class="fas fa-brain"></i></div>
+                <div class="rb-t">Imersão MasteryAI</div>
+                <div class="rb-d">Conexões e network com empresários, ao vivo, e estratégias de negócio com IA com quem está fazendo acontecer de verdade.</div>
+            </div>
+            <div class="rb-card">
+                <div class="rb-ic"><i class="fas fa-heart"></i></div>
+                <div class="rb-t">Toxina Botulínica, 3 regiões</div>
+                <div class="rb-d">Um mimo de autocuidado por nossa conta, aplicado na nossa clínica. Porque cuidar de você também é resultado.</div>
+            </div>
+        </div>
+        <div class="romance-sponsor">
+            <div class="rs-label">Um presente, com cortesia de</div>
+            <img src="https://iymlwsawrmghhbawiavz.supabase.co/storage/v1/object/public/masterclass-assets/tuttibelle-logo.png" alt="TuttiBelle">
+        </div>
+    </div>
+</div>
+
+<!-- CTA FINAL -->
+<div class="slide" data-block="7 · PITCH">
+    <div class="sc">
+        <div class="silence">
+            Daqui a 12 meses a IA<br>
+            vai ter mudado tudo.<br>
+            <span class="hl-box">Você vai ter mudado junto?</span>
+        </div>
+        <div class="urgency-bar" style="max-width:640px; margin:34px auto 0;">
+            <i class="fas fa-bolt" style="margin-right:8px;"></i> CONDIÇÃO ESPECIAL SÓ PRA PLATEIA DE HOJE
+        </div>
+    </div>
+</div>
+
+</div>
+
+<div class="live-crm-overlay" id="liveCrmOverlay">
+    <iframe id="liveCrmFrame" title="CRM ao vivo" allow="microphone; autoplay; camera; clipboard-read; clipboard-write"></iframe>
+    <button class="live-crm-close" id="liveCrmClose" type="button">Fechar (tecla C)</button>
+</div>
+
+<div class="slide-counter"><span id="currentSlide">1</span><span class="total"> / <span id="totalSlides">19</span></span></div>
+<div class="nav-controls">
+    <button class="nav-btn" onclick="previousSlide()"><i class="fas fa-chevron-left"></i></button>
+    <button class="nav-btn" onclick="nextSlide()"><i class="fas fa-chevron-right"></i></button>
+</div>
+<div class="ig-watermark"><i class="fab fa-instagram"></i> @carloseduardo.ia</div>
+<div class="key-hint">Use <kbd>&larr;</kbd> <kbd>&rarr;</kbd> &middot; <kbd>F</kbd> tela cheia &middot; <kbd>B</kbd> tela preta &middot; <kbd>C</kbd> CRM ao vivo &middot; <kbd>M</kbd> música</div>
+
+<!-- Música ambiente: toca no slide 1 enquanto a plateia se acomoda -->
+<audio id="bgMusic" loop preload="auto" src="https://iymlwsawrmghhbawiavz.supabase.co/storage/v1/object/public/masterclass-assets/squaad_imparavel.mp3"></audio>
+<button class="nav-btn" id="musicBtn" type="button" title="Música ambiente (slide 1) · tecla M" style="position:fixed; bottom:28px; right:145px; z-index:1000;"><i class="fas fa-music"></i></button>
+
+<script>
+    const slides = document.querySelectorAll('.slide:not(.skip)');
+    const totalSlides = slides.length;
+    let currentIndex = 0;
+    document.getElementById('totalSlides').textContent = totalSlides;
+
+    function autoFitSlide(slide) {
+        const sc = slide.querySelector('.sc');
+        if (!sc) return;
+        sc.style.zoom = '';
+        requestAnimationFrame(() => {
+            const cs = getComputedStyle(slide);
+            const availH = Math.max(0, slide.clientHeight - (parseFloat(cs.paddingTop)||0) - (parseFloat(cs.paddingBottom)||0) - 10);
+            const availW = Math.max(0, slide.clientWidth - (parseFloat(cs.paddingLeft)||0) - (parseFloat(cs.paddingRight)||0) - 10);
+            const scH = sc.scrollHeight, scW = sc.scrollWidth;
+            if (scH <= 0 || scW <= 0) return;
+            const scale = Math.min(2.2, availH / scH, availW / scW);
+            sc.style.zoom = String(scale);
+        });
+    }
+    function showSlide(index) {
+        slides.forEach(s => s.classList.remove('active'));
+        currentIndex = Math.max(0, Math.min(index, totalSlides - 1));
+        const current = slides[currentIndex];
+        current.classList.add('active');
+        // passador/clicker: ao trocar de slide pausa todos os videos e libera o
+        // "tocar pelo controle" no slide atual (avancar toca o video antes de passar).
+        slides.forEach(s => s.querySelectorAll('video').forEach(v => v.pause()));
+        current.querySelectorAll('video').forEach(v => { v.dataset.played = ''; });
+        autoFitSlide(current);
+        document.getElementById('currentSlide').textContent = currentIndex + 1;
+        document.getElementById('progressBar').style.width = ((currentIndex + 1) / totalSlides * 100) + '%';
+        if (window.__fomeSync) window.__fomeSync(current);
+        if (window.__bgMusicSync) window.__bgMusicSync(currentIndex);
+    }
+    function nextSlide() {
+        const cur = slides[currentIndex];
+        const vids = cur ? Array.from(cur.querySelectorAll('video')) : [];
+        // no slide de video, o "avancar" do passador primeiro TOCA o proximo video
+        // (pausando os outros pra nao sobrepor audio); so passa de slide quando todos rolaram.
+        const pending = vids.find(v => v.dataset.played !== '1');
+        if (pending) {
+            vids.forEach(v => { if (v !== pending) v.pause(); });
+            pending.dataset.played = '1';
+            const p = pending.play(); if (p && p.catch) p.catch(()=>{});
+            return;
+        }
+        showSlide(currentIndex + 1);
+    }
+    function previousSlide() { showSlide(currentIndex - 1); }
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); nextSlide(); }
+        else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); previousSlide(); }
+        else if (e.key === 'f' || e.key === 'F') { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+        else if (e.key === 'Home') { showSlide(0); }
+        else if (e.key === 'End') { showSlide(totalSlides - 1); }
+        else if (e.key === '.' || e.key === 'b' || e.key === 'B') { const a = document.querySelector('.slide.active'); if (a) a.classList.toggle('blacked-out'); }
+        else if (e.key === 'c' || e.key === 'C') { e.preventDefault(); toggleLiveCrm(); }
+        else if (e.key === 'm' || e.key === 'M') { if (window.__bgMusicToggle) window.__bgMusicToggle(); }
+    });
+
+    // ── CRM ao vivo (WaVoIP): carrega o app desde o início pra já ficar ouvindo chamadas.
+    //    Tecla C mostra/esconde o CRM em tela cheia por cima do slide pra atender ao vivo. ──
+    const liveCrmOverlay = document.getElementById('liveCrmOverlay');
+    const liveCrmFrame = document.getElementById('liveCrmFrame');
+    const liveCrmClose = document.getElementById('liveCrmClose');
+    if (liveCrmFrame && !liveCrmFrame.src) liveCrmFrame.src = '/admin/crm';
+
+    let crmAutoOpened = false, crmSuppress = false;
+    function crmIsOpen(){ return liveCrmOverlay && liveCrmOverlay.classList.contains('open'); }
+    function toggleLiveCrm() {
+        if (!liveCrmOverlay) return;
+        const willOpen = !crmIsOpen();
+        liveCrmOverlay.classList.toggle('open');
+        crmSuppress = !willOpen;   // fechou na mão: não reabrir sozinho até a ligação sumir
+        if (willOpen) crmAutoOpened = false;
+    }
+    if (liveCrmClose) liveCrmClose.addEventListener('click', () => {
+        liveCrmOverlay.classList.remove('open'); crmSuppress = true; crmAutoOpened = false;
+    });
+
+    // Detecta o modal de chamada dentro do CRM embutido (mesmo domínio) e abre o popup sozinho.
+    function crmHasCall(){
+        try {
+            const doc = liveCrmFrame && liveCrmFrame.contentDocument;
+            if (!doc) return false;
+            const dialogs = doc.querySelectorAll('[role="dialog"]');
+            for (let i=0;i<dialogs.length;i++) {
+                const t = dialogs[i].textContent || '';
+                if (t.indexOf('Chamada recebida') !== -1 || t.indexOf('Transcrição em tempo real') !== -1 || t.indexOf('Chamando') !== -1) return true;
+            }
+        } catch (e) {}
+        return false;
+    }
+    setInterval(() => {
+        if (!liveCrmOverlay) return;
+        const call = crmHasCall();
+        if (!call) {
+            crmSuppress = false;
+            if (crmIsOpen() && crmAutoOpened) { liveCrmOverlay.classList.remove('open'); crmAutoOpened = false; }
+            return;
+        }
+        if (!crmIsOpen() && !crmSuppress) { liveCrmOverlay.classList.add('open'); crmAutoOpened = true; }
+    }, 600);
+
+    // Atalho robusto: o CRM embutido avisa o deck via postMessage quando entra/sai chamada.
+    // (funciona mesmo se o texto do modal mudar; complementa a detecção por DOM acima.)
+    window.addEventListener('message', (e) => {
+        const t = e && e.data && e.data.type;
+        if (t === 'wavoip:incoming') {
+            crmSuppress = false;
+            if (liveCrmOverlay && !crmIsOpen()) { liveCrmOverlay.classList.add('open'); crmAutoOpened = true; }
+        } else if (t === 'wavoip:ended') {
+            crmSuppress = false;
+            if (liveCrmOverlay && crmIsOpen() && crmAutoOpened) { liveCrmOverlay.classList.remove('open'); crmAutoOpened = false; }
+        }
+    });
+
+    // ── FOME pulsante por voz: capta o microfone e pulsa o FOME cada vez que você fala "fome". ──
+    (function setupFomeVoice(){
+        const word = document.getElementById('fomeWord');
+        if (!word) return;
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) return;
+
+        let rec = null, fomeCount = 0;
+        const activeSlide = document.querySelector('.slide.active');
+        let onSlide = !!(activeSlide && activeSlide.classList.contains('fome-slide'));
+
+        function norm(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
+        function pulse(){ word.classList.remove('pulse'); void word.offsetWidth; word.classList.add('pulse'); }
+        function makeRec(){
+            const r = new SR();
+            r.lang = 'pt-BR'; r.continuous = true; r.interimResults = true;
+            r.onresult = (e) => {
+                let combined = '';
+                for (let i=0;i<e.results.length;i++) combined += e.results[i][0].transcript + ' ';
+                const m = norm(combined).match(/\bfome\b/g);
+                const count = m ? m.length : 0;
+                if (count > fomeCount) { fomeCount = count; pulse(); }
+            };
+            r.onerror = () => {};
+            r.onend = () => { if (onSlide) { fomeCount = 0; try { r.start(); } catch(e){} } };
+            return r;
+        }
+        function refresh(){
+            if (onSlide) { if (!rec) rec = makeRec(); fomeCount = 0; try { rec.start(); } catch(e){} }
+            else if (rec) { try { rec.stop(); } catch(e){} }
+        }
+        window.__fomeSync = (current) => {
+            onSlide = !!(current && current.classList.contains('fome-slide'));
+            refresh();
+        };
+        if (onSlide) refresh();
+    })();
+    showSlide(0);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { const a = document.querySelector('.slide.active'); if (a) autoFitSlide(a); });
+    let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { const a = document.querySelector('.slide.active'); if (a) autoFitSlide(a); }, 120); });
+    document.addEventListener('fullscreenchange', () => { const a = document.querySelector('.slide.active'); if (a) autoFitSlide(a); });
+
+    // ── Ajuste de fotos da clínica: arrastar pra mover, scroll pra zoom/cortar. Salvo no navegador. ──
+    (function setupClinicPhotos(){
+        const mosaic = document.getElementById('clinMosaic');
+        const btn = document.getElementById('clinEditBtn');
+        if (!mosaic || !btn) return;
+        const STORE = 'clinPhotos_v1';
+        let data = {};
+        try { data = JSON.parse(localStorage.getItem(STORE) || '{}'); } catch(e){}
+        const tiles = Array.from(mosaic.querySelectorAll('.clin-tile'));
+        function st(key){ return data[key] || (data[key] = {x:50, y:50, s:1}); }
+        function apply(tile){
+            const s = st(tile.dataset.img);
+            const img = tile.querySelector('img');
+            if (!img) return;
+            img.style.objectPosition = s.x + '% ' + s.y + '%';
+            img.style.transform = 'scale(' + s.s + ')';
+        }
+        function save(){ try { localStorage.setItem(STORE, JSON.stringify(data)); } catch(e){} }
+        tiles.forEach(apply);
+
+        let editing = false;
+        btn.addEventListener('click', () => {
+            editing = !editing;
+            mosaic.classList.toggle('editing', editing);
+            btn.classList.toggle('active', editing);
+            btn.innerHTML = editing
+                ? '<i class="fas fa-check"></i> Concluir ajuste'
+                : '<i class="fas fa-crop-simple"></i> Ajustar fotos';
+        });
+
+        let dragTile = null, lastX = 0, lastY = 0;
+        tiles.forEach(tile => {
+            tile.addEventListener('mousedown', (e) => {
+                if (!editing) return;
+                e.preventDefault();
+                dragTile = tile; lastX = e.clientX; lastY = e.clientY;
+            });
+            tile.addEventListener('wheel', (e) => {
+                if (!editing) return;
+                e.preventDefault();
+                const s = st(tile.dataset.img);
+                s.s = Math.max(1, Math.min(3, s.s + (e.deltaY < 0 ? 0.08 : -0.08)));
+                apply(tile); save();
+            }, {passive:false});
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!dragTile) return;
+            const s = st(dragTile.dataset.img);
+            s.x = Math.max(0, Math.min(100, s.x - (e.clientX - lastX) * 0.18));
+            s.y = Math.max(0, Math.min(100, s.y - (e.clientY - lastY) * 0.18));
+            lastX = e.clientX; lastY = e.clientY;
+            apply(dragTile);
+        });
+        window.addEventListener('mouseup', () => { if (dragTile) { dragTile = null; save(); } });
+    })();
+
+    // ── Música ambiente: loop no slide 1 (settle, plateia se acomoda) e nos slides de
+    //    pitch (buy, clima de compra) bem mais baixa. Pausa nos demais. Tecla M / botão liga/desliga.
+    //    O slide marca o modo via data-music="settle|buy". Autoplay com som destrava no 1o gesto. ──
+    (function setupBgMusic(){
+        const audio = document.getElementById('bgMusic');
+        const btn = document.getElementById('musicBtn');
+        if (!audio || !btn) return;
+        const VOL = { settle: 0.45, buy: 0.16 }; // slide 1 normal, pitch bem baixo
+        let enabled = true;       // presenter pode desligar (tecla M / botão)
+        let unlocked = false;     // já houve gesto que destrava o autoplay?
+
+        function paint(){
+            btn.innerHTML = enabled ? '<i class="fas fa-music"></i>' : '<i class="fas fa-volume-xmark"></i>';
+            btn.style.opacity = enabled ? '1' : '.5';
+            btn.classList.toggle('active', enabled && !audio.paused);
+        }
+        function mode(){ const s = document.querySelector('.slide.active'); return s ? s.getAttribute('data-music') : null; }
+        function apply(){
+            const m = mode();
+            if (enabled && m && VOL[m] != null) {
+                audio.volume = VOL[m];
+                const p = audio.play();
+                if (p && p.catch) p.catch(()=>{}); // bloqueado até o 1o gesto
+            } else if (!audio.paused) {
+                audio.pause();
+            }
+            paint();
+        }
+        // sincroniza com a navegação de slides
+        window.__bgMusicSync = () => apply();
+        // liga/desliga manual
+        window.__bgMusicToggle = () => {
+            enabled = !enabled;
+            unlocked = true; // o toggle já é um gesto válido
+            apply();
+        };
+        btn.addEventListener('click', () => window.__bgMusicToggle());
+
+        // primeiro gesto do usuário destrava o autoplay com som
+        function unlock(){
+            if (unlocked) return;
+            unlocked = true;
+            apply();
+        }
+        ['pointerdown','keydown','click'].forEach(ev =>
+            window.addEventListener(ev, unlock, { once:false, passive:true }));
+
+        audio.addEventListener('play', paint);
+        audio.addEventListener('pause', paint);
+        apply(); // tenta tocar já (cai no catch se ainda não houve gesto)
+    })();
+</script>
+</body>
+</html>

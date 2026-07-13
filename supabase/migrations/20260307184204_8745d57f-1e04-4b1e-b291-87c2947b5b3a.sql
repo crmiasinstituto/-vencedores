@@ -1,0 +1,1 @@
+UPDATE whatsapp_instances SET webhook_url = 'https://ngvyhgezacslechaugts.supabase.co/functions/v1/uazapi-webhook-receiver' WHERE id = '66607b8b-5508-4cf5-bad5-3824d7c5e583';

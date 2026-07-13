@@ -1,0 +1,1 @@
+UPDATE wavoip_devices SET token = '36378e36-5c77-4fd7-b45f-755af994c629', name = 'Carlos Eduardo - Comercial' WHERE id = 'd41ba849-f7af-4fb6-8eb1-b30eefd3d300';

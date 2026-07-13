@@ -1,0 +1,513 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* + que Vencedores Design System - Preto, Dourado & Cinza */
+
+@layer base {
+  :root {
+    /* Nova Paleta + que Vencedores */
+    --background: 0 0% 0%; /* Preto: #000000 */
+    --foreground: 0 0% 90%; /* Cinza Claro: #E6E6E6 */
+
+    --card: 0 0% 5%; /* Preto suave para cards */
+    --card-foreground: 0 0% 90%;
+
+    --popover: 0 0% 5%;
+    --popover-foreground: 0 0% 90%;
+
+    /* Dourado + que Vencedores para elementos primários */
+    --primary: 217 91% 60%; /* Dourado: #3B82F6 */
+    --primary-foreground: 0 0% 100%; /* Preto no dourado */
+
+    /* Tons secundários escuros */
+    --secondary: 0 0% 15%; /* Cinza escuro */
+    --secondary-foreground: 0 0% 90%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%; /* Cinza médio */
+
+    /* Dourado para acentos */
+    --accent: 217 91% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 90%;
+
+    /* Bordas e inputs sutis */
+    --border: 0 0% 20%;
+    --input: 0 0% 5%;
+    --ring: 217 91% 60%; /* Dourado focus ring */
+
+    /* Variáveis de tecnologia avançada */
+    --tech-gradient-primary: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(221 83% 53%) 50%, hsl(217 91% 60%) 100%);
+    --tech-gradient-dark: linear-gradient(135deg, hsl(0 0% 0%) 0%, hsl(0 0% 5%) 50%, hsl(0 0% 0%) 100%);
+    --tech-glow: 0 0 30px hsl(217 91% 60% / 0.3);
+    --tech-glow-strong: 0 0 50px hsl(217 91% 60% / 0.6);
+    --glass-bg: rgba(0, 0, 0, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --neural-gradient: linear-gradient(45deg, hsl(217 91% 60% / 0.1) 0%, transparent 50%, hsl(217 91% 60% / 0.1) 100%);
+    --hologram-gradient: linear-gradient(45deg, transparent 30%, hsl(217 91% 60% / 0.1) 50%, transparent 70%);
+    
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 3%;
+    --sidebar-foreground: 0 0% 85%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 0 0% 15%;
+    --sidebar-ring: 217 91% 60%;
+  }
+
+  .dark {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 90%;
+
+    --card: 0 0% 5%;
+    --card-foreground: 0 0% 90%;
+
+    --popover: 0 0% 5%;
+    --popover-foreground: 0 0% 90%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 90%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
+
+    --accent: 217 91% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 90%;
+
+    --border: 0 0% 20%;
+    --input: 0 0% 10%;
+    --ring: 217 91% 60%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    background: #000000;
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  * {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Advanced CTA button with holographic effects */
+  .btn-cta {
+    @apply relative bg-primary text-primary-foreground font-bold py-4 px-8 rounded-lg 
+           transition-all duration-500 overflow-hidden;
+    background: var(--tech-gradient-primary);
+    box-shadow: var(--tech-glow);
+    border: 1px solid hsl(217 91% 60% / 0.3);
+    will-change: transform, box-shadow;
+    transform: translateZ(0);
+  }
+
+  .btn-cta::before {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-700;
+    background: var(--hologram-gradient);
+    transform: translateX(-100%) skewX(-12deg);
+  }
+
+  .btn-cta:hover::before {
+    @apply opacity-100;
+    transform: translateX(200%) skewX(-12deg);
+    transition: transform 0.8s ease-out;
+  }
+
+  .btn-cta:hover {
+    box-shadow: var(--tech-glow-strong);
+    transform: translateY(-3px) scale(1.02) translateZ(0);
+  }
+  
+  @media (max-width: 768px) {
+    .btn-cta {
+      will-change: auto;
+    }
+    
+    .btn-cta:hover {
+      transform: scale(1.01) translateZ(0);
+    }
+  }
+
+  /* Glassmorphism secondary button */
+  .btn-secondary {
+    @apply relative bg-card/50 backdrop-blur-lg text-card-foreground font-semibold py-3 px-6 rounded-lg
+           border border-primary/20 transition-all duration-300;
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+  }
+
+  .btn-secondary:hover {
+    @apply border-primary/40;
+    background: var(--glass-bg);
+    box-shadow: var(--tech-glow);
+    transform: translateY(-2px);
+  }
+
+  /* Advanced 3D solution cards */
+  .solution-card {
+    @apply relative bg-card/60 backdrop-blur-lg border border-primary/20 rounded-xl p-6
+           transition-all duration-500 overflow-hidden;
+    background: var(--glass-bg);
+    backdrop-filter: blur(15px);
+  }
+
+  .solution-card::before {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-500;
+    background: var(--neural-gradient);
+  }
+
+  .solution-card::after {
+    content: '';
+    @apply absolute top-0 left-0 w-full h-px opacity-50;
+    background: linear-gradient(90deg, transparent, hsl(217 91% 60%), transparent);
+  }
+
+  .solution-card:hover::before {
+    @apply opacity-100;
+  }
+
+  .solution-card:hover {
+    @apply border-primary/40;
+    transform: translateY(-8px) rotateX(1deg) translateZ(0);
+    box-shadow: 
+      0 20px 40px rgba(0, 0, 0, 0.3),
+      var(--tech-glow);
+  }
+  
+  @media (max-width: 768px) {
+    .solution-card {
+      will-change: auto;
+    }
+    
+    .solution-card:hover {
+      transform: translateY(-4px) translateZ(0);
+    }
+  }
+
+  /* Enhanced gradient text with animation */
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    display: inline-block;
+    background-size: 200% 100%;
+    animation: gradient-shift 4s ease-in-out infinite;
+    will-change: background-position;
+  }
+
+  /* Glassmorphism container utility */
+  .glass-container {
+    @apply relative backdrop-blur-lg border border-primary/20 rounded-xl;
+    background: var(--glass-bg);
+    backdrop-filter: blur(15px);
+  }
+
+  /* Neural network background pattern */
+  .neural-bg {
+    background-image: 
+      radial-gradient(circle at 25% 25%, hsl(217 91% 60% / 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, hsl(217 91% 60% / 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 50% 50%, hsl(217 91% 60% / 0.05) 0%, transparent 50%);
+  }
+
+  /* Tech grid overlay */
+  .tech-grid {
+    background-image: 
+      linear-gradient(hsl(217 91% 60% / 0.1) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(217 91% 60% / 0.1) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+
+  /* Holographic text effect */
+  .holographic-text {
+    @apply text-transparent bg-clip-text;
+    background: linear-gradient(45deg,
+      hsl(217 91% 60%),
+      hsl(45 100% 55%),
+      hsl(50 100% 45%),
+      hsl(217 91% 60%)
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    display: inline-block;
+    background-size: 400% 400%;
+    animation: holographic 5s ease-in-out infinite;
+    will-change: background-position;
+  }
+
+  /* Pulse effect for important elements */
+  .pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite alternate;
+  }
+
+  /* Floating animation for 3D elements */
+  .float-animation {
+    animation: float 6s ease-in-out infinite;
+    will-change: transform;
+  }
+  
+  /* Disable heavy animations on mobile */
+  @media (max-width: 768px) {
+    .float-animation {
+      animation: none;
+    }
+    
+    .holographic-text {
+      animation: none;
+      background: linear-gradient(45deg, hsl(217 91% 60%), hsl(217 91% 60%));
+      -webkit-background-clip: text;
+      background-clip: text;
+    }
+    
+    .text-gradient {
+      animation: none;
+      background: linear-gradient(45deg, hsl(217 91% 60%), hsl(217 91% 60%));
+      -webkit-background-clip: text;
+      background-clip: text;
+    }
+  }
+}
+
+/* Keyframe animations */
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes holographic {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes pulse-glow {
+  0% { box-shadow: 0 0 20px hsl(217 91% 60% / 0.3); }
+  100% { box-shadow: 0 0 40px hsl(217 91% 60% / 0.6); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+/* VHS Title glow pulse - CSS only, replaces Framer Motion */
+@keyframes vhs-title-glow {
+  0%, 100% { text-shadow: 0 0 20px rgba(250,200,0,0.5); }
+  50% { text-shadow: 0 0 40px rgba(250,200,0,0.8); }
+}
+
+.vhs-title-glow {
+  animation: vhs-title-glow 3s ease-in-out infinite;
+}
+/* ============================================================
+   Maily Editor — isolamento do tema dark do CRM
+   Editor renderiza em "folha de papel branca" (estilo Gmail compose)
+   ============================================================ */
+.maily-paper {
+  color-scheme: light !important;
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 3.9%;
+  --primary: 240 5.9% 10%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 240 4.8% 95.9%;
+  --secondary-foreground: 240 5.9% 10%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --accent: 240 4.8% 95.9%;
+  --accent-foreground: 240 5.9% 10%;
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  --ring: 240 5.9% 10%;
+}
+
+.maily-paper * {
+  /* Garante que descendentes do Maily não herdem cores do tema dark */
+}
+
+.maily-paper input,
+.maily-paper textarea,
+.maily-paper button,
+.maily-paper [contenteditable] {
+  color: rgb(24 24 27); /* zinc-900 */
+}
+
+.maily-paper [contenteditable] {
+  caret-color: rgb(24 24 27);
+  min-height: 400px;
+  padding: 32px;
+}
+
+.maily-paper .ProseMirror {
+  outline: none;
+}
+
+.maily-paper .ProseMirror p {
+  font-size: 16px;
+  line-height: 1.65;
+  margin: 0 0 12px;
+}
+
+.maily-paper .ProseMirror h1 { font-size: 28px; font-weight: 700; margin: 24px 0 12px; line-height: 1.2; }
+.maily-paper .ProseMirror h2 { font-size: 22px; font-weight: 600; margin: 20px 0 10px; line-height: 1.3; }
+.maily-paper .ProseMirror h3 { font-size: 18px; font-weight: 600; margin: 16px 0 8px; line-height: 1.4; }
+
+/* Toolbar bubble menu do TipTap */
+.maily-paper .tippy-box {
+  background: white;
+  border: 1px solid rgb(228 228 231);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+}
+
+/* ============================================================
+   Radix Tooltip (Maily) — renderizado em portal fora da árvore .maily-paper
+   Sem essas overrides as variáveis CSS do Maily (--mly-*) não são herdadas
+   e o tooltip fica invisível. Aplicamos style direto via data-radix selectors.
+   ============================================================ */
+[data-radix-tooltip-content],
+[data-radix-popper-content-wrapper] > [role="tooltip"],
+[role="tooltip"][data-state="delayed-open"],
+[role="tooltip"][data-state="instant-open"] {
+  background-color: rgb(24 24 27) !important;
+  color: rgb(250 250 250) !important;
+  border-radius: 6px !important;
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.18) !important;
+  z-index: 9999 !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  letter-spacing: 0.01em !important;
+  pointer-events: none !important;
+  white-space: nowrap !important;
+}
+
+/* ============================================================
+   Email Template Editor — Sidebar com contraste alto pra leitura
+   Override do tema dark global porque o original tava ilegível.
+   ============================================================ */
+.email-editor-sidebar {
+  background: hsl(220 13% 12%); /* zinc-900 levemente azulado */
+}
+
+.email-editor-sidebar [class*="text-muted-foreground"] {
+  color: hsl(220 9% 75%) !important; /* zinc-300, era 60% opacidade */
+}
+
+.email-editor-sidebar label,
+.email-editor-sidebar .text-foreground {
+  color: hsl(0 0% 98%) !important; /* branco quase puro */
+}
+
+/* Labels uppercase (DETALHES, ENVIAR TESTE, etc) */
+.email-editor-sidebar label[class*="uppercase"] {
+  color: hsl(43 75% 55%) !important; /* dourado + que Vencedores mais visível que cinza */
+  font-weight: 600 !important;
+  letter-spacing: 0.18em !important;
+}
+
+/* Cards na sidebar: fundo mais claro pra criar contraste com background */
+.email-editor-sidebar [class*="card"][class*="border"],
+.email-editor-sidebar .border-dashed,
+.email-editor-sidebar .border-\[\#BAA05E\]\/15 {
+  background: hsl(220 13% 16%) !important; /* zinc-800 */
+  border-color: hsl(220 9% 30%) !important;
+}
+
+/* Inputs e textareas legíveis */
+.email-editor-sidebar input,
+.email-editor-sidebar textarea {
+  background: hsl(220 13% 18%) !important;
+  color: hsl(0 0% 98%) !important;
+  border-color: hsl(220 9% 30%) !important;
+}
+
+.email-editor-sidebar input::placeholder,
+.email-editor-sidebar textarea::placeholder {
+  color: hsl(220 9% 55%) !important;
+}
+
+/* Code/variable chips */
+.email-editor-sidebar code {
+  color: hsl(43 75% 65%) !important;
+  background: hsl(220 13% 20%) !important;
+}
+
+/* Botões outline ficam mais visíveis */
+.email-editor-sidebar button[class*="outline"] {
+  background: hsl(220 13% 16%) !important;
+  color: hsl(0 0% 95%) !important;
+  border-color: hsl(220 9% 35%) !important;
+}
+
+.email-editor-sidebar button[class*="outline"]:hover {
+  background: hsl(220 13% 22%) !important;
+  border-color: hsl(43 75% 55%) !important;
+}
+
+/* Strong fica branco puro */
+.email-editor-sidebar strong {
+  color: hsl(0 0% 100%) !important;
+}
+
+/* Borda esquerda do conteúdo bem visível */
+.email-editor-sidebar {
+  border-right: 1px solid hsl(220 9% 22%) !important;
+}

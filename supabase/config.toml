@@ -1,0 +1,185 @@
+project_id = "iymlwsawrmghhbawiavz"
+
+[functions.disc-lead-magnet]
+verify_jwt = false
+
+[functions.disc-complete]
+verify_jwt = false
+
+[functions.disc-pdf-deliver]
+verify_jwt = false
+
+[functions.send-to-iautomatize]
+verify_jwt = false
+
+[functions.analyze-instagram-profile]
+verify_jwt = false
+
+[functions.get-lead-instagram]
+verify_jwt = false
+
+[functions.save-onboarding-step]
+verify_jwt = false
+
+[functions.complete-onboarding]
+verify_jwt = false
+
+[functions.check-payment-due]
+verify_jwt = false
+
+[functions.generate-monthly-payments]
+verify_jwt = false
+
+[functions.generate-event-playbook]
+verify_jwt = false
+
+[functions.generate-client-insights]
+verify_jwt = false
+
+[functions.create-crm-lead-from-popup]
+verify_jwt = false
+
+[functions.check-call-reminders]
+verify_jwt = false
+
+[functions.create-vhs-participant]
+verify_jwt = false
+
+[functions.receive-sale-webhook]
+verify_jwt = false
+
+[functions.kirvano-webhook]
+verify_jwt = false
+
+[functions.uazapi-proxy]
+verify_jwt = true
+
+[functions.uazapi-webhook-receiver]
+verify_jwt = false
+
+[functions.analyze-sales-call]
+verify_jwt = false
+
+[functions.sales-coach-realtime]
+verify_jwt = false
+
+[functions.send-to-iautomatize-vhs]
+verify_jwt = false
+
+[functions.analyze-conversation]
+verify_jwt = false
+
+[functions.livekit-webhook]
+verify_jwt = false
+
+[functions.create-b2-upload-url]
+verify_jwt = false
+
+# ============================================================
+# Prospecção Pro — auth dual (admin via user_id, membro via member_id no body)
+# ============================================================
+[functions.prospeccao-detectar-intent]
+verify_jwt = false
+
+[functions.prospeccao-buscar]
+verify_jwt = false
+
+[functions.prospeccao-direct-lead]
+verify_jwt = false
+
+[functions.prospeccao-analisar]
+verify_jwt = false
+
+[functions.prospeccao-virar-lead]
+verify_jwt = false
+
+[functions.prospeccao-gerar-mensagem]
+verify_jwt = false
+
+[functions.save-integration-key]
+verify_jwt = false
+
+[functions.prospeccao-update-prompt]
+verify_jwt = false
+
+# ============================================================
+# Masterclass IA para Negocios — landing /masterclass-ia
+# ============================================================
+[functions.masterclass-instagram-scrap]
+verify_jwt = false
+
+[functions.masterclass-diagnostico]
+verify_jwt = false
+
+[functions.create-crm-lead-masterclass]
+verify_jwt = false
+
+[functions.cancel-onboarding]
+verify_jwt = false
+
+# ============================================================
+# Carrossel Viral - gerador de roteiro de carrossel Instagram
+# ============================================================
+[functions.carrossel-viral]
+verify_jwt = false
+
+# ============================================================
+# Marketing IA - skill agente-marketing (maestro + 4 especialistas)
+# ============================================================
+[functions.marketing-maestro]
+verify_jwt = false
+
+[functions.marketing-copy]
+verify_jwt = false
+
+[functions.marketing-criativo]
+verify_jwt = true
+
+[functions.marketing-midia]
+verify_jwt = false
+
+[functions.marketing-web]
+verify_jwt = false
+
+# ============================================================
+# Reconciliacao verify_jwt (deploy credenciais DB-first, 22/06)
+# Valores batem com o estado LIVE do projeto pra nao flipar auth no deploy.
+# ============================================================
+[functions.ai-sales-agent-v2]
+verify_jwt = false
+
+[functions.analyze-agent-conversations]
+verify_jwt = false
+
+[functions.analyze-candidate]
+verify_jwt = false
+
+[functions.analyze-lead]
+verify_jwt = false
+
+[functions.generate-lesson-pdf]
+verify_jwt = false
+
+[functions.generate-post-call-actions]
+verify_jwt = false
+
+[functions.generate-sales-dossier]
+verify_jwt = false
+
+[functions.instagram-followup]
+verify_jwt = false
+
+[functions.meeting-coach-realtime]
+verify_jwt = false
+
+[functions.roleplay-turn]
+verify_jwt = false
+
+[functions.get-soniox-token]
+verify_jwt = true
+
+[functions.marketing-ai-template]
+verify_jwt = true
+
+[functions.meet-cs-agent]
+verify_jwt = true
