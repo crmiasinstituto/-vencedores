@@ -11,19 +11,15 @@ import {
   ClipboardList,
   LogOut,
   ChevronLeft,
-  UserPlus,
   BookOpen,
   Bot,
   Settings,
-  Crosshair,
   UserCheck,
   GraduationCap,
   CalendarDays,
   TrendingDown,
-  Dumbbell,
   Sparkles,
   Brain,
-  Presentation,
   Mail,
   Send,
   Workflow,
@@ -36,6 +32,7 @@ import {
   Camera,
   CalendarHeart,
   HardDrive,
+  Building2,
 } from 'lucide-react';
 import { UpcomingMeetingsWidget } from './UpcomingMeetingsWidget';
 import {
@@ -52,14 +49,13 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import squaadLogo from '@/assets/squaad-logo.jpeg';
+import logo from '@/assets/mais-que-vencedores-logo.svg';
 
 const menuItems = [
   { title: 'Dashboard', url: '/admin', icon: LayoutDashboard },
   { title: 'Agenda', url: '/admin/agenda', icon: CalendarDays },
   { title: 'CRM de Vendas', url: '/admin/crm', icon: Kanban },
   { title: 'Central 360', url: '/admin/clientes', icon: Users },
-  { title: 'Onboarding', url: '/admin/onboarding', icon: UserPlus },
   { title: 'Vendas', url: '/admin/vendas', icon: ShoppingCart },
   { title: 'Funil', url: '/admin/funil', icon: TrendingDown },
   { title: 'Financeiro', url: '/admin/recebimentos', icon: DollarSign },
@@ -69,40 +65,15 @@ const menuItems = [
   { title: 'Grupos WA', url: '/admin/grupos', icon: Users },
   { title: 'Playbooks', url: '/admin/playbooks', icon: BookOpen },
   { title: 'Agentes IA', url: '/admin/agentes', icon: Bot },
-  { title: 'Roleplay', url: '/admin/roleplay', icon: Dumbbell },
   { title: 'Equipe', url: '/admin/equipe', icon: Users },
-  { title: 'Prospecao', url: '/admin/prospeccao', icon: Crosshair },
   { title: 'Membros', url: '/admin/membros', icon: GraduationCap },
   { title: 'Acervo do Time', url: '/admin/acervo', icon: HardDrive },
   { title: 'Credenciamento', url: '/admin/credenciamento', icon: UserCheck },
 ];
 
-const presentationItems = [
-  {
-    title: 'Masterclass IA',
-    url: '/apresentacoes/masterclass-ia-negocios',
-    icon: Presentation,
-    external: true,
-  },
-  {
-    title: 'Reprograme 10x',
-    url: '/apresentacoes/reprograme-10x.html',
-    icon: Presentation,
-    external: true,
-  },
-  {
-    title: 'Reprograme · Configurações',
-    url: '/admin/apresentacoes/reprograme-10x',
-    icon: Settings,
-    external: false,
-  },
-  {
-    title: 'Como estruturar um evento',
-    url: '/admin/apresentacoes/estruturar-evento',
-    icon: CalendarHeart,
-    external: false,
-  },
-];
+// As apresentações eram os decks da SQUAAD (Masterclass IA, Reprograme 10x,
+// Estruturar Evento). Os HTMLs saíram de public/apresentacoes e as páginas de
+// configuração foram removidas — a seção inteira apontava pra lugar nenhum.
 
 const secondaryItems = [
   { title: 'Marketing IA', url: '/admin/marketing-ia', icon: Brain },
@@ -111,6 +82,17 @@ const secondaryItems = [
   { title: 'Operações', url: '/admin/operacoes', icon: ClipboardList },
   { title: 'Recrutamento', url: '/admin/recrutamento', icon: UserCheck },
   { title: 'Configurações', url: '/admin/configuracoes', icon: Settings },
+];
+
+// Admin do netweaving (+ que Vencedores). Fica em grupo próprio porque os cadastros são
+// outros: 'Empresas' aqui é a tabela profiles (quem faz parte da rede), enquanto o
+// 'Membros' do grupo Principal é a tabela members (aluno do LMS). Mesmo nome, gente
+// diferente — daí os rótulos serem distintos aqui.
+const maisVencedoresItems = [
+  { title: 'Visão Geral', url: '/admin/maisvencedores', icon: LayoutDashboard },
+  { title: 'Membros do Ecossistema', url: '/admin/maisvencedores/membros', icon: Users },
+  { title: 'Eventos', url: '/admin/maisvencedores/eventos', icon: CalendarDays },
+  { title: 'Treinamentos', url: '/admin/maisvencedores/treinamentos', icon: GraduationCap },
 ];
 
 const socialSellingItems = [
@@ -143,8 +125,12 @@ export function AdminSidebar({ onSignOut }: AdminSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
 
+  // Rotas que são raiz de uma seção precisam bater exato, senão o startsWith deixa o item
+  // "Visão Geral" aceso o tempo todo enquanto se navega pelos filhos dela.
+  const exatas = ['/admin', '/admin/maisvencedores'];
+
   const isActive = (url: string) => {
-    if (url === '/admin') return location.pathname === '/admin';
+    if (exatas.includes(url)) return location.pathname === url;
     return location.pathname.startsWith(url);
   };
 
@@ -153,7 +139,7 @@ export function AdminSidebar({ onSignOut }: AdminSidebarProps) {
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
           <img
-            src={squaadLogo}
+            src={logo}
             alt="+ que Vencedores"
             className="w-8 h-8 rounded-lg object-cover"
           />
@@ -192,17 +178,15 @@ export function AdminSidebar({ onSignOut }: AdminSidebarProps) {
 
         <SidebarGroup>
           <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            Palestras / Apresentação
+            + que Vencedores
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {presentationItems.map((item) => (
+              {maisVencedoresItems.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton
-                    onClick={() => item.external
-                      ? window.open(item.url, '_blank', 'noopener,noreferrer')
-                      : navigate(item.url)}
-                    isActive={!item.external && isActive(item.url)}
+                    onClick={() => navigate(item.url)}
+                    isActive={isActive(item.url)}
                     tooltip={item.title}
                     className="transition-colors"
                   >

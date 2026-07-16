@@ -164,7 +164,7 @@ function ScrollRow({
                     <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                       <div className="bg-black/70 border border-[#3B82F6]/30 rounded-lg px-3 py-1.5 text-center">
                         <p className="text-[10px] text-[#3B82F6] font-bold uppercase tracking-wider">
-                          Exclusivo: {(allowed || []).map(p => p === 'metodo-squaad' ? 'Metodo' : p === 'mentoria' ? 'MentorIA' : p).join(' / ')}
+                          Exclusivo: {(allowed || []).map(p => p === 'metodo-vencedores' ? 'Metodo' : p === 'mentoria' ? 'MentorIA' : p).join(' / ')}
                         </p>
                       </div>
                     </div>
@@ -191,7 +191,7 @@ function ScrollRow({
 export default function MembrosTrilhas() {
   const navigate = useNavigate();
   const [categories, setCategories] = useState<Record<string, Module[]>>({});
-  const [memberProgram, setMemberProgram] = useState('metodo-squaad');
+  const [memberProgram, setMemberProgram] = useState('metodo-vencedores');
   const [selectedModule, setSelectedModule] = useState<Module | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -212,7 +212,7 @@ export default function MembrosTrilhas() {
       db.from('member_progress').select('lesson_id, completed').eq('member_id', memberId),
     ]);
 
-    setMemberProgram(memberRes.data?.program || 'metodo-squaad');
+    setMemberProgram(memberRes.data?.program || 'metodo-vencedores');
 
     const modules = modulesRes.data || [];
     const lessons = lessonsRes.data || [];

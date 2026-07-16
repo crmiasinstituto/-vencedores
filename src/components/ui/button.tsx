@@ -18,11 +18,23 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        // Variantes vindas do portal. As sombras usam --primary; a versão
+        // original do portal chumbava hsl(38 92% 50%) — âmbar do dourado
+        // antigo — e pintava um halo dourado num botão já azul.
+        gold: "bg-gradient-to-r from-primary to-gold-light text-primary-foreground transition-all duration-300 hover:opacity-90 shadow-[0_10px_40px_-10px_hsl(var(--primary)/0.5)] hover:shadow-[0_15px_50px_-10px_hsl(var(--primary)/0.7)] hover:scale-[1.02] active:scale-[0.98]",
+        "gold-outline":
+          "border-2 border-primary bg-transparent text-primary transition-all duration-300 hover:bg-primary/10 hover:shadow-[0_0_30px_-5px_hsl(var(--primary)/0.3)]",
+        premium:
+          "bg-gradient-to-r from-primary to-gold-light text-primary-foreground font-bold uppercase tracking-wide transition-all duration-300 hover:opacity-95 shadow-[0_20px_60px_-15px_hsl(var(--primary)/0.5)] hover:shadow-[0_25px_70px_-15px_hsl(var(--primary)/0.7)] hover:scale-[1.03] active:scale-[0.98]",
+        glass:
+          "backdrop-blur-xl bg-card/80 border border-primary/20 text-foreground transition-all duration-300 hover:bg-primary/10 hover:border-primary/40",
       },
       size: {
         default: "h-10 px-4 py-2",
         sm: "h-9 rounded-md px-3",
         lg: "h-11 rounded-md px-8",
+        xl: "h-14 px-10 text-lg",
+        xxl: "h-16 px-12 text-xl",
         icon: "h-10 w-10",
       },
     },

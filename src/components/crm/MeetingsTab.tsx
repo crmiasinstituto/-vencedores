@@ -10,8 +10,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { ScheduleMeetingModal } from './ScheduleMeetingModal';
 import { StartMeetingModal } from './StartMeetingModal';
 import PostCallPlanPanel from './PostCallPlanPanel';
+import { SITE_URL } from '@/lib/site';
 
-const SQUAAD_DOMAIN = 'https://squaad.com.br';
 
 // ISO -> valor pro <input type="datetime-local"> (horario local, sem timezone).
 function toLocalInput(iso: string | null): string {
@@ -185,7 +185,7 @@ export const MeetingsTab: React.FC<MeetingsTabProps> = ({ leadId, leadName, lead
       toast.error('WhatsApp do lead nao informado');
       return;
     }
-    const guestUrl = meeting.meeting_url || (meeting.livekit_room_name ? `${SQUAAD_DOMAIN}/meet/${meeting.livekit_room_name}?role=guest&name=${encodeURIComponent(leadName)}` : null);
+    const guestUrl = meeting.meeting_url || (meeting.livekit_room_name ? `${SITE_URL}/meet/${meeting.livekit_room_name}?role=guest&name=${encodeURIComponent(leadName)}` : null);
     if (!guestUrl) {
       toast.error('Nenhum link disponivel');
       return;
@@ -436,7 +436,7 @@ export const MeetingsTab: React.FC<MeetingsTabProps> = ({ leadId, leadName, lead
                               className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                window.open(`${SQUAAD_DOMAIN}/meet/${meeting.livekit_room_name}?role=host&name=Host`, '_blank');
+                                window.open(`${SITE_URL}/meet/${meeting.livekit_room_name}?role=host&name=Host`, '_blank');
                               }}
                             >
                               <Crown className="w-3 h-3 mr-1" /> Entrar como Host
@@ -447,7 +447,7 @@ export const MeetingsTab: React.FC<MeetingsTabProps> = ({ leadId, leadName, lead
                               className="h-7 text-xs border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                window.open(`${SQUAAD_DOMAIN}/meet/${meeting.livekit_room_name}?role=observer&name=Coach`, '_blank');
+                                window.open(`${SITE_URL}/meet/${meeting.livekit_room_name}?role=observer&name=Coach`, '_blank');
                               }}
                             >
                               <Eye className="w-3 h-3 mr-1" /> Observar
@@ -458,7 +458,7 @@ export const MeetingsTab: React.FC<MeetingsTabProps> = ({ leadId, leadName, lead
                               className="h-7 text-xs"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const guestUrl = `${SQUAAD_DOMAIN}/meet/${meeting.livekit_room_name}?role=guest&name=${encodeURIComponent(leadName)}`;
+                                const guestUrl = `${SITE_URL}/meet/${meeting.livekit_room_name}?role=guest&name=${encodeURIComponent(leadName)}`;
                                 navigator.clipboard.writeText(guestUrl);
                                 toast.success('Link do lead copiado!');
                               }}

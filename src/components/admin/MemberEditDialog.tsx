@@ -307,10 +307,10 @@ export default function MemberEditDialog({ member, open, onClose, onUpdated }: P
               </div>
               <div className="space-y-1.5">
                 <Label>Programa</Label>
-                <Select value={form.program || 'metodo-squaad'} onValueChange={(v) => setForm({ ...form, program: v })}>
+                <Select value={form.program || 'metodo-vencedores'} onValueChange={(v) => setForm({ ...form, program: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="metodo-squaad">Método + que Vencedores</SelectItem>
+                    <SelectItem value="metodo-vencedores">Método + que Vencedores</SelectItem>
                     <SelectItem value="mentoria">MentorIA</SelectItem>
                     <SelectItem value="mbai">MBAI</SelectItem>
                     <SelectItem value="enterprise">Enterprise</SelectItem>

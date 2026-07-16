@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- O sinal da marca sozinho, no navy da landing. Substitui o "S" da SQUAAD
+       que era servido como favicon em producao. -->
+  <rect width="32" height="32" fill="#06090F"/>
+  <g fill="#3D6BFF">
+    <rect x="14.25" y="5" width="3.5" height="22" rx="1.2"/>
+    <rect x="5" y="14.25" width="22" height="3.5" rx="1.2"/>
+  </g>
+</svg>

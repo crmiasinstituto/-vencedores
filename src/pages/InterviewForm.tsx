@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2, UserPlus } from "lucide-react";
-import squaadLogo from "@/assets/squaad-logo.jpeg";
+import logo from '@/assets/mais-que-vencedores-logo.svg';
 
 export default function InterviewForm() {
   const [name, setName] = useState("");
@@ -54,7 +54,7 @@ export default function InterviewForm() {
               Obrigado pelo interesse, {name}! Nossa equipe entrara em contato em breve para agendar sua entrevista.
             </p>
             <div className="flex items-center gap-2 mt-4 opacity-60">
-              <img src={squaadLogo} alt="+ que Vencedores" className="w-6 h-6 rounded" />
+              <img src={logo} alt="+ que Vencedores" className="w-6 h-6 rounded" />
               <span className="text-xs text-muted-foreground">Powered by + que Vencedores</span>
             </div>
           </CardContent>
@@ -68,7 +68,7 @@ export default function InterviewForm() {
       <Card className="w-full max-w-md border-primary/20 bg-gray-900/80 backdrop-blur">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <img src={squaadLogo} alt="+ que Vencedores" className="w-12 h-12 rounded-lg" />
+            <img src={logo} alt="+ que Vencedores" className="w-12 h-12 rounded-lg" />
           </div>
           <div>
             <CardTitle className="text-xl text-white">Processo Seletivo + que Vencedores</CardTitle>

@@ -1,0 +1,443 @@
+/* ═══════════════════════════════════════════════════════
+   Landing da Comunidade + que Vencedores (IAS Instituto).
+
+   DOIS ATOS. A página começa onde você está (noite) e termina onde você pode
+   chegar (dia). O arco de 12 meses é a dobradiça. Tema fixo de propósito —
+   deixar o SO inverter isso destruiria o conceito.
+
+   Por que CSS próprio e não Tailwind: o resto do app é dark-only e o design
+   aqui depende de virar claro no meio da página. Traduzir isso pras vars do
+   tema global brigaria com o CRM inteiro. Tudo abaixo está escopado em
+   .mv-landing, então não vaza pro /admin nem pro /membros.
+   ═══════════════════════════════════════════════════════ */
+
+.mv-landing {
+  --night: #06090f;
+  --night-2: #0b111c;
+  --night-ink: #e9edf6;
+  --night-ink-2: #8c97ac;
+  --night-rule: #1b2333;
+
+  --day: #edf0f5; /* papel frio — alvorada, não creme */
+  --day-2: #ffffff;
+  --day-ink: #080b12;
+  --day-ink-2: #4a5262;
+  --day-rule: #d3d9e3;
+
+  --cobalt: #3d6bff; /* o azul da marca, elétrico no escuro */
+  --cobalt-deep: #1b3fd1; /* o mesmo azul, com peso, na luz */
+  --sig: 26px;
+
+  background: var(--night);
+  color: var(--night-ink);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mv-landing *,
+.mv-landing *::before,
+.mv-landing *::after {
+  box-sizing: border-box;
+}
+
+.mv-landing .wrap {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 30px;
+  position: relative;
+  z-index: 1;
+}
+
+.mv-landing h1,
+.mv-landing h2 {
+  margin: 0;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+.mv-landing h1 { font-size: clamp(40px, 5.6vw, 70px); }
+.mv-landing h2 { font-size: clamp(32px, 4.2vw, 54px); }
+.mv-landing h3 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -0.01em; }
+.mv-landing p { margin: 0; }
+
+.mv-landing .kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--night-ink-2);
+}
+.mv-landing .lede {
+  font-size: clamp(17px, 1.6vw, 19.5px);
+  line-height: 1.55;
+  color: var(--night-ink-2);
+}
+
+/* ── O SINAL ──────────────────────────────────────────── */
+/* A marca é um "+". Repetido, vira o campo de gente do hero; sem a haste
+   vertical (.minus) vira o "−" do manifesto do que a comunidade não é. */
+.mv-landing .sig {
+  display: inline-block;
+  position: relative;
+  flex: none;
+  width: var(--sig);
+  height: var(--sig);
+}
+.mv-landing .sig::before,
+.mv-landing .sig::after {
+  content: '';
+  position: absolute;
+  background: currentColor;
+  border-radius: 1px;
+}
+.mv-landing .sig::before { left: calc(50% - 1.5px); top: 0; width: 3px; height: 100%; }
+.mv-landing .sig::after { top: calc(50% - 1.5px); left: 0; height: 3px; width: 100%; }
+.mv-landing .sig.minus::before { display: none; }
+
+/* ── barra ────────────────────────────────────────────── */
+.mv-landing .bar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(6, 9, 15, 0.72);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--night-rule);
+}
+.mv-landing .bar-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+}
+.mv-landing .mark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-size: 17px;
+}
+.mv-landing .mark .sig { --sig: 15px; color: var(--cobalt); }
+
+.mv-landing .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--cobalt);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  padding: 15px 26px;
+  text-decoration: none;
+  border: 0;
+  cursor: pointer;
+  border-radius: 0;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+.mv-landing .btn:hover { filter: brightness(1.14); transform: translateY(-1px); }
+.mv-landing .btn:focus-visible { outline: 2px solid var(--night-ink); outline-offset: 3px; }
+/* 44px: mínimo de alvo de toque */
+.mv-landing .bar .btn { padding: 0 18px; font-size: 13.5px; min-height: 44px; }
+.mv-landing .bar .btn .sm { display: none; }
+.mv-landing .btn .a { transition: transform 0.15s ease; }
+.mv-landing .btn:hover .a { transform: translateX(3px); }
+.mv-landing .fine { font-size: 13px; color: var(--night-ink-2); margin-top: 12px; }
+
+/* ── ATO I: NOITE ─────────────────────────────────────── */
+.mv-landing .night { background: var(--night); position: relative; }
+.mv-landing .hero { padding: 86px 0 76px; position: relative; overflow: hidden; }
+.mv-landing #field { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+/* o campo desvanece pra não brigar com o texto */
+.mv-landing .hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 85% at 18% 42%, rgba(6, 9, 15, 0.97) 24%, rgba(6, 9, 15, 0.62) 52%, transparent 78%);
+}
+.mv-landing .hero h1 { margin: 20px 0 0; max-width: 19ch; }
+.mv-landing .hero h1 .hl { color: var(--cobalt); }
+.mv-landing .hero .lede { margin: 24px 0 0; max-width: 50ch; }
+.mv-landing .hero .lede strong { color: var(--night-ink); }
+.mv-landing .hero-act { margin-top: 36px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.mv-landing .hero-act .fine { margin: 0; }
+
+.mv-landing .rail {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid var(--night-rule);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  align-items: center;
+}
+.mv-landing .rail .k {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #555f73;
+}
+.mv-landing .rail a {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--night-ink-2);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  transition: color 0.15s ease;
+}
+.mv-landing .rail a .sig { --sig: 8px; color: #3a4457; transition: color 0.15s ease; }
+.mv-landing .rail a:hover { color: var(--night-ink); }
+.mv-landing .rail a:hover .sig { color: var(--cobalt); }
+
+/* ── 34 mil ───────────────────────────────────────────── */
+.mv-landing .mass { padding: 96px 0; border-top: 1px solid var(--night-rule); background: var(--night-2); }
+.mv-landing .mass-top { display: grid; grid-template-columns: 1.1fr 1fr; gap: 60px; align-items: end; }
+.mv-landing .huge {
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 0.82;
+  font-size: clamp(76px, 13vw, 182px);
+  font-variant-numeric: tabular-nums;
+}
+.mv-landing .huge .u { color: var(--cobalt); }
+.mv-landing .mass-figs { display: flex; flex-direction: column; }
+.mv-landing .mf {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--night-rule);
+  font-size: 15px;
+  color: var(--night-ink-2);
+}
+.mv-landing .mf:first-child { border-top: 1px solid var(--night-rule); }
+.mv-landing .mf b { color: var(--night-ink); font-weight: 700; font-variant-numeric: tabular-nums; min-width: 52px; }
+
+/* ── áreas ────────────────────────────────────────────── */
+.mv-landing .learn { padding: 96px 0; border-top: 1px solid var(--night-rule); }
+.mv-landing .area {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) 1fr;
+  gap: 40px;
+  padding: 34px 0;
+  border-bottom: 1px solid var(--night-rule);
+  scroll-margin-top: 82px;
+}
+.mv-landing .area:first-of-type { border-top: 1px solid var(--night-rule); }
+.mv-landing .area h3 { position: sticky; top: 90px; align-self: start; }
+.mv-landing .area ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.mv-landing .area li { display: flex; gap: 13px; align-items: baseline; font-size: 16.5px; color: var(--night-ink-2); }
+.mv-landing .area li .sig { --sig: 9px; color: var(--cobalt); transform: translateY(-1px); }
+
+/* ── perks ────────────────────────────────────────────── */
+.mv-landing .perks { padding: 96px 0; border-top: 1px solid var(--night-rule); background: var(--night-2); }
+.mv-landing .pg {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1px;
+  background: var(--night-rule);
+  border: 1px solid var(--night-rule);
+  margin-top: 40px;
+}
+.mv-landing .pk { background: var(--night-2); padding: 30px 26px; display: flex; flex-direction: column; gap: 10px; }
+.mv-landing .pk .sig { --sig: 17px; color: var(--cobalt); margin-bottom: 6px; }
+.mv-landing .pk p { font-size: 14.5px; color: var(--night-ink-2); }
+.mv-landing .pk .fn { font-size: 11.5px; color: #5a6479; margin-top: auto; padding-top: 10px; }
+
+/* ── manifesto ────────────────────────────────────────── */
+.mv-landing .manifesto { padding: 104px 0; border-top: 1px solid var(--night-rule); }
+.mv-landing .manifesto h2 { max-width: 14ch; }
+.mv-landing .manifesto ul { margin: 44px 0 0; padding: 0; list-style: none; max-width: 760px; }
+.mv-landing .manifesto li {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--night-rule);
+  font-size: clamp(18px, 2.2vw, 25px);
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  color: #6e7a90;
+}
+.mv-landing .manifesto li:first-child { border-top: 1px solid var(--night-rule); }
+.mv-landing .manifesto li .sig { --sig: 15px; color: #39425a; }
+
+/* ── ATO II: A DOBRADIÇA ──────────────────────────────── */
+/* A noite segura a lista inteira. A luz chega na decisão — não antes.
+   Atravessar a zona média debaixo do texto criaria um buraco de contraste:
+   lá nem claro nem escuro passam de ~3:1. */
+.mv-landing .arc {
+  background: linear-gradient(180deg, var(--night) 0%, var(--night) 58%, #1a2334 70%, #7c88a4 88%, var(--day) 100%);
+  padding: 110px 0 120px;
+  color: var(--night-ink);
+}
+.mv-landing .arc h2 { max-width: 15ch; }
+.mv-landing .arc .kicker { color: #7c879c; }
+.mv-landing .arc-track { position: relative; margin: 56px 0 0; padding-left: 44px; }
+.mv-landing .arc-line {
+  position: absolute;
+  left: 9px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.16);
+  overflow: hidden;
+}
+.mv-landing .arc-line::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--cobalt);
+  transform: scaleY(var(--grow, 0));
+  transform-origin: top;
+  transition: transform 1s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.mv-landing .step {
+  position: relative;
+  padding: 12px 0;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.mv-landing .step.on { opacity: 1; transform: none; }
+.mv-landing .step .sig {
+  --sig: 13px;
+  position: absolute;
+  left: -42px;
+  top: 20px;
+  color: rgba(255, 255, 255, 0.2);
+  transition: color 0.45s ease;
+}
+.mv-landing .step.on .sig { color: var(--cobalt); }
+.mv-landing .step p { font-size: clamp(22px, 2.9vw, 34px); font-weight: 700; letter-spacing: -0.028em; }
+/* A decisão é o ponto de virada: é ela que aterrissa na luz. */
+.mv-landing .arc-end {
+  margin-top: 88px;
+  padding-top: 32px;
+  border-top: 1px solid rgba(0, 0, 0, 0.16);
+  font-size: clamp(26px, 3.6vw, 44px);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  color: var(--day-ink);
+}
+
+/* ── ATO III: DIA ─────────────────────────────────────── */
+.mv-landing .day { background: var(--day); color: var(--day-ink); }
+.mv-landing .day .kicker { color: #79839a; }
+.mv-landing .day .lede { color: var(--day-ink-2); }
+.mv-landing .day .lede strong { color: var(--day-ink); }
+.mv-landing .day h2 { color: var(--day-ink); }
+/* max-width + padding lateral porque esta seção é grid e não tem .wrap dentro (as outras
+   têm). Sem isto o texto cola na borda esquerda da janela. */
+.mv-landing .who {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 100px 30px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: start;
+}
+.mv-landing .mission {
+  font-size: clamp(42px, 5.4vw, 66px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+  margin: 16px 0 24px;
+}
+.mv-landing .team { margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--day-rule); }
+.mv-landing .team .k {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #79839a;
+}
+.mv-landing .team ul { margin: 14px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.mv-landing .team li { display: flex; align-items: center; gap: 11px; font-size: 18px; font-weight: 700; letter-spacing: -0.015em; }
+.mv-landing .team li .sig { --sig: 9px; color: var(--cobalt-deep); }
+.mv-landing .team .etc { font-weight: 400; font-size: 15px; color: var(--day-ink-2); padding-left: 20px; }
+
+/* ── fecho ────────────────────────────────────────────── */
+.mv-landing .close { padding: 110px 0 120px; border-top: 1px solid var(--day-rule); }
+.mv-landing .close-grid { display: grid; grid-template-columns: 1fr auto; gap: 56px; align-items: end; }
+.mv-landing .close h2 { max-width: 16ch; }
+.mv-landing .close .btn { background: var(--cobalt-deep); }
+.mv-landing .close .fine { color: #79839a; }
+.mv-landing .close .kick2 { font-size: clamp(22px, 2.6vw, 30px); font-weight: 800; letter-spacing: -0.03em; margin-top: 22px; }
+
+/* ── slots de prova ───────────────────────────────────── */
+/* Só aparecem em desenvolvimento — ver ProofSlot.tsx. */
+.mv-landing .slot { border: 1px dashed #333d52; padding: 32px 26px; display: flex; flex-direction: column; gap: 8px; }
+.mv-landing .slot .k { font-size: 10.5px; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; color: var(--cobalt); }
+.mv-landing .slot p { font-size: 14.5px; color: var(--night-ink-2); max-width: 62ch; }
+.mv-landing .slot .h { font-size: 13px; color: #5a6479; }
+.mv-landing .day .slot { border-color: #b9c1cf; }
+.mv-landing .day .slot .k { color: var(--cobalt-deep); }
+.mv-landing .day .slot p { color: var(--day-ink-2); }
+.mv-landing .day .slot .h { color: #79839a; }
+
+.mv-landing footer { background: var(--day); border-top: 1px solid var(--day-rule); padding: 38px 0; font-size: 13px; color: #79839a; }
+.mv-landing .foot { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+
+@media (max-width: 880px) {
+  .mv-landing .mass-top,
+  .mv-landing .who,
+  .mv-landing .close-grid { grid-template-columns: 1fr; gap: 34px; }
+  .mv-landing .area { grid-template-columns: 1fr; gap: 14px; }
+  .mv-landing .area h3 { position: static; }
+  .mv-landing .mass,
+  .mv-landing .learn,
+  .mv-landing .perks,
+  .mv-landing .manifesto,
+  .mv-landing .close { padding-top: 64px; padding-bottom: 64px; }
+  .mv-landing .who { padding: 64px 30px; }
+  /* No celular o lead lê na rua, com uma mão. Nada abaixo de 12.5px, e a régua
+     vira coluna pra cada link ter alvo de toque de verdade. */
+  .mv-landing { font-size: 16.5px; }
+  /* O título tem 78 caracteres: travado em 40px ele come ~9 linhas e empurra o
+     CTA pra fora da dobra num iPhone SE. Aqui ele escala com a tela. */
+  .mv-landing .hero { padding-top: 40px; padding-bottom: 56px; }
+  .mv-landing h1 { font-size: clamp(31px, 8.6vw, 42px); line-height: 1.02; }
+  .mv-landing .hero h1 { margin-top: 14px; max-width: none; }
+  .mv-landing .hero .lede { margin-top: 18px; font-size: 16px; }
+  .mv-landing .hero-act { margin-top: 26px; gap: 16px; }
+  .mv-landing .rail { margin-top: 40px; gap: 0 20px; }
+  .mv-landing .kicker,
+  .mv-landing .rail .k,
+  .mv-landing .team .k,
+  .mv-landing .slot .k { font-size: 12.5px; letter-spacing: 0.16em; }
+  .mv-landing .fine,
+  .mv-landing .pk .fn,
+  .mv-landing .slot .h { font-size: 13px; }
+  /* Em 375px a marca e o botão brigam pelo espaço: encurta o rótulo. */
+  .mv-landing .bar .btn .lg { display: none; }
+  .mv-landing .bar .btn .sm { display: inline; }
+  .mv-landing .bar .btn { padding: 0 14px; font-size: 13px; }
+  .mv-landing .mark { font-size: 15.5px; }
+  .mv-landing .mark .sig { --sig: 13px; }
+  .mv-landing .rail a { flex: 0 0 100%; border-top: 1px solid var(--night-rule); }
+  .mv-landing .rail .k { flex: 0 0 100%; padding-bottom: 10px; }
+  .mv-landing .hero-act .btn { width: 100%; justify-content: center; }
+  .mv-landing .close .btn { width: 100%; justify-content: center; }
+  .mv-landing .arc-track { padding-left: 32px; }
+  .mv-landing .arc-line { left: 5px; }
+  .mv-landing .step .sig { left: -32px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mv-landing *,
+  .mv-landing *::before,
+  .mv-landing *::after { transition: none !important; animation: none !important; }
+  .mv-landing .step { opacity: 1; transform: none; }
+  .mv-landing .arc-line::after { transform: scaleY(1); }
+}

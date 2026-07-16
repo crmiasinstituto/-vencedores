@@ -90,7 +90,7 @@ export default function PrepostoManager({ contratanteId }: Props) {
         status: 'active',
         approved_at: new Date().toISOString(),
         approved_by: 'contratante_self',
-        program: 'metodo-squaad',
+        program: 'metodo-vencedores',
       }).select().single();
       if (error) throw error;
 

@@ -8,12 +8,24 @@ interface SEOHeadProps {
   url?: string;
 }
 
-const SEOHead = ({ 
-  title = "+ que Vencedores - Esquadrão de IA para Automatizar seu Negócio 24h | Agentes Especializados em Vendas e Atendimento",
-  description = "Transforme seu negócio com o + que Vencedores - esquadrão de agentes IA especializados. Automatize vendas, atendimento e suporte 24h. Solução omnichannel com ROI previsível. Teste grátis!",
-  keywords = "esquadrão de IA, automação empresarial, agentes de inteligência artificial, automação de vendas, atendimento automatizado, + que Vencedores, IA para empresas, automação de processos, CRM com IA, vendas automáticas, suporte 24h, omnichannel, chatbot inteligente, automação WhatsApp, agentes especializados, ROI automação, inteligência artificial B2B",
+/**
+ * Todo o conteúdo aqui descrevia a SQUAAD — agência de agentes de IA — com a
+ * palavra "SQUAAD" trocada por "+ que Vencedores" num find-replace. O resultado
+ * afirmava ao Google, via schema.org, que "a + que Vencedores é um esquadrão de
+ * agentes de IA especializados", com telefone inventado e canonical apontando
+ * pra squaad.com.br. Os dados abaixo vêm da landing aprovada da comunidade.
+ */
+
+// Sem domínio próprio definido ainda: derivar da origem evita repetir o erro de
+// chumbar um domínio que não é nosso. Trocar por constante quando o DNS existir.
+const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
+
+const SEOHead = ({
+  title = "+ que Vencedores — Comunidade do IAS Instituto",
+  description = "A comunidade de desenvolvimento pessoal, profissional e financeiro do IAS Instituto. Aulas, treinamentos e cursos com Isaac Santos e os treinadores do Instituto — gratuitos nos primeiros 12 meses.",
+  keywords = "+ que Vencedores, IAS Instituto, Isaac Santos, desenvolvimento pessoal, comunidade, espiritualidade, inteligência emocional, vida financeira, produtividade, relacionamentos, comunicação, mentalidade vencedora",
   image = "/og-image.jpg",
-  url = "https://squaad.com.br"
+  url = siteUrl,
 }: SEOHeadProps) => {
   return (
     <Helmet>
@@ -21,7 +33,7 @@ const SEOHead = ({
       <title>{title}</title>
       <meta name="description" content={description} />
       <meta name="keywords" content={keywords} />
-      <meta name="author" content="+ que Vencedores" />
+      <meta name="author" content="IAS Instituto" />
       <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
       <meta name="language" content="pt-BR" />
       <meta name="geo.region" content="BR" />
@@ -44,104 +56,55 @@ const SEOHead = ({
       <meta property="twitter:title" content={title} />
       <meta property="twitter:description" content={description} />
       <meta property="twitter:image" content={image} />
-      <meta property="twitter:creator" content="@squaad" />
 
-      {/* Schema.org para Negócios Locais */}
+      {/* Schema.org. Era SoftwareApplication/B2B Software — a comunidade é uma
+          organização de educação, não um produto de software. */}
       <script type="application/ld+json">
         {JSON.stringify({
           "@context": "https://schema.org",
-          "@type": "SoftwareApplication",
-          "name": "+ que Vencedores",
-          "description": description,
-          "applicationCategory": "BusinessApplication",
-          "operatingSystem": "Web",
-          "offers": {
-            "@type": "Offer",
-            "category": "B2B Software",
-            "priceCurrency": "BRL"
-          },
-          "provider": {
+          "@type": "EducationalOrganization",
+          name: "Comunidade + que Vencedores",
+          description,
+          url,
+          foundingDate: "2019",
+          parentOrganization: {
             "@type": "Organization",
-            "name": "+ que Vencedores",
-            "url": url,
-            "logo": `${url}/logo.png`,
-            "contactPoint": {
-              "@type": "ContactPoint",
-              "telephone": "+55-11-99999-9999",
-              "contactType": "customer service",
-              "availableLanguage": "Portuguese"
-            },
-            "address": {
-              "@type": "PostalAddress",
-              "addressCountry": "BR",
-              "addressRegion": "São Paulo"
-            }
+            name: "IAS Instituto",
           },
-          "featureList": [
-            "Automação com Esquadrão de IA",
-            "Atendimento Especializado 24h",
-            "Integração Omnichannel",
-            "Agentes IA Especializados",
-            "Dashboard e Analytics",
-            "ROI Previsível",
-            "Automação de Alta Performance"
-          ]
+          founder: {
+            "@type": "Person",
+            name: "Isaac Santos",
+            jobTitle: "Fundador do IAS Instituto",
+          },
+          address: {
+            "@type": "PostalAddress",
+            addressCountry: "BR",
+          },
+          knowsAbout: [
+            "Espiritualidade",
+            "Comunicação",
+            "Inteligência Emocional",
+            "Relacionamentos",
+            "Vida Financeira",
+            "Produtividade",
+            "Desenvolvimento Pessoal",
+          ],
         })}
       </script>
 
-      {/* FAQ Schema */}
-      <script type="application/ld+json">
-        {JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "FAQPage",
-          "mainEntity": [
-            {
-              "@type": "Question",
-              "name": "O que é a + que Vencedores?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "A + que Vencedores é um esquadrão de agentes de IA especializados que automatiza processos empresariais, vendas e atendimento 24 horas por dia com alta performance e ROI previsível."
-              }
-            },
-            {
-              "@type": "Question", 
-              "name": "Como funciona a integração omnichannel?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "Nosso esquadrão integra WhatsApp, Instagram, chat do site, email e outros canais em uma única operação inteligente, permitindo atendimento unificado com agentes especializados."
-              }
-            },
-            {
-              "@type": "Question",
-              "name": "Quais setores podem usar a + que Vencedores?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "Atendemos clínicas, eventos, educação, e-commerce, imobiliárias, advocacia, consultorias e diversos outros setores que precisam de automação de alta performance."
-              }
-            }
-          ]
-        })}
-      </script>
-
-      {/* Links Canônicos */}
       <link rel="canonical" href={url} />
-      
-      {/* Favicon e Icons */}
-      <link rel="icon" href="/squaad-favicon.png" type="image/png" />
-      <link rel="apple-touch-icon" sizes="180x180" href="/squaad-favicon.png" />
-      <link rel="icon" type="image/png" sizes="32x32" href="/squaad-favicon.png" />
-      <link rel="icon" type="image/png" sizes="16x16" href="/squaad-favicon.png" />
-      
-      {/* Manifest */}
-      <link rel="manifest" href="/site.webmanifest" />
+
+      {/* Favicon e Icons.
+          Apontavam pra /squaad-favicon.png — arquivo que nunca existiu no public/.
+          Toda página com <SEOHead> servia um link de favicon quebrado. */}
+      <link rel="icon" href="/favicon.png" type="image/png" />
+      <link rel="apple-touch-icon" sizes="180x180" href="/favicon.png" />
+      <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+      <link rel="icon" type="image/png" sizes="16x16" href="/favicon.png" />
+
       <meta name="theme-color" content="#3B82F6" />
-      
-      {/* DNS Prefetch para Performance */}
+
       <link rel="dns-prefetch" href="//fonts.googleapis.com" />
-      <link rel="dns-prefetch" href="//wa.me" />
-      
-      {/* Preload Critical Resources */}
-      <link rel="preload" href="/fonts/inter.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
     </Helmet>
   );
 };

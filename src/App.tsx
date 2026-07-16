@@ -2,51 +2,30 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
-import { useState, useEffect, lazy, Suspense } from "react";
+import { lazy, Suspense } from "react";
 
-// Públicos: a masterclass fica estática (alvo principal de venda hoje)
-import MasterclassIA from "./pages/MasterclassIA";
 import NotFound from "./pages/NotFound";
-import { LeadCapturePopup } from "./components/lead/LeadCapturePopup";
 
-// Outras landings ficam lazy pra não pesar nessa rota
-const Index = lazy(() => import("./pages/Index"));
+// Públicas
 const AdminAuth = lazy(() => import("./pages/AdminAuth"));
 const EventPlanning = lazy(() => import("./pages/EventPlanning"));
-const VHSaoPrompt = lazy(() => import("./pages/VHSaoPrompt"));
 const TermosDeUso = lazy(() => import("./pages/TermosDeUso"));
 const PoliticaPrivacidade = lazy(() => import("./pages/PoliticaPrivacidade"));
-const ReprogrameLanding = lazy(() => import("./pages/r10x/ReprogrameLanding"));
-const ReprogrameDisc = lazy(() => import("./pages/r10x/ReprogrameDisc"));
-const ReprogrameTelao = lazy(() => import("./pages/r10x/ReprogrameTelao"));
 const CollectiveEventLanding = lazy(() => import("./pages/CollectiveEventLanding"));
 const EventSelfRegister = lazy(() => import("./pages/EventSelfRegister"));
 const EventPublicEntry = lazy(() => import("./pages/EventPublicEntry"));
 const WaGroupRedirect = lazy(() => import("./pages/WaGroupRedirect"));
-
-// Onboarding (lazy: usuário só chega via link)
-const OnboardingWelcome = lazy(() => import("./pages/OnboardingWelcome"));
-const OnboardingStep = lazy(() => import("./pages/OnboardingStep"));
-const VHSOnboardingStart = lazy(() => import("./pages/VHSOnboardingStart"));
-const VHSOnboardingStep = lazy(() => import("./pages/VHSOnboardingStep"));
-const VHSOnboardingComplete = lazy(() => import("./pages/VHSOnboardingComplete"));
-const MetodoSquaadOnboarding = lazy(() => import("./pages/MetodoSquaadOnboarding"));
-const MasterclassOnboarding = lazy(() => import("./pages/MasterclassOnboarding"));
 const InterviewForm = lazy(() => import("./pages/InterviewForm"));
-const AdminReprogramaSettings = lazy(() => import("./pages/AdminReprogramaSettings"));
-const EstruturarEvento = lazy(() => import("./pages/EstruturarEvento"));
-const CriarMeuEvento = lazy(() => import("./pages/CriarMeuEvento"));
 
-// Admin (lazy: só admin logado acessa)
+// Admin
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout").then(m => ({ default: m.AdminLayout })));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminCRM = lazy(() => import("./pages/AdminCRM"));
 const AdminAgenda = lazy(() => import("./pages/AdminAgenda"));
 const AdminFunil = lazy(() => import("./pages/AdminFunil"));
 const AdminEquipe = lazy(() => import("./pages/AdminEquipe"));
-const AdminRoleplay = lazy(() => import("./pages/AdminRoleplay"));
 const AdminGrupos = lazy(() => import("./pages/AdminGrupos"));
 const AdminClientes360 = lazy(() => import("./pages/AdminClientes360"));
 const SalesDashboard = lazy(() => import("./pages/SalesDashboard"));
@@ -54,8 +33,6 @@ const AdminRecebimentos = lazy(() => import("./pages/AdminRecebimentos"));
 const AdminFinanceiro = lazy(() => import("./pages/AdminFinanceiro"));
 const AdminWhatsApp = lazy(() => import("./pages/AdminWhatsApp"));
 const AdminCallMetrics = lazy(() => import("./pages/AdminCallMetrics"));
-const AdminOnboarding = lazy(() => import("./pages/AdminOnboarding"));
-const AdminVHSParticipants = lazy(() => import("./pages/AdminVHSParticipants"));
 const AdminMarketing = lazy(() => import("./pages/AdminMarketing"));
 const AdminCredenciamento = lazy(() => import("./pages/AdminCredenciamento"));
 const AdminPortaria = lazy(() => import("./pages/AdminPortaria"));
@@ -67,16 +44,10 @@ const AdminPlaybooks = lazy(() => import("./pages/AdminPlaybooks"));
 const AdminAgentes = lazy(() => import("./pages/AdminAgentes"));
 const AdminConfiguracoes = lazy(() => import("./pages/AdminConfiguracoes"));
 const AdminImportarKirvano = lazy(() => import("./pages/AdminImportarKirvano"));
-const AdminProspeccao = lazy(() => import("./pages/AdminProspeccao"));
-const AdminProspeccaoDescobertos = lazy(() => import("./pages/AdminProspeccaoDescobertos"));
-const AdminProspeccaoDiagnostico = lazy(() => import("./pages/AdminProspeccaoDiagnostico"));
-const AdminProspeccaoPrint = lazy(() => import("./pages/AdminProspeccaoPrint"));
-const AdminProspeccaoConfiguracoes = lazy(() => import("./pages/AdminProspeccaoConfiguracoes"));
-const AdminProspeccaoHistorico = lazy(() => import("./pages/AdminProspeccaoHistorico"));
 const AdminRecrutamento = lazy(() => import("./pages/AdminRecrutamento"));
 const AdminMembros = lazy(() => import("./pages/AdminMembros"));
 
-// Marketing module (Email + WhatsApp blast + Automações)
+// Marketing (Email + WhatsApp blast + Automações)
 const MarketingDashboard = lazy(() => import("./pages/marketing/MarketingDashboard"));
 const EmailMarketingHub = lazy(() => import("./pages/marketing/EmailMarketingHub"));
 const EmailCampaignNew = lazy(() => import("./pages/marketing/EmailCampaignNew"));
@@ -99,7 +70,7 @@ const MarketingCockpit = lazy(() => import("./pages/marketing/MarketingCockpit")
 const CriativosLab = lazy(() => import("./pages/marketing/CriativosLab"));
 const CollectiveEventsHub = lazy(() => import("./pages/marketing/CollectiveEventsHub"));
 const CollectiveEventDetail = lazy(() => import("./pages/marketing/CollectiveEventDetail"));
-const MembrosLogin = lazy(() => import("./pages/MembrosLogin"));
+
 // Acervo do Time (storage B2 + quadro Trello). Acesso externo do time + admin.
 const TeamLogin = lazy(() => import("./pages/TeamLogin"));
 const TeamWorkspace = lazy(() => import("./pages/TeamWorkspace"));
@@ -107,113 +78,58 @@ const AdminAcervo = lazy(() => import("./pages/AdminAcervo"));
 const MeetRoom = lazy(() => import("./pages/MeetRoom"));
 const RecordingTemplate = lazy(() => import("./pages/RecordingTemplate"));
 
-// Member area pages (student-facing)
+// + que Vencedores (netweaving) — portado do repo mais-que-vencedores-portal.
+// Landing pública em /maisvencedores, área do membro em /maisvencedores/membros e o admin
+// dele em /admin/maisvencedores. Os dois /membros ficam separados de propósito: este é
+// netweaving (portfólio, indicações, ranking) e o de baixo é o LMS do acelerador.
+const MaisVencedoresRoutes = lazy(() => import("./maisvencedores/MaisVencedoresRoutes"));
+const MaisVencedoresAdminRoutes = lazy(() => import("./maisvencedores/MaisVencedoresAdminRoutes"));
+// Link rastreado de indicação. Fica na raiz (/i/:codigo) de propósito: é um link que o membro
+// cola no WhatsApp, então cada caractere conta.
+const LinkIndicacao = lazy(() => import("./maisvencedores/pages/LinkIndicacao"));
+
+// Área do membro (LMS). A autenticação ainda é a antiga, por token custom —
+// a migração pro Supabase Auth é a próxima etapa do merge.
+const MembrosLogin = lazy(() => import("./pages/MembrosLogin"));
 const MembrosDashboard = lazy(() => import("./pages/MembrosDashboard"));
 const MembrosMeet = lazy(() => import("./pages/MembrosMeet"));
 const MembrosTrilhas = lazy(() => import("./pages/MembrosTrilhas"));
 const MembrosAula = lazy(() => import("./pages/MembrosAula"));
-const MembrosAIFirst = lazy(() => import("./pages/MembrosAIFirst"));
-const MembrosDicionario = lazy(() => import("./pages/MembrosDicionario"));
-const MembrosAcelerador = lazy(() => import("./pages/MembrosAcelerador"));
 const MembrosPerfil = lazy(() => import("./pages/MembrosPerfil"));
 const MembrosContrato = lazy(() => import("./pages/MembrosContrato"));
-const MembrosProspeccao = lazy(() => import("./pages/MembrosProspeccao"));
-const MembrosProspeccaoDescobertos = lazy(() => import("./pages/MembrosProspeccaoDescobertos"));
-const MembrosProspeccaoDiagnostico = lazy(() => import("./pages/MembrosProspeccaoDiagnostico"));
-const MembrosProspeccaoMeusLeads = lazy(() => import("./pages/MembrosProspeccaoMeusLeads"));
-const MembrosProspeccaoHistorico = lazy(() => import("./pages/MembrosProspeccaoHistorico"));
-
-// Componente que verifica a rota antes de mostrar o popup
-const ConditionalLeadPopup = ({
-  isOpen,
-  onClose
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-}) => {
-  const location = useLocation();
-  const isMainLandingPage = location.pathname === '/';
-  if (!isMainLandingPage) return null;
-  // Esconder também em rotas públicas dedicadas (telão/captura de evento)
-  if (
-    location.pathname.startsWith('/r10x') ||
-    location.pathname === '/telao' ||
-    location.pathname.startsWith('/r/') ||
-    location.pathname.startsWith('/g/')
-  ) return null;
-  return <LeadCapturePopup isOpen={isOpen} onClose={onClose} />;
-};
 
 const queryClient = new QueryClient();
 
 const RouteFallback = () => (
-  <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-    <div className="w-8 h-8 border-2 border-[#3B82F6]/30 border-t-[#3B82F6] rounded-full animate-spin" />
+  <div className="min-h-screen bg-background flex items-center justify-center">
+    <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
   </div>
 );
 
-// URL limpa da apresentacao Masterclass (sem .html). Em producao o Netlify reescreve
-// /apresentacoes/masterclass-ia-negocios -> .html (URL fica limpa, React nem carrega).
-// Em dev/preview local (sem rewrite) cai no SPA e aqui redirecionamos pro arquivo estatico.
-const MasterclassDeckRedirect = () => {
-  useEffect(() => {
-    window.location.replace("/apresentacoes/masterclass-ia-negocios.html");
-  }, []);
-  return null;
-};
-
 const App = () => {
-  const [showLeadPopup, setShowLeadPopup] = useState(false);
-
-  useEffect(() => {
-    const leadCaptured = localStorage.getItem('lead_captured');
-    const captureDate = localStorage.getItem('lead_captured_date');
-    if (!leadCaptured || (captureDate &&
-        new Date().getTime() - new Date(captureDate).getTime() > 30 * 24 * 60 * 60 * 1000)) {
-      setShowLeadPopup(true);
-    }
-  }, []);
-
-  const handleCloseLeadPopup = () => {
-    setShowLeadPopup(false);
-  };
-
   return (
     <HelmetProvider>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <Toaster />
           <Sonner />
-           <BrowserRouter>
-            <ConditionalLeadPopup
-              isOpen={showLeadPopup}
-              onClose={handleCloseLeadPopup}
-            />
+          <BrowserRouter>
             <Suspense fallback={<RouteFallback />}>
               <Routes>
-                {/* Public routes */}
-                <Route path="/" element={<Index />} />
+                {/* Públicas */}
+                <Route path="/" element={<Navigate to="/maisvencedores" replace />} />
+
+                {/* + que Vencedores: landing + netweaving. O /* é necessário porque
+                    MaisVencedoresRoutes tem o próprio <Routes> aninhado. */}
+                <Route path="/maisvencedores/*" element={<MaisVencedoresRoutes />} />
+                {/* Link de indicação rastreado: registra o clique e manda pro destino. */}
+                <Route path="/i/:codigo" element={<LinkIndicacao />} />
+
                 <Route path="/admin/auth" element={<AdminAuth />} />
-                <Route path="/onboarding/:token" element={<OnboardingWelcome />} />
-                <Route path="/onboarding/:token/step/:step" element={<OnboardingStep />} />
                 <Route path="/evento-planejamento" element={<EventPlanning />} />
                 <Route path="/entrevista/form" element={<InterviewForm />} />
-                <Route path="/vhs-ao-prompt" element={<VHSaoPrompt />} />
-                <Route path="/masterclass-ia" element={<MasterclassIA />} />
-                <Route path="/vhs/onboarding" element={<VHSOnboardingStart />} />
-                <Route path="/vhs/onboarding/step/:step" element={<VHSOnboardingStep />} />
-                <Route path="/vhs/onboarding/complete" element={<VHSOnboardingComplete />} />
                 <Route path="/termos" element={<TermosDeUso />} />
                 <Route path="/privacidade" element={<PoliticaPrivacidade />} />
-                <Route path="/metodo-squaad/onboarding/:token" element={<MetodoSquaadOnboarding />} />
-                <Route path="/masterclass/onboarding/:token" element={<MasterclassOnboarding />} />
-                <Route path="/m/:token" element={<MasterclassOnboarding />} />
-                {/* Reprograme-se 10X — DISC Lead Magnet */}
-                <Route path="/r10x" element={<ReprogrameLanding />} />
-                <Route path="/r10x/disc" element={<ReprogrameDisc />} />
-                <Route path="/telao" element={<ReprogrameTelao />} />
-                {/* Landing publica: estruturar seu proprio evento (lead magnet) */}
-                <Route path="/criar-meu-evento" element={<CriarMeuEvento />} />
                 {/* Eventos coletivos (Masterclass, Workshop, Aulão) */}
                 <Route path="/r/:token" element={<CollectiveEventLanding />} />
                 {/* Auto-cadastro publico de inscritos (QR do evento no credenciamento) */}
@@ -225,25 +141,18 @@ const App = () => {
                 {/* Acervo do Time: acesso externo independente (so essa pagina) */}
                 <Route path="/time/login" element={<TeamLogin />} />
                 <Route path="/time" element={<TeamWorkspace />} />
+
+                {/* Área do membro */}
                 <Route path="/membros/login" element={<MembrosLogin />} />
                 <Route path="/membros" element={<MembrosDashboard />} />
                 <Route path="/membros/trilhas" element={<MembrosTrilhas />} />
                 <Route path="/membros/aula/:lessonId" element={<MembrosAula />} />
                 <Route path="/membros/meet/:roomId" element={<MembrosMeet />} />
-                <Route path="/membros/ai-first" element={<MembrosAIFirst />} />
-                <Route path="/membros/dicionario" element={<MembrosDicionario />} />
-                <Route path="/membros/ai-first/:slug" element={<MembrosAcelerador />} />
                 <Route path="/membros/perfil" element={<MembrosPerfil />} />
                 <Route path="/membros/contrato" element={<MembrosContrato />} />
                 <Route path="/assinar/:token" element={<MembrosContrato />} />
-                <Route path="/membros/prospeccao" element={<MembrosProspeccao />} />
-                <Route path="/membros/prospeccao/busca/:buscaId" element={<MembrosProspeccaoDescobertos />} />
-                <Route path="/membros/prospeccao/diagnostico/:diagnosticoId" element={<MembrosProspeccaoDiagnostico />} />
-                <Route path="/membros/prospeccao/diagnostico/:diagnosticoId/print" element={<AdminProspeccaoPrint />} />
-                <Route path="/membros/prospeccao/meus-leads" element={<MembrosProspeccaoMeusLeads />} />
-                <Route path="/membros/prospeccao/historico" element={<MembrosProspeccaoHistorico />} />
 
-                {/* Admin routes - wrapped in AdminLayout */}
+                {/* Admin */}
                 <Route path="/admin" element={<AdminLayout><AdminDashboard /></AdminLayout>} />
                 <Route path="/admin/crm" element={<AdminLayout><AdminCRM /></AdminLayout>} />
                 <Route path="/admin/clientes" element={<AdminLayout><AdminClientes360 /></AdminLayout>} />
@@ -252,8 +161,6 @@ const App = () => {
                 <Route path="/admin/financeiro" element={<AdminLayout><AdminFinanceiro /></AdminLayout>} />
                 <Route path="/admin/whatsapp" element={<AdminLayout><AdminWhatsApp /></AdminLayout>} />
                 <Route path="/admin/ligacoes" element={<AdminLayout><AdminCallMetrics /></AdminLayout>} />
-                <Route path="/admin/onboarding" element={<AdminLayout><AdminOnboarding /></AdminLayout>} />
-                <Route path="/admin/vhs/participantes" element={<AdminLayout><AdminVHSParticipants /></AdminLayout>} />
                 <Route path="/admin/marketing" element={<AdminLayout><AdminMarketing /></AdminLayout>} />
                 <Route path="/admin/social-selling" element={<AdminLayout><AdminSocialSelling /></AdminLayout>} />
                 <Route path="/configuracoes/social-selling" element={<Navigate to="/admin/social-selling" replace />} />
@@ -266,24 +173,19 @@ const App = () => {
                 <Route path="/admin/agenda" element={<AdminLayout><AdminAgenda /></AdminLayout>} />
                 <Route path="/admin/funil" element={<AdminLayout><AdminFunil /></AdminLayout>} />
                 <Route path="/admin/equipe" element={<AdminLayout><AdminEquipe /></AdminLayout>} />
-                <Route path="/admin/roleplay" element={<AdminLayout><AdminRoleplay /></AdminLayout>} />
                 <Route path="/admin/grupos" element={<AdminLayout><AdminGrupos /></AdminLayout>} />
-                <Route path="/admin/prospeccao" element={<AdminLayout><AdminProspeccao /></AdminLayout>} />
-                <Route path="/admin/prospeccao/busca/:buscaId" element={<AdminLayout><AdminProspeccaoDescobertos /></AdminLayout>} />
-                <Route path="/admin/prospeccao/diagnostico/:diagnosticoId" element={<AdminLayout><AdminProspeccaoDiagnostico /></AdminLayout>} />
-                <Route path="/admin/prospeccao/diagnostico/:diagnosticoId/print" element={<AdminProspeccaoPrint />} />
-                <Route path="/admin/prospeccao/configuracoes" element={<AdminLayout><AdminProspeccaoConfiguracoes /></AdminLayout>} />
-                <Route path="/admin/prospeccao/historico" element={<AdminLayout><AdminProspeccaoHistorico /></AdminLayout>} />
                 <Route path="/admin/recrutamento" element={<AdminLayout><AdminRecrutamento /></AdminLayout>} />
                 <Route path="/admin/membros" element={<AdminLayout><AdminMembros /></AdminLayout>} />
+                {/* Admin do netweaving. Fica debaixo do AdminLayout do CRM de propósito: um
+                    porteiro só (useAdminAuth → is_admin()) pro /admin inteiro. Não confundir
+                    /admin/membros (membros do LMS) com /admin/maisvencedores/membros
+                    (empresas do netweaving) — são cadastros diferentes. */}
+                <Route path="/admin/maisvencedores/*" element={<AdminLayout><MaisVencedoresAdminRoutes /></AdminLayout>} />
                 <Route path="/admin/acervo" element={<AdminLayout><AdminAcervo /></AdminLayout>} />
                 <Route path="/admin/configuracoes" element={<AdminLayout><AdminConfiguracoes /></AdminLayout>} />
                 <Route path="/admin/importar-kirvano" element={<AdminLayout><AdminImportarKirvano /></AdminLayout>} />
-                <Route path="/admin/apresentacoes/reprograme-10x" element={<AdminLayout><AdminReprogramaSettings /></AdminLayout>} />
-                <Route path="/admin/apresentacoes/estruturar-evento" element={<AdminLayout><EstruturarEvento /></AdminLayout>} />
-                <Route path="/apresentacoes/masterclass-ia-negocios" element={<MasterclassDeckRedirect />} />
 
-                {/* Marketing module — Email + WhatsApp blast + Automações */}
+                {/* Marketing — Email + WhatsApp blast + Automações */}
                 <Route path="/admin/marketing/email" element={<AdminLayout><MarketingDashboard /></AdminLayout>} />
                 <Route path="/admin/marketing/campanhas" element={<AdminLayout><EmailMarketingHub /></AdminLayout>} />
                 <Route path="/admin/marketing/campanhas/nova" element={<AdminLayout><EmailCampaignNew /></AdminLayout>} />

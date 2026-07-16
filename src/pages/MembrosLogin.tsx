@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import squaadLogo from '@/assets/squaad-logo.jpeg';
+import logo from '@/assets/mais-que-vencedores-logo.svg';
 
 export default function MembrosLogin() {
   const navigate = useNavigate();
@@ -58,8 +58,20 @@ export default function MembrosLogin() {
       });
 
       if (error || !data?.session_token) {
-        const msg = (data && (data as any).error) || error?.message || 'Acesso nao encontrado. Entre em contato.';
-        toast.error(msg);
+        // Em resposta não-2xx o functions.invoke devolve data = null e joga o corpo dentro de
+        // error.context (a Response crua). Sem ler dali, o toast mostrava o texto da lib
+        // ("Edge Function returned a non-2xx status code") em vez do motivo real — que a
+        // função já manda mastigado em { error }.
+        let msg = (data as any)?.error as string | undefined;
+        const ctx = (error as any)?.context;
+        if (!msg && ctx && typeof ctx.json === 'function') {
+          try {
+            msg = (await ctx.json())?.error;
+          } catch {
+            /* corpo não era JSON; cai no texto padrão abaixo */
+          }
+        }
+        toast.error(msg || 'Acesso nao encontrado. Entre em contato.');
         setLoading(false);
         return;
       }
@@ -125,7 +137,7 @@ export default function MembrosLogin() {
               className="flex justify-center mb-4"
             >
               <img
-                src={squaadLogo}
+                src={logo}
                 alt="+ que Vencedores"
                 className="w-20 h-20 rounded-2xl object-cover shadow-lg"
                 style={{ boxShadow: '0 0 30px rgba(250, 200, 0, 0.3)' }}

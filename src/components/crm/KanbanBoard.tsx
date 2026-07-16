@@ -374,11 +374,14 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, boardName, al
             .from('members')
             .insert({
               name: lead.name,
-              email: lead.email || `${phone}@squaad.com`,
+              // Sem email real o membro fica sem email. Antes entrava um
+              // sintético `${telefone}@squaad.com` — endereço de outra empresa,
+              // que nunca recebe, e que o disparo de email trataria como válido.
+              email: lead.email || null,
               phone: phone,
               status: 'pending',
               crm_lead_id: leadId,
-              program: boardName?.toLowerCase().includes('mentoria') ? 'mentoria' : 'metodo-squaad',
+              program: boardName?.toLowerCase().includes('mentoria') ? 'mentoria' : 'metodo-vencedores',
               // Propaga o CPF do lead pro member: o Asaas exige CPF/CNPJ e sem
               // isso a geracao de cobranca era pulada silenciosamente.
               cpf: lead.cpf ? String(lead.cpf).replace(/\D/g, '') : null,
@@ -388,42 +391,13 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, boardName, al
           memberId = newMember?.id || null;
           toast.info('Membro criado (pendente aprovacao em Admin > Membros)');
 
-          // Create onboarding enrollment
-          const { data: enrollment } = await (supabase as any)
-            .from('metodo_squaad_enrollments')
-            .insert({
-              crm_lead_id: leadId,
-              name: lead.name,
-              whatsapp: phone,
-              status: 'pending',
-              program: boardName || 'Metodo + que Vencedores',
-            })
-            .select('onboarding_token')
-            .single();
-
-          // Send welcome message + onboarding link via WhatsApp
-          const { data: waInstances } = await (supabase as any)
-            .from('whatsapp_instances')
-            .select('id')
-            .eq('status', 'connected')
-            .eq('provider', 'uazapi')
-            .or('is_dedicated_blast.is.null,is_dedicated_blast.eq.false')
-            .order('created_at', { ascending: true })
-            .limit(1);
-
-          if (waInstances?.[0] && enrollment?.onboarding_token) {
-            const onboardingUrl = `https://squaad.com.br/metodo-squaad/onboarding/${enrollment.onboarding_token}`;
-            const phoneNumber = phone.startsWith('55') ? phone : '55' + phone;
-            await supabase.functions.invoke('uazapi-proxy', {
-              body: {
-                action: 'send_text',
-                instance_id: waInstances[0].id,
-                number: phoneNumber,
-                text: `Parabens ${lead.name}, seja muito bem-vindo ao ${boardName || 'Metodo + que Vencedores'}.\n\nVamos jogar duro juntos, esse e o comeco de uma jornada que vai transformar seu negocio com Inteligencia Artificial.\n\nPreciso que voce preencha seu onboarding personalizado pra eu montar sua trilha de aulas sob medida:\n\n${onboardingUrl}\n\nQualquer duvida, estou aqui.`,
-              },
-            });
-            toast.success('Mensagem de boas-vindas enviada via WhatsApp!');
-          }
+          // Aqui havia um disparo automático: abria matrícula em
+          // metodo_squaad_enrollments e mandava WhatsApp com link pra
+          // squaad.com.br/metodo-vencedores/onboarding — domínio de outra empresa,
+          // rota que não existe mais — convidando o lead a "transformar seu
+          // negócio com Inteligência Artificial". Era o funil da agência
+          // disparando sozinho ao arrastar um card. A matrícula nunca teve uma
+          // linha sequer no banco.
         } else {
           memberId = existing.id;
         }
@@ -458,7 +432,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, boardName, al
           .insert({
             member_id: memberId,
             crm_lead_id: leadId,
-            program: 'metodo-squaad',
+            program: 'metodo-vencedores',
             total_value: saleData.totalValue,
             entry_value: saleData.entryValue,
             entry_method: saleData.entryMethod,

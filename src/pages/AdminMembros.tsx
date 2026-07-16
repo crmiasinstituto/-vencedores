@@ -2303,7 +2303,7 @@ export default function AdminMembros() {
               <div className="flex flex-col gap-2 bg-muted/30 rounded-lg p-3 border border-border/40">
                 <p className="text-[11px] text-muted-foreground">Se nada selecionado → liberado pra todos os programas.</p>
                 {[
-                  { value: 'metodo-squaad', label: 'Metodo + que Vencedores' },
+                  { value: 'metodo-vencedores', label: 'Metodo + que Vencedores' },
                   { value: 'mentoria', label: 'MentorIA' },
                 ].map(opt => {
                   const checked = moduleForm.allowed_programs?.includes(opt.value);

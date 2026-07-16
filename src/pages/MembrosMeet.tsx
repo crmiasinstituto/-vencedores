@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import squaadLogo from '@/assets/squaad-business-solutions.jpg';
+import logo from '@/assets/mais-que-vencedores-logo.svg';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, Radio, Clock, Video, CheckCircle2 } from 'lucide-react';
@@ -119,7 +119,7 @@ export default function MembrosMeet() {
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
         <Card className="max-w-md w-full bg-white/5 border-white/10">
           <CardContent className="p-8 text-center space-y-4">
-            <img src={squaadLogo} alt="+ que Vencedores" className="w-48 mx-auto" />
+            <img src={logo} alt="+ que Vencedores" className="w-48 mx-auto" />
             <h2 className="text-xl font-bold text-white">Acesso sob autorizacao</h2>
             <p className="text-sm text-white/60">Esta reuniao e do Metodo + que Vencedores. Peca acesso no seu painel de membros que o host libera sua entrada.</p>
             <Button onClick={() => navigate('/membros')} className="w-full py-5 bg-[#3B82F6] hover:bg-[#3B82F6]/90 text-black font-bold">Voltar pro painel</Button>
@@ -134,7 +134,7 @@ export default function MembrosMeet() {
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
         <Card className="max-w-md w-full bg-white/5 border-white/10">
           <CardContent className="p-8 text-center space-y-4">
-            <img src={squaadLogo} alt="+ que Vencedores" className="w-48 mx-auto" />
+            <img src={logo} alt="+ que Vencedores" className="w-48 mx-auto" />
             <h2 className="text-xl font-bold text-white">Reuniao nao encontrada</h2>
             <p className="text-sm text-white/60">Este link pode ter expirado ou nao e mais valido.</p>
             {liveNow && (
@@ -169,7 +169,7 @@ export default function MembrosMeet() {
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
         <Card className="max-w-md w-full bg-white/5 border-white/10">
           <CardContent className="p-8 text-center space-y-4">
-            <img src={squaadLogo} alt="+ que Vencedores" className="w-48 mx-auto" />
+            <img src={logo} alt="+ que Vencedores" className="w-48 mx-auto" />
             <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-8 h-8 text-green-400" />
             </div>
@@ -216,7 +216,7 @@ export default function MembrosMeet() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(250,200,0,0.08)_0%,_transparent_70%)]" />
         <Card className="max-w-md w-full bg-white/5 border-white/10 relative z-10">
           <CardContent className="p-8 text-center space-y-5">
-            <img src={squaadLogo} alt="+ que Vencedores" className="w-48 mx-auto" />
+            <img src={logo} alt="+ que Vencedores" className="w-48 mx-auto" />
             <div className="w-20 h-20 bg-[#3B82F6]/10 rounded-full flex items-center justify-center mx-auto">
               <Clock className="w-10 h-10 text-[#3B82F6]" />
             </div>
@@ -251,7 +251,7 @@ export default function MembrosMeet() {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(239,68,68,0.12)_0%,_transparent_70%)]" />
       <Card className="max-w-md w-full bg-white/5 border-red-500/30 relative z-10">
         <CardContent className="p-8 text-center space-y-5">
-          <img src={squaadLogo} alt="+ que Vencedores" className="w-48 mx-auto" />
+          <img src={logo} alt="+ que Vencedores" className="w-48 mx-auto" />
           <div className="flex items-center justify-center gap-2">
             <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
             <span className="text-red-400 text-xs font-bold uppercase tracking-wider">Ao vivo agora</span>

@@ -15,7 +15,7 @@ import {
 } from '@livekit/components-react';
 import { Track, ConnectionState, RoomEvent, DisconnectReason } from 'livekit-client';
 import { supabase } from '@/integrations/supabase/client';
-import squaadLogo from '@/assets/squaad-business-solutions.jpg';
+import logo from '@/assets/mais-que-vencedores-logo.svg';
 import { toast } from 'sonner';
 import {
   Loader2, Video, VideoOff, Mic, MicOff, PhoneOff, Crown, Eye,
@@ -1762,7 +1762,7 @@ function MeetingContent({ roomName, role, mode, onLeave }: { roomName: string; r
       >
         {/* Esquerda: logo + AO VIVO + clock */}
         <div className="flex items-center gap-1.5 sm:gap-3 min-w-0" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.6))' }}>
-          <img src="/squaad-logo.png" alt="+ que Vencedores" className="h-6 sm:h-9 w-auto shrink-0" />
+          <img src="/mais-que-vencedores-logo.svg" alt="+ que Vencedores" className="h-6 sm:h-9 w-auto shrink-0" />
           <div className="flex items-center gap-1.5 bg-red-600/95 rounded-full pl-1.5 pr-2 sm:pr-3 py-0.5 sm:py-1 shadow-lg shrink-0">
             <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
             <span className="text-white text-[9px] sm:text-[11px] font-bold uppercase tracking-wider">Ao vivo</span>
@@ -2320,7 +2320,7 @@ function LessonPostCallScreen({ meetingId }: { meetingId: string | null }) {
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="max-w-md w-full text-center space-y-6">
-        <img src={squaadLogo} alt="+ que Vencedores" className="w-64 mx-auto" />
+        <img src={logo} alt="+ que Vencedores" className="w-64 mx-auto" />
         <div className={`${ready ? 'bg-green-500/10 border-green-500/20' : failed ? 'bg-red-500/10 border-red-500/20' : 'bg-primary/10 border-primary/20'} border rounded-2xl p-6`}>
           <div className={`w-16 h-16 ${ready ? 'bg-green-500/20' : failed ? 'bg-red-500/20' : 'bg-primary/20'} rounded-full flex items-center justify-center mx-auto mb-4`}>
             {ready ? <Check className="w-8 h-8 text-green-400" /> : failed ? <PhoneOff className="w-8 h-8 text-red-400" /> : <Loader2 className="w-8 h-8 text-primary animate-spin" />}
@@ -2639,7 +2639,7 @@ export default function MeetRoom() {
             />
           )}
           <div className="max-w-md w-full text-center space-y-6">
-            <img src={squaadLogo} alt="+ que Vencedores" className="w-64 mx-auto" />
+            <img src={logo} alt="+ que Vencedores" className="w-64 mx-auto" />
             <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
               <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Check className="w-8 h-8 text-primary" />
@@ -2666,7 +2666,7 @@ export default function MeetRoom() {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
         <div className="max-w-md w-full text-center space-y-6">
-          <img src={squaadLogo} alt="+ que Vencedores" className="w-64 mx-auto" />
+          <img src={logo} alt="+ que Vencedores" className="w-64 mx-auto" />
           <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-6">
             <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <Check className="w-8 h-8 text-green-400" />
@@ -2706,7 +2706,7 @@ export default function MeetRoom() {
         <div className="max-w-lg w-full space-y-8 relative z-10">
           {/* Logo */}
           <div className="flex justify-center">
-            <img src={squaadLogo} alt="+ que Vencedores Business Solutions" className="w-72 md:w-96 object-contain" />
+            <img src={logo} alt="+ que Vencedores Business Solutions" className="w-72 md:w-96 object-contain" />
           </div>
 
           {/* Role badge */}

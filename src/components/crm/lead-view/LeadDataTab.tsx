@@ -440,7 +440,7 @@ export const LeadDataTab: React.FC<LeadDataTabProps> = ({ lead, columns, onSave 
       if (!memberId) {
         const { data: newMember } = await (supabase as any).from('members').insert({
           name: lead.name, email: lead.email || `${phone}@squaad.com`, phone,
-          status: 'pending', crm_lead_id: lead.id, program: 'metodo-squaad',
+          status: 'pending', crm_lead_id: lead.id, program: 'metodo-vencedores',
         }).select('id').single();
         memberId = newMember?.id;
       }
@@ -451,7 +451,7 @@ export const LeadDataTab: React.FC<LeadDataTabProps> = ({ lead, columns, onSave 
       }).select('onboarding_token').single();
 
       if (enrollment?.onboarding_token) {
-        const url = `https://squaad.com.br/metodo-squaad/onboarding/${enrollment.onboarding_token}`;
+        const url = `https://squaad.com.br/metodo-vencedores/onboarding/${enrollment.onboarding_token}`;
         // Onboarding 1-to-1: instancia UAZAPI, nunca Cloud API/blast.
         const { data: instances } = await (supabase as any).from('whatsapp_instances').select('id')
           .eq('status', 'connected')
@@ -477,7 +477,7 @@ export const LeadDataTab: React.FC<LeadDataTabProps> = ({ lead, columns, onSave 
           ? (saleData.totalValue - saleData.entryValue) / saleData.numInstallments : 0;
 
         const { data: contract } = await (supabase as any).from('member_contracts').insert({
-          member_id: memberId, crm_lead_id: lead.id, program: 'metodo-squaad',
+          member_id: memberId, crm_lead_id: lead.id, program: 'metodo-vencedores',
           total_value: saleData.totalValue, entry_value: saleData.entryValue,
           entry_method: saleData.entryMethod, num_installments: saleData.numInstallments,
           installment_value: Math.round(installmentValue * 100) / 100,

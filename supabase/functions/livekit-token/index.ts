@@ -57,6 +57,37 @@ async function createLiveKitToken(
   return `${headerB64}.${payloadB64}.${sigB64}`
 }
 
+/**
+ * Resolve is_admin() com o JWT de QUEM CHAMOU.
+ *
+ * Chama a mesma função que o RLS usa, repassando o Authorization recebido. Se o caller for
+ * anônimo, o header carrega a chave anon, is_admin() devolve false e o host é negado — que é
+ * exatamente o que se quer. Feito com fetch puro, sem importar o SDK, pra manter o padrão
+ * deste arquivo (evitar deno.land/std e jsr:, que causam BOOT_ERROR no edge).
+ */
+async function callerIsAdmin(req: Request): Promise<boolean> {
+  const auth = req.headers.get('Authorization')
+  if (!auth) return false
+
+  const url = Deno.env.get('SUPABASE_URL')
+  const anon = Deno.env.get('SUPABASE_ANON_KEY')
+  if (!url || !anon) return false
+
+  try {
+    const res = await fetch(`${url}/rest/v1/rpc/is_admin`, {
+      method: 'POST',
+      headers: { Authorization: auth, apikey: anon, 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+    if (!res.ok) return false
+    return (await res.json()) === true
+  } catch (err) {
+    // Em erro de rede, nega. Falhar fechado: no máximo um admin recarrega.
+    console.error('callerIsAdmin falhou:', err)
+    return false
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
@@ -67,6 +98,26 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'roomName and participantName required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
+    }
+
+    // O `role` chega do BODY, ou seja, do cliente — e em MeetRoom.tsx ele sai de um query
+    // param (?role=host). Não dá pra confiar nele.
+    //
+    // Antes desta checagem, qualquer pessoa com a chave anon (que é pública, vai no bundle JS)
+    // pedia role:'host' e recebia um token com roomAdmin + roomRecord de QUALQUER sala: dava
+    // pra mutar e expulsar todo mundo e gravar a reunião. `verify_jwt` não protegia, porque a
+    // própria chave anon é um JWT válido.
+    //
+    // 'observer' também é privilégio: entra com hidden:true, invisível pros outros.
+    //
+    // 'guest' continua sem gate — entrar numa sala pública por link é o produto.
+    const querPrivilegio = role === 'host' || role === 'observer'
+    if (querPrivilegio && !(await callerIsAdmin(req))) {
+      console.warn(`Negado role='${role}' na sala '${roomName}' para caller não-admin`)
+      return new Response(
+        JSON.stringify({ error: 'Apenas administradores podem entrar como host ou observador.' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
     }
 
     const apiKey = Deno.env.get('LIVEKIT_API_KEY')

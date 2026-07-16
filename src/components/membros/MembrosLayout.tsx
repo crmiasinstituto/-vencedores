@@ -10,15 +10,12 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
   LayoutDashboard,
   PlayCircle,
-  Sparkles,
   User,
   LogOut,
   Menu,
   Trophy,
-  Radar,
   ChevronRight,
-  BookOpen,
-} from 'lucide-react';
+  } from 'lucide-react';
 
 const db = supabase as any;
 
@@ -40,12 +37,12 @@ interface MemberData {
   session_token: string | null;
 }
 
+// AI FIRST, Dicionário e Prospecção saíram: eram o conteúdo da SQUAAD dentro do
+// LMS — a biblioteca de aceleradores de IA, o glossário do curso e a ferramenta
+// de caça a leads pra revender automações. O chassi de trilhas/aulas fica.
 const NAV_ITEMS = [
   { label: 'Dashboard', path: '/membros', icon: LayoutDashboard },
   { label: 'Trilhas', path: '/membros/trilhas', icon: PlayCircle },
-  { label: 'AI FIRST', path: '/membros/ai-first', icon: Sparkles },
-  { label: 'Dicionário', path: '/membros/dicionario', icon: BookOpen },
-  { label: 'Prospecção', path: '/membros/prospeccao', icon: Radar },
   { label: 'Perfil', path: '/membros/perfil', icon: User },
 ];
 
@@ -205,7 +202,7 @@ export function MembrosLayout({ children }: { children: ReactNode }) {
           <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-r from-[#3B82F6]/20 to-transparent blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <img
-              src="/squaad-logo.png"
+              src="/mais-que-vencedores-logo.svg"
               alt="+ que Vencedores"
               className="relative h-10 w-auto object-contain drop-shadow-[0_2px_12px_rgba(250,200,0,0.25)]"
             />
@@ -318,7 +315,7 @@ export function MembrosLayout({ children }: { children: ReactNode }) {
       <div className="lg:hidden fixed top-0 left-0 right-0 z-40 border-b border-white/5 bg-[#070707]/90 backdrop-blur-xl">
         <div className="flex items-center justify-between h-14 px-4">
           <Link to="/membros" className="flex items-center">
-            <img src="/squaad-logo.png" alt="+ que Vencedores" className="h-7 w-auto" />
+            <img src="/mais-que-vencedores-logo.svg" alt="+ que Vencedores" className="h-7 w-auto" />
           </Link>
           <div className="flex items-center gap-2">
             <Badge className="bg-[#3B82F6]/15 text-[#3B82F6] border-[#3B82F6]/30 font-bold text-[10px]">

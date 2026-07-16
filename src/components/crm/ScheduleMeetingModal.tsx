@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { SITE_URL } from '@/lib/site';
 
 interface ScheduleMeetingModalProps {
   isOpen: boolean;
@@ -70,7 +71,6 @@ const formatPhoneMask = (phone: string): string => {
 type MeetingMode = 'choose' | 'schedule' | 'instant' | 'presencial';
 type LinkType = 'squaad' | 'external';
 
-const SQUAAD_DOMAIN = 'https://squaad.com.br';
 
 export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
   isOpen, onClose, leadId, leadName, leadWhatsapp, onCreated, onStartInstant,
@@ -242,7 +242,7 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
     try {
       const scheduledAt = new Date(`${date}T${time}`);
       const livekitRoom = (!isPresencial) ? generateRoomName() : null;
-      const livekitGuestUrl = livekitRoom ? `${SQUAAD_DOMAIN}/meet/${livekitRoom}?role=guest&name=${encodeURIComponent(leadName)}` : null;
+      const livekitGuestUrl = livekitRoom ? `${SITE_URL}/meet/${livekitRoom}?role=guest&name=${encodeURIComponent(leadName)}` : null;
 
       // Determine what URL to save as meeting_url
       let savedMeetingUrl: string | null = null;
@@ -302,8 +302,8 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
     setIsLoading(true);
     try {
       const livekitRoom = generateRoomName();
-      const livekitGuestUrl = `${SQUAAD_DOMAIN}/meet/${livekitRoom}?role=guest&name=${encodeURIComponent(leadName)}`;
-      const livekitHostUrl = `${SQUAAD_DOMAIN}/meet/${livekitRoom}?role=host&name=Host`;
+      const livekitGuestUrl = `${SITE_URL}/meet/${livekitRoom}?role=guest&name=${encodeURIComponent(leadName)}`;
+      const livekitHostUrl = `${SITE_URL}/meet/${livekitRoom}?role=host&name=Host`;
 
       const savedMeetingUrl = isSquaad ? livekitGuestUrl : (finalUrl || livekitGuestUrl);
 

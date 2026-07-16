@@ -27,7 +27,12 @@ export default {
 			fontFamily: {
 				'space-grotesk': ['Space Grotesk', 'Inter', 'system-ui', 'sans-serif'],
 				'inter': ['Inter', 'system-ui', 'sans-serif'],
-				'display': ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+				// 'display' era Inter aqui e Playfair no portal — mesma classe,
+				// duas fontes. Fica o sentido do portal (26 arquivos contam com
+				// serif nos títulos); do lado do CRM só MasterclassIA usava, e
+				// essa página sai junto com o resto da SQUAAD.
+				'display': ['Playfair Display', 'Georgia', 'serif'],
+				'body': ['Inter', 'system-ui', 'sans-serif'],
 				'editorial': ['"Instrument Serif"', 'Georgia', 'serif'],
 			},
 			colors: {
@@ -73,7 +78,22 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				// Paleta do portal. 'gold' hoje resolve pra azul — o rebrand
+				// trocou o valor do token e manteve o nome, e o portal chama
+				// text-gold / bg-gold / variant="gold" em dezenas de telas.
+				gold: {
+					DEFAULT: 'hsl(var(--gold))',
+					light: 'hsl(var(--gold-light))',
+					dark: 'hsl(var(--gold-dark))'
+				},
+				navy: {
+					DEFAULT: 'hsl(var(--navy))',
+					deep: 'hsl(var(--navy-deep))',
+					light: 'hsl(var(--navy-light))'
+				},
+				electric: 'hsl(var(--electric))',
+				platinum: 'hsl(var(--platinum))'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -143,6 +163,28 @@ export default {
 			'marquee-vertical': {
 				from: { transform: 'translateY(0)' },
 				to: { transform: 'translateY(calc(-100% - var(--gap)))' }
+			},
+			// Vindas do portal. Os nomes em kebab-case não colidem com os
+			// fadeInUp/fadeInLeft camelCase acima — os dois conjuntos convivem.
+			'fade-up': {
+				'0%': { opacity: '0', transform: 'translateY(30px)' },
+				'100%': { opacity: '1', transform: 'translateY(0)' }
+			},
+			'fade-in': {
+				'0%': { opacity: '0' },
+				'100%': { opacity: '1' }
+			},
+			'scale-in': {
+				'0%': { opacity: '0', transform: 'scale(0.95)' },
+				'100%': { opacity: '1', transform: 'scale(1)' }
+			},
+			'slide-in-right': {
+				'0%': { opacity: '0', transform: 'translateX(50px)' },
+				'100%': { opacity: '1', transform: 'translateX(0)' }
+			},
+			'count-up': {
+				'0%': { opacity: '0', transform: 'translateY(20px)' },
+				'100%': { opacity: '1', transform: 'translateY(0)' }
 			}
 			},
 			animation: {
@@ -153,7 +195,12 @@ export default {
 				'fadeInRight': 'fadeInRight 0.8s ease-out forwards',
 				'pulseYellow': 'pulseYellow 2s ease-in-out infinite',
 				'marquee': 'marquee var(--duration, 40s) linear infinite',
-				'marquee-vertical': 'marquee-vertical var(--duration, 40s) linear infinite'
+				'marquee-vertical': 'marquee-vertical var(--duration, 40s) linear infinite',
+				'fade-up': 'fade-up 0.8s ease-out forwards',
+				'fade-in': 'fade-in 0.6s ease-out forwards',
+				'scale-in': 'scale-in 0.5s ease-out forwards',
+				'slide-in-right': 'slide-in-right 0.6s ease-out forwards',
+				'count-up': 'count-up 0.4s ease-out forwards'
 			}
 		}
 	},

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 208 32" role="img" aria-label="+ que Vencedores">
+  <title>+ que Vencedores</title>
+  <!--
+    O sinal da marca é o mesmo da landing aprovada: duas barras cruzadas, cantos
+    levemente arredondados, no azul cobalto. Antes daqui não existia logo do
+    + que Vencedores em arquivo nenhum — o que rodava era o "S" da SQUAAD.
+    currentColor no texto pra funcionar em fundo claro e escuro.
+  -->
+  <g fill="#3D6BFF">
+    <rect x="10.5" y="3" width="3" height="26" rx="1" />
+    <rect x="-1" y="14.5" width="26" height="3" rx="1" />
+  </g>
+  <text x="34" y="23"
+        font-family="Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"
+        font-size="19" font-weight="800" letter-spacing="-0.4"
+        fill="currentColor">que Vencedores</text>
+</svg>

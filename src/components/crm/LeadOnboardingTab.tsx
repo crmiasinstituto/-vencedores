@@ -462,7 +462,7 @@ const MetodoSquaadSection: React.FC<{ leadId: string; leadName: string; leadWhat
       const { data, error } = await supabase.functions.invoke('activate-lead-as-member', {
         body: {
           lead_id: leadId,
-          program: 'metodo-squaad',
+          program: 'metodo-vencedores',
           payment_method: 'other',
           num_installments: 1,
           send_credentials: true,
@@ -532,7 +532,7 @@ const MetodoSquaadSection: React.FC<{ leadId: string; leadName: string; leadWhat
       const { data, error } = await supabase.functions.invoke('activate-lead-as-member', {
         body: {
           lead_id: leadId,
-          program: 'metodo-squaad',
+          program: 'metodo-vencedores',
           payment_method: 'other',
           num_installments: 1,
           send_credentials: true,
@@ -612,7 +612,7 @@ const MetodoSquaadSection: React.FC<{ leadId: string; leadName: string; leadWhat
 
   const getOnboardingUrl = () => {
     if (!enrollment) return '';
-    return `https://squaad.com.br/metodo-squaad/onboarding/${enrollment.onboarding_token}`;
+    return `https://squaad.com.br/metodo-vencedores/onboarding/${enrollment.onboarding_token}`;
   };
 
   const copyLink = () => {

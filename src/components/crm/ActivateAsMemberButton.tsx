@@ -23,7 +23,7 @@ export default function ActivateAsMemberButton({ lead, onActivated }: Props) {
   const [contract, setContract] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
-    program: 'metodo-squaad',
+    program: 'metodo-vencedores',
     payment_method: 'credit_card',
     num_installments: 1,
     total_value: Number(lead?.deal_value || lead?.potential_value || 0),
@@ -210,7 +210,7 @@ export default function ActivateAsMemberButton({ lead, onActivated }: Props) {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="mentoria">MentorIA (3 meses)</SelectItem>
-                  <SelectItem value="metodo-squaad">Método + que Vencedores (12 meses)</SelectItem>
+                  <SelectItem value="metodo-vencedores">Método + que Vencedores (12 meses)</SelectItem>
                   <SelectItem value="mbai">MBAI (3 meses)</SelectItem>
                   <SelectItem value="enterprise">Enterprise (4 meses)</SelectItem>
                 </SelectContent>

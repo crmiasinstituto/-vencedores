@@ -1,0 +1,13 @@
+import { chromium } from '@playwright/test';
+const SP = process.argv[2];
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+const erros = [];
+page.on('pageerror', e => erros.push('ERRO: ' + e.message));
+page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') erros.push(m.type() + ': ' + m.text()); });
+await page.goto('http://localhost:8083/maisvencedores', { waitUntil: 'networkidle', timeout: 30000 });
+await page.waitForTimeout(2500);
+console.log('console limpo?', erros.length ? erros.slice(0,2).join(' | ').slice(0,180) : 'SIM - nenhum warning/erro');
+console.log('canvas:', await page.locator('canvas').count());
+await page.screenshot({ path: `${SP}/hero-final.png` });
+await browser.close();

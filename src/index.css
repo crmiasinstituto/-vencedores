@@ -2,42 +2,69 @@
 @tailwind components;
 @tailwind utilities;
 
-/* + que Vencedores Design System - Preto, Dourado & Cinza */
+/* + que Vencedores Design System - Navy, Azul & Platina */
+
+/* Base navy vinda do portal. O CRM rodava em preto puro (0 0% 0%) acompanhado
+   de --neural-gradient/--hologram-gradient: era a estética "agência de IA" da
+   SQUAAD. A landing aprovada abre em #06090F, que é este mesmo navy. */
 
 @layer base {
   :root {
-    /* Nova Paleta + que Vencedores */
-    --background: 0 0% 0%; /* Preto: #000000 */
-    --foreground: 0 0% 90%; /* Cinza Claro: #E6E6E6 */
+    --background: 222 47% 6%;
+    --foreground: 45 30% 96%;
 
-    --card: 0 0% 5%; /* Preto suave para cards */
-    --card-foreground: 0 0% 90%;
+    --card: 222 47% 8%;
+    --card-foreground: 45 30% 96%;
 
-    --popover: 0 0% 5%;
-    --popover-foreground: 0 0% 90%;
+    --popover: 222 47% 8%;
+    --popover-foreground: 45 30% 96%;
 
-    /* Dourado + que Vencedores para elementos primários */
-    --primary: 217 91% 60%; /* Dourado: #3B82F6 */
-    --primary-foreground: 0 0% 100%; /* Preto no dourado */
+    /* Azul da marca. Idêntico nos dois apps — o único token que já concordava. */
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
 
-    /* Tons secundários escuros */
-    --secondary: 0 0% 15%; /* Cinza escuro */
-    --secondary-foreground: 0 0% 90%;
+    --secondary: 222 30% 15%;
+    --secondary-foreground: 45 30% 90%;
 
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 60%; /* Cinza médio */
+    --muted: 222 30% 12%;
+    --muted-foreground: 222 15% 55%;
 
-    /* Dourado para acentos */
+    /* --accent segue o azul do CRM, não o ciano do portal: centenas de telas do
+       admin usam hover:bg-accent e virariam ciano de uma vez. O ciano continua
+       disponível como --electric. */
     --accent: 217 91% 60%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 90%;
+    --destructive-foreground: 45 30% 96%;
 
-    /* Bordas e inputs sutis */
-    --border: 0 0% 20%;
-    --input: 0 0% 5%;
-    --ring: 217 91% 60%; /* Dourado focus ring */
+    --border: 222 30% 18%;
+    --input: 222 30% 18%;
+    --ring: 217 91% 60%;
+
+    /* Paleta premium do portal. Atenção: --gold é AZUL — o rebrand trocou o
+       valor e manteve o nome. Os nomes seguem porque o portal referencia
+       text-gradient-gold / variant="gold" em dezenas de lugares. */
+    --gold: 217 91% 60%;
+    --gold-light: 217 91% 68%;
+    --gold-dark: 217 80% 48%;
+    --navy-deep: 222 47% 4%;
+    --navy: 222 47% 8%;
+    --navy-light: 222 30% 15%;
+    --electric: 199 89% 48%;
+    --platinum: 220 15% 75%;
+
+    --gradient-gold: linear-gradient(135deg, hsl(217 91% 60%), hsl(217 91% 68%), hsl(217 80% 48%));
+    --gradient-premium: linear-gradient(135deg, hsl(222 47% 8%), hsl(222 30% 15%));
+    --gradient-hero: linear-gradient(180deg, hsl(222 47% 6%) 0%, hsl(222 47% 4%) 100%);
+    --gradient-glow: radial-gradient(ellipse at center, hsl(217 91% 60% / 0.15), transparent 70%);
+
+    --shadow-gold: 0 0 60px -15px hsl(217 91% 60% / 0.4);
+    --shadow-card: 0 25px 50px -12px hsl(0 0% 0% / 0.5);
+    --shadow-button: 0 10px 40px -10px hsl(217 91% 60% / 0.5);
+
+    --font-display: 'Playfair Display', serif;
+    --font-body: 'Inter', sans-serif;
 
     /* Variáveis de tecnologia avançada */
     --tech-gradient-primary: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(221 83% 53%) 50%, hsl(217 91% 60%) 100%);
@@ -51,52 +78,57 @@
     
     --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 3%;
-    --sidebar-foreground: 0 0% 85%;
+    --sidebar-background: 222 47% 4%;
+    --sidebar-foreground: 45 30% 90%;
     --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 10%;
-    --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 0 0% 15%;
+    --sidebar-accent: 222 30% 12%;
+    --sidebar-accent-foreground: 45 30% 96%;
+    --sidebar-border: 222 30% 18%;
     --sidebar-ring: 217 91% 60%;
   }
 
+  /* O app é dark-only: os dois lados nasceram assim. Este bloco espelha o
+     :root de propósito, pra que a classe .dark (que o next-themes carimba no
+     html) não reintroduza o preto da SQUAAD por baixo. Os --sidebar-* aqui
+     divergiam do :root e deixavam a sidebar cinza-azulada só no modo dark. */
   .dark {
-    --background: 0 0% 0%;
-    --foreground: 0 0% 90%;
+    --background: 222 47% 6%;
+    --foreground: 45 30% 96%;
 
-    --card: 0 0% 5%;
-    --card-foreground: 0 0% 90%;
+    --card: 222 47% 8%;
+    --card-foreground: 45 30% 96%;
 
-    --popover: 0 0% 5%;
-    --popover-foreground: 0 0% 90%;
+    --popover: 222 47% 8%;
+    --popover-foreground: 45 30% 96%;
 
     --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 90%;
+    --secondary: 222 30% 15%;
+    --secondary-foreground: 45 30% 90%;
 
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 60%;
+    --muted: 222 30% 12%;
+    --muted-foreground: 222 15% 55%;
 
     --accent: 217 91% 60%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 90%;
+    --destructive-foreground: 45 30% 96%;
 
-    --border: 0 0% 20%;
-    --input: 0 0% 10%;
+    --border: 222 30% 18%;
+    --input: 222 30% 18%;
     --ring: 217 91% 60%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+
+    --sidebar-background: 222 47% 4%;
+    --sidebar-foreground: 45 30% 90%;
+    --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 222 30% 12%;
+    --sidebar-accent-foreground: 45 30% 96%;
+    --sidebar-border: 222 30% 18%;
+    --sidebar-ring: 217 91% 60%;
   }
 }
 
@@ -510,4 +542,92 @@
 /* Borda esquerda do conteúdo bem visível */
 .email-editor-sidebar {
   border-right: 1px solid hsl(220 9% 22%) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Classes vindas do portal + que Vencedores.
+   Os nomes falam em "gold" mas os valores são azuis: o rebrand trocou a
+   cor e manteve o vocabulário, e 26 arquivos do portal chamam
+   text-gradient-gold / glow-gold / glass-gold. Renomear seria uma
+   varredura à parte — os valores é que mandam.
+   ═══════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  .text-gradient-gold {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(var(--gold)), hsl(var(--gold-light)), hsl(var(--gold)));
+  }
+
+  .bg-gradient-gold {
+    background-image: linear-gradient(135deg, hsl(var(--gold)), hsl(var(--gold-light)));
+  }
+
+  .bg-gradient-premium {
+    background-image: var(--gradient-premium);
+  }
+
+  .glow-gold {
+    box-shadow: 0 0 60px -15px hsl(var(--gold) / 0.5);
+  }
+
+  .glow-gold-soft {
+    box-shadow: 0 0 100px -20px hsl(var(--gold) / 0.3);
+  }
+
+  .border-gradient-gold {
+    border: 2px solid transparent;
+    background: linear-gradient(hsl(var(--navy)), hsl(var(--navy))) padding-box,
+                var(--gradient-gold) border-box;
+  }
+
+  .glass {
+    @apply backdrop-blur-xl;
+    background: hsl(var(--navy) / 0.8);
+  }
+
+  .glass-gold {
+    @apply backdrop-blur-xl;
+    background: linear-gradient(135deg, hsl(var(--gold) / 0.1), hsl(var(--gold-light) / 0.05));
+    border: 1px solid hsl(var(--gold) / 0.2);
+  }
+}
+
+@layer utilities {
+  /* Reaproveita o @keyframes float que já existe acima (amplitude -10px);
+     o portal declarava um float próprio de -20px com o mesmo nome, e dois
+     keyframes homônimos fazem o último vencer sem avisar. */
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-pulse-gold {
+    animation: pulse-gold 2s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    animation: shimmer 3s ease-in-out infinite;
+  }
+
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes pulse-gold {
+    0%, 100% { box-shadow: 0 0 20px hsl(var(--gold) / 0.3); }
+    50% { box-shadow: 0 0 40px hsl(var(--gold) / 0.6); }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+
+  @keyframes glow {
+    from { text-shadow: 0 0 10px hsl(var(--gold) / 0.5); }
+    to { text-shadow: 0 0 20px hsl(var(--gold) / 0.8), 0 0 30px hsl(var(--gold) / 0.4); }
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
 }
