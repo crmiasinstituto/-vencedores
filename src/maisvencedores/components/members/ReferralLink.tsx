@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Copy, Check, QrCode, Share2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { copiarTexto } from '@/maisvencedores/lib/copiar';
 
 interface ReferralLinkProps {
   referralCode: string;
@@ -18,13 +19,20 @@ export function ReferralLink({ referralCode }: ReferralLinkProps) {
   const referralUrl = `${window.location.origin}/i/${referralCode}`;
 
   const copyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(referralUrl);
+    // copiarTexto tem fallback pra http: navigator.clipboard não existe fora de contexto
+    // seguro, e o domínio novo subiu em http antes do SSL sair — o botão dava "Erro ao
+    // copiar" pra todo mundo.
+    const ok = await copiarTexto(referralUrl);
+    if (ok) {
       setCopied(true);
       toast({ title: 'Link copiado!' });
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast({ title: 'Erro ao copiar', variant: 'destructive' });
+    } else {
+      toast({
+        title: 'Não consegui copiar',
+        description: 'Selecione o link e copie manualmente.',
+        variant: 'destructive',
+      });
     }
   };
 

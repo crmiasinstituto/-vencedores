@@ -1,4 +1,12 @@
 import { lerAtribuicao } from '@/maisvencedores/pages/LinkIndicacao';
+import { FAIXAS, FAIXA_INFO, type Faixa } from '@/maisvencedores/types/member';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useState } from 'react';
 import { useNavigate, Link, useSearchParams, useParams } from 'react-router-dom';
 import { useAuth } from '@/maisvencedores/contexts/AuthContext';
@@ -30,6 +38,10 @@ export default function Signup() {
   // valendo por 90 dias).
   const referralCode = code || searchParams.get('ref') || lerAtribuicao() || '';
   
+  const [nomeCompleto, setNomeCompleto] = useState('');
+  // 'nao_sei' é o padrão de propósito: exigir a faixa na porta trava justamente quem é
+  // novo e nunca ouviu falar de FPO ou Practitioner.
+  const [faixaDeclarada, setFaixaDeclarada] = useState<Faixa | 'nao_sei'>('nao_sei');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -43,6 +55,10 @@ export default function Signup() {
     e.preventDefault();
     setErrors({});
 
+    if (nomeCompleto.trim().length < 3) {
+      setErrors({ nomeCompleto: 'Diga seu nome completo' });
+      return;
+    }
     const result = signupSchema.safeParse({ email, password, confirmPassword });
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
@@ -54,7 +70,18 @@ export default function Signup() {
     }
 
     setLoading(true);
-    const { error } = await signUp(email, password, referralCode || undefined);
+    const { error } = await signUp({
+      email,
+      password,
+      nomeCompleto: nomeCompleto.trim(),
+      // 'nao_sei' e 'branco' não viram pedido: branca é onde todo mundo começa, não um
+      // privilégio a conceder. Só faixa acima disso vira solicitação pro time.
+      faixaDeclarada:
+        faixaDeclarada === 'nao_sei' || faixaDeclarada === 'branco'
+          ? undefined
+          : (faixaDeclarada as Faixa),
+      referralCode: referralCode || undefined,
+    });
 
     if (error) {
       toast({
@@ -66,13 +93,17 @@ export default function Signup() {
       return;
     }
 
-    toast({ 
-      title: referralCode ? 'Cadastro enviado!' : 'Bem-vindo ao + que Vencedores!',
-      description: referralCode 
-        ? 'Aguarde a aprovação do seu padrinho (até 7 dias).' 
-        : 'Complete seu perfil para começar.',
+    // Dizia "Bem-vindo ao + que Vencedores!" e mandava direto pro onboarding — mentira dupla:
+    // o projeto exige confirmar email (não há sessão ainda) e ninguém entra aprovado. A pessoa
+    // caía numa tela de membro sem ser membro.
+    toast({
+      title: 'Cadastro recebido',
+      description:
+        faixaDeclarada === 'nao_sei'
+          ? 'Confirme seu email para entrar. Você começa na Faixa Branca.'
+          : 'Confirme seu email. Nosso time vai conferir sua graduação e liberar sua faixa.',
     });
-    navigate('/maisvencedores/membros/onboarding');
+    navigate('/maisvencedores/login');
   };
 
   return (
@@ -150,6 +181,48 @@ export default function Signup() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="nome">Nome completo</Label>
+              <Input
+                id="nome"
+                placeholder="Como você se chama"
+                value={nomeCompleto}
+                onChange={(e) => setNomeCompleto(e.target.value)}
+              />
+              {errors.nomeCompleto && <p className="text-sm text-destructive">{errors.nomeCompleto}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="faixa">
+                Você já fez alguma formação?{' '}
+                <span className="font-normal text-muted-foreground">(opcional)</span>
+              </Label>
+              {/* Opcional de propósito. Quem não sabe entra na Branca e pronto — é onde todo
+                  mundo começa. Declarar faixa acima disso não dá acesso: abre um pedido que o
+                  time aprova (profiles.faixa_declarada, nunca profiles.faixa). */}
+              <Select
+                value={faixaDeclarada}
+                onValueChange={(v) => setFaixaDeclarada(v as Faixa | 'nao_sei')}
+              >
+                <SelectTrigger id="faixa">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nao_sei">Ainda não sei / Estou começando agora</SelectItem>
+                  {FAIXAS.filter((f) => f !== 'branco').map((f) => (
+                    <SelectItem key={f} value={f}>
+                      Faixa {FAIXA_INFO[f].nome} — {FAIXA_INFO[f].descricao}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {faixaDeclarada === 'nao_sei'
+                  ? 'Sem problema: você começa na Faixa Branca e avança conforme fizer as formações.'
+                  : `Você entra na Faixa Branca e nosso time confere sua graduação para liberar a Faixa ${FAIXA_INFO[faixaDeclarada as Faixa].nome}.`}
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <div className="relative">

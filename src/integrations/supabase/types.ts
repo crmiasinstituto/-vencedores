@@ -1104,6 +1104,42 @@ export type Database = {
           },
         ]
       }
+      checkout_destinos: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          gateway: string | null
+          id: string
+          nome: string
+          ordem: number
+          param_codigo: string
+          slug: string
+          url: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          gateway?: string | null
+          id?: string
+          nome: string
+          ordem?: number
+          param_codigo?: string
+          slug: string
+          url?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          gateway?: string | null
+          id?: string
+          nome?: string
+          ordem?: number
+          param_codigo?: string
+          slug?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
       client_audience: {
         Row: {
           client_id: string
@@ -7022,6 +7058,8 @@ export type Database = {
           email: string | null
           employee_count: string | null
           faixa: Database["public"]["Enums"]["faixa"]
+          faixa_declarada: Database["public"]["Enums"]["faixa"] | null
+          faixa_solicitada_em: string | null
           id: string
           instagram: string | null
           investment_amount: number | null
@@ -7058,6 +7096,8 @@ export type Database = {
           email?: string | null
           employee_count?: string | null
           faixa?: Database["public"]["Enums"]["faixa"]
+          faixa_declarada?: Database["public"]["Enums"]["faixa"] | null
+          faixa_solicitada_em?: string | null
           id?: string
           instagram?: string | null
           investment_amount?: number | null
@@ -7094,6 +7134,8 @@ export type Database = {
           email?: string | null
           employee_count?: string | null
           faixa?: Database["public"]["Enums"]["faixa"]
+          faixa_declarada?: Database["public"]["Enums"]["faixa"] | null
+          faixa_solicitada_em?: string | null
           id?: string
           instagram?: string | null
           investment_amount?: number | null
@@ -7921,35 +7963,130 @@ export type Database = {
         }
         Relationships: []
       }
+      referral_clicks: {
+        Row: {
+          codigo: string
+          created_at: string
+          destino: string
+          id: string
+          referer: string | null
+          referrer_id: string | null
+          user_agent: string | null
+          utm: Json | null
+        }
+        Insert: {
+          codigo: string
+          created_at?: string
+          destino?: string
+          id?: string
+          referer?: string | null
+          referrer_id?: string | null
+          user_agent?: string | null
+          utm?: Json | null
+        }
+        Update: {
+          codigo?: string
+          created_at?: string
+          destino?: string
+          id?: string
+          referer?: string | null
+          referrer_id?: string | null
+          user_agent?: string | null
+          utm?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_clicks_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_conversions: {
+        Row: {
+          codigo: string
+          created_at: string
+          id: string
+          indicado_email: string | null
+          indicado_lead_id: string | null
+          indicado_profile_id: string | null
+          indicado_telefone: string | null
+          origem: string
+          origem_id: string | null
+          pontos: number
+          produto: string
+          referrer_id: string
+          valor: number
+        }
+        Insert: {
+          codigo: string
+          created_at?: string
+          id?: string
+          indicado_email?: string | null
+          indicado_lead_id?: string | null
+          indicado_profile_id?: string | null
+          indicado_telefone?: string | null
+          origem?: string
+          origem_id?: string | null
+          pontos?: number
+          produto: string
+          referrer_id: string
+          valor?: number
+        }
+        Update: {
+          codigo?: string
+          created_at?: string
+          id?: string
+          indicado_email?: string | null
+          indicado_lead_id?: string | null
+          indicado_profile_id?: string | null
+          indicado_telefone?: string | null
+          origem?: string
+          origem_id?: string | null
+          pontos?: number
+          produto?: string
+          referrer_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_conversions_indicado_profile_id_fkey"
+            columns: ["indicado_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_conversions_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       referral_stats: {
         Row: {
-          bronze_referrals: number | null
           id: string
-          ouro_referrals: number | null
           pending_referrals: number | null
-          prata_referrals: number | null
           profile_id: string
           rank_position: number | null
           total_referrals: number | null
           updated_at: string | null
         }
         Insert: {
-          bronze_referrals?: number | null
           id?: string
-          ouro_referrals?: number | null
           pending_referrals?: number | null
-          prata_referrals?: number | null
           profile_id: string
           rank_position?: number | null
           total_referrals?: number | null
           updated_at?: string | null
         }
         Update: {
-          bronze_referrals?: number | null
           id?: string
-          ouro_referrals?: number | null
           pending_referrals?: number | null
-          prata_referrals?: number | null
           profile_id?: string
           rank_position?: number | null
           total_referrals?: number | null
@@ -10462,6 +10599,19 @@ export type Database = {
         Args: { p_campaign_id: string }
         Returns: undefined
       }
+      atribuir_indicacao: {
+        Args: {
+          p_codigo?: string
+          p_email?: string
+          p_janela_dias?: number
+          p_origem: string
+          p_origem_id?: string
+          p_produto: string
+          p_telefone?: string
+          p_valor: number
+        }
+        Returns: string
+      }
       broadcast_events_to_groups: { Args: never; Returns: Json }
       checkin_by_code: {
         Args: { p_code: string; p_event_id: string }
@@ -10491,6 +10641,14 @@ export type Database = {
       }
       current_member_id: { Args: never; Returns: string }
       current_team_user_id: { Args: never; Returns: string }
+      decidir_faixa: {
+        Args: {
+          p_aprovar: boolean
+          p_faixa?: Database["public"]["Enums"]["faixa"]
+          p_profile: string
+        }
+        Returns: undefined
+      }
       dispatch_collective_event_batch: {
         Args: { p_batch_size?: number; p_event_id: string }
         Returns: Json
@@ -10694,6 +10852,24 @@ export type Database = {
         Args: { p_canonical: string; p_dupes: string[] }
         Returns: Json
       }
+      minhas_indicacoes: {
+        Args: never
+        Returns: {
+          aprovado_em: string
+          entrou_em: string
+          faixa: Database["public"]["Enums"]["faixa"]
+          nome: string
+          pontos: number
+          status: string
+        }[]
+      }
+      mural_de_membros: {
+        Args: { p_limit?: number }
+        Returns: {
+          foto_url: string
+          nome: string
+        }[]
+      }
       notify_meetings: { Args: never; Returns: Json }
       nw_annual_ranking: {
         Args: { p_limit?: number; p_year?: number }
@@ -10798,6 +10974,15 @@ export type Database = {
         }
         Returns: Json
       }
+      registrar_clique_indicacao: {
+        Args: {
+          p_codigo: string
+          p_destino?: string
+          p_referer?: string
+          p_utm?: Json
+        }
+        Returns: undefined
+      }
       resolve_collective_invite: { Args: { p_token: string }; Returns: Json }
       resolve_event_signup: { Args: { p_token: string }; Returns: Json }
       resolve_lead_avatar: {
@@ -10809,6 +10994,10 @@ export type Database = {
         }[]
       }
       resolve_wa_group_redirect: { Args: { p_slug: string }; Returns: string }
+      resolver_destino_indicacao: {
+        Args: { p_codigo: string; p_slug?: string }
+        Returns: Json
+      }
       run_daily_engagement_alert: { Args: never; Returns: Json }
       save_attendee_instagram: {
         Args: { p_attendee_id: string; p_data: Json; p_pic: string }
@@ -10816,6 +11005,10 @@ export type Database = {
       }
       set_lesson_duration_if_empty: {
         Args: { p_lesson_id: string; p_minutes: number }
+        Returns: undefined
+      }
+      solicitar_faixa: {
+        Args: { p_faixa: Database["public"]["Enums"]["faixa"] }
         Returns: undefined
       }
       ss_actions_today: { Args: { p_action?: string }; Returns: number }
@@ -10832,6 +11025,7 @@ export type Database = {
         Args: { p_attendee_id: string; p_checked: boolean }
         Returns: Json
       }
+      total_de_membros: { Args: never; Returns: number }
       wa_can_send_now: { Args: { p_instance_id: string }; Returns: Json }
       wa_canon: { Args: { p: string }; Returns: string }
       wa_increment_instance_stat: {

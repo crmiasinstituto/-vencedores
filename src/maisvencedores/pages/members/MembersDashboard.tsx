@@ -1,6 +1,8 @@
 import { MembersHeader } from '@/maisvencedores/components/members/MembersHeader';
 import { useMembership } from '@/maisvencedores/contexts/MembershipContext';
-import { mockMembers, mockEvents, mockAnnouncements, mockTrainings } from '@/maisvencedores/data/mockMembers';
+import { useMembers } from '@/maisvencedores/hooks/useMembers';
+import { useEvents } from '@/maisvencedores/hooks/useEvents';
+import { useTrainings } from '@/maisvencedores/hooks/useTrainings';
 import { MemberCard } from '@/maisvencedores/components/members/MemberCard';
 import { EventCard } from '@/maisvencedores/components/members/EventCard';
 import { TrainingCard } from '@/maisvencedores/components/members/TrainingCard';
@@ -13,6 +15,7 @@ import { useProfile } from '@/maisvencedores/hooks/useProfile';
 import { useNwPoints } from '@/maisvencedores/hooks/useNwPoints';
 import { RPX10X_URL, RPX10X_LABEL } from '@/maisvencedores/lib/netweaving';
 import { useToast } from '@/hooks/use-toast';
+import { copiarTexto } from '@/maisvencedores/lib/copiar';
 import { useState } from 'react';
 
 export default function MembersDashboard() {
@@ -29,20 +32,52 @@ export default function MembersDashboard() {
     : '';
 
   const copyReferral = async () => {
-    if (!referralUrl) return;
-    try {
-      await navigator.clipboard.writeText(referralUrl);
+    if (!referralUrl) {
+      // Antes isto era `if (!referralUrl) return;` — um clique que não fazia NADA: sem toast,
+      // sem erro, a tela imóvel. Quem não tem perfil ainda (admin que nunca fez o onboarding,
+      // por exemplo) não tem referral_code, e o botão simplesmente morria em silêncio. Falhar
+      // calado é pior que falhar: a pessoa acha que o sistema está quebrado.
+      toast({
+        title: 'Complete seu perfil primeiro',
+        description: 'Seu link de indicação é criado junto com o seu cadastro de membro.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const ok = await copiarTexto(referralUrl);
+    if (ok) {
       setCopied(true);
       toast({ title: 'Link de indicação copiado!' });
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast({ title: 'Erro ao copiar', variant: 'destructive' });
+    } else {
+      toast({
+        title: 'Não consegui copiar',
+        description: 'Selecione o link e copie manualmente.',
+        variant: 'destructive',
+      });
     }
   };
 
-  const newMembers = mockMembers.filter(m => m.isNewMember).slice(0, 3);
-  const upcomingEvents = mockEvents.slice(0, 2);
-  const featuredTrainings = mockTrainings.slice(0, 3);
+  // Dado real. Isto lia mockMembers/mockEvents/mockTrainings — 8 membros, 4 eventos e 6
+  // treinamentos INVENTADOS pelo template da Lovable, que apareciam mesmo com o banco vazio.
+  // O dashboard dizia "8 Membros Ativos" enquanto a tela de Portfólios, que lê o banco, dizia
+  // "Nenhum membro aprovado ainda". Um dos dois estava mentindo.
+  const { members, loading: carregandoMembros } = useMembers();
+  const { events, loading: carregandoEventos } = useEvents();
+  const { trainings, loading: carregandoTreinos } = useTrainings();
+
+  const novosMembros = members.filter((m) => m.isNewMember).slice(0, 3);
+  // Só os que ainda vão acontecer: "Próximos Eventos" com evento do mês passado é pior que
+  // seção vazia.
+  const proximosEventos = events
+    .filter((e) => e.date >= new Date(new Date().setHours(0, 0, 0, 0)))
+    .slice(0, 2);
+  const treinamentosDestaque = trainings.slice(0, 3);
+
+  const eventosDoMes = events.filter((e) => {
+    const hoje = new Date();
+    return e.date.getMonth() === hoje.getMonth() && e.date.getFullYear() === hoje.getFullYear();
+  }).length;
 
   return (
     <div className="min-h-screen">
@@ -143,10 +178,13 @@ export default function MembersDashboard() {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[
-            { icon: Users, label: 'Membros Ativos', value: mockMembers.length, color: 'text-gold' },
-            { icon: GraduationCap, label: 'Treinamentos', value: mockTrainings.length, color: 'text-electric' },
-            { icon: Calendar, label: 'Eventos este Mês', value: mockEvents.length, color: 'text-platinum' },
-            { icon: TrendingUp, label: 'Conexões Feitas', value: '47', color: 'text-green-500' },
+            { icon: Users, label: 'Membros Ativos', value: members.length, color: 'text-gold' },
+            { icon: GraduationCap, label: 'Treinamentos', value: trainings.length, color: 'text-electric' },
+            { icon: Calendar, label: 'Eventos este Mês', value: eventosDoMes, color: 'text-platinum' },
+            // "Conexões Feitas: 47" era chumbado no código — número inventado que não vinha de
+            // lugar nenhum. Trocado pelos pontos, que existem de verdade e são o que a pessoa
+            // acumula por trazer gente.
+            { icon: TrendingUp, label: 'Seus pontos', value: lifetimePoints, color: 'text-green-500' },
           ].map((stat, idx) => (
             <div key={idx} className="bg-card/50 border border-border/50 rounded-xl p-4">
               <div className="flex items-center gap-3">
@@ -196,11 +234,27 @@ export default function MembersDashboard() {
               <Link to="/maisvencedores/membros/portfolio">Ver Todos <ArrowRight className="w-4 h-4 ml-1" /></Link>
             </Button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {newMembers.map(member => (
-              <MemberCard key={member.id} member={member} />
-            ))}
-          </div>
+          {carregandoMembros ? (
+            <p className="text-sm text-muted-foreground">Carregando…</p>
+          ) : novosMembros.length === 0 ? (
+            // Dizer que não há é honesto; encher com dado falso, não.
+            <p className="text-sm text-muted-foreground">
+              Nenhum membro novo por enquanto.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {novosMembros.map((member) => (
+                // useMembers devolve Member (a linha do banco); o MemberCard pede MemberProfile.
+                // Os dois descrevem a mesma pessoa e divergem só no que o card nao usa
+                // (joinedAt/onboardingCompleted), entao completa aqui em vez de arrastar dois
+                // tipos quase iguais pelo app inteiro.
+                <MemberCard
+                  key={member.id}
+                  member={{ ...member, joinedAt: member.createdAt, onboardingCompleted: true }}
+                />
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Upcoming Events */}
@@ -211,11 +265,19 @@ export default function MembersDashboard() {
               <Link to="/maisvencedores/membros/eventos">Ver Todos <ArrowRight className="w-4 h-4 ml-1" /></Link>
             </Button>
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {upcomingEvents.map(event => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </div>
+          {carregandoEventos ? (
+            <p className="text-sm text-muted-foreground">Carregando…</p>
+          ) : proximosEventos.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhum evento agendado ainda.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {proximosEventos.map((event) => (
+                <EventCard key={event.id} event={event} />
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Featured Trainings */}
@@ -226,11 +288,19 @@ export default function MembersDashboard() {
               <Link to="/maisvencedores/membros/treinamentos">Ver Todos <ArrowRight className="w-4 h-4 ml-1" /></Link>
             </Button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {featuredTrainings.map(training => (
-              <TrainingCard key={training.id} training={training} />
-            ))}
-          </div>
+          {carregandoTreinos ? (
+            <p className="text-sm text-muted-foreground">Carregando…</p>
+          ) : treinamentosDestaque.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhum treinamento disponível para a sua faixa ainda.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {treinamentosDestaque.map((training) => (
+                <TrainingCard key={training.id} training={training} />
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </div>

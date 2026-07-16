@@ -1,14 +1,27 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import type { Faixa } from '@/maisvencedores/types/member';
 import { useToast } from '@/hooks/use-toast';
+
+/** O que o cadastro coleta. A faixa é o que a PESSOA declara — quem confirma é o time. */
+export interface DadosCadastro {
+  email: string;
+  password: string;
+  nomeCompleto: string;
+  telefone?: string;
+  profissao?: string;
+  /** Faixa declarada pela pessoa. Não dá acesso: entra como palpite pro time conferir. */
+  faixaDeclarada?: Faixa;
+  referralCode?: string;
+}
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, referralCode?: string) => Promise<{ error: Error | null }>;
+  signUp: (dados: DadosCadastro) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -21,9 +34,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Set up auth state listener FIRST
+    // O callback NÃO pode ser async.
+    //
+    // O supabase-js segura um lock interno enquanto o callback do onAuthStateChange roda. Um
+    // callback `async` só devolve o controle quando a Promise resolve, e nesse intervalo
+    // QUALQUER outra chamada ao cliente (rpc, from, auth) fica esperando o lock — para sempre.
+    // O sintoma é cruel: nenhum erro, nenhuma requisição na aba Network, a chamada só nunca
+    // volta.
+    //
+    // Como este provider envolve /maisvencedores/*, o deadlock derrubava o Supabase da landing
+    // e da área de membros inteira. Provado: `fetch` puro pra mesma RPC devolvia 200, e o
+    // supabase.rpc na mesma página travava; a rota /i/, que fica FORA deste provider,
+    // funcionava normalmente.
+    //
+    // O próprio CRM já sabia disso — ver o comentário em hooks/useAdminAuth.tsx, que resolve
+    // jogando o trabalho pra fora da pilha com setTimeout. Aqui nem precisa: só setState.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -50,71 +77,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, referralCode?: string) => {
+  const signUp = async (dados: DadosCadastro) => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
+      // Tudo vai em options.data (raw_user_meta_data). O PERFIL É CRIADO POR TRIGGER no
+      // servidor (public.handle_new_user), não aqui.
+      //
+      // Aqui havia um `supabase.from('profiles').insert(...)` logo depois do signUp, e ele
+      // NUNCA funcionou: o projeto exige confirmação de email (mailer_autoconfirm=false),
+      // então signUp não devolve sessão e o insert saía como anon contra uma policy
+      // `to authenticated`. O banco recusava, o código fazia só console.error, e a tela dizia
+      // "Cadastro enviado!". Dois cadastros reais se perderam assim antes de alguém notar.
+      const { error } = await supabase.auth.signUp({
+        email: dados.email,
+        password: dados.password,
         options: {
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: `${window.location.origin}/maisvencedores/login`,
           data: {
-            referral_code: referralCode || null,
-          }
-        }
+            nome_completo: dados.nomeCompleto,
+            telefone: dados.telefone || null,
+            profissao: dados.profissao || null,
+            faixa_declarada: dados.faixaDeclarada || null,
+            referral_code: dados.referralCode || null,
+          },
+        },
       });
-      
+
       if (error) throw error;
-
-      // Create profile after signup
-      if (data.user) {
-        let referredById: string | null = null;
-
-        // Find referrer if code provided
-        if (referralCode) {
-          const { data: referrer } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('referral_code', referralCode)
-            .maybeSingle();
-          
-          referredById = referrer?.id || null;
-        }
-
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            user_id: data.user.id,
-            email: email,
-            referred_by: referredById,
-            // Estava `!referralCode` — invertido: quem chegava SEM convite era aprovado na
-            // hora e quem chegava COM convite ficava esperando. Ou seja, qualquer um se
-            // auto-aprovava no ecossistema e o indicado era punido. Agora ninguém entra
-            // aprovado; a aprovação é do admin, em /admin/maisvencedores/membros.
-            is_approved: false,
-          });
-
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-        }
-
-        // Create referral record if referred
-        if (referredById) {
-          const { data: newProfile } = await supabase
-            .from('profiles')
-            .select('id, faixa')
-            .eq('user_id', data.user.id)
-            .single();
-
-          if (newProfile) {
-            await supabase.from('referrals').insert({
-              referrer_id: referredById,
-              referred_id: newProfile.id,
-              referred_faixa: newProfile.faixa,
-            });
-          }
-        }
-      }
-
       return { error: null };
     } catch (error) {
       return { error: error as Error };

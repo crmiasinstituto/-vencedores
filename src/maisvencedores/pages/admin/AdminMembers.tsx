@@ -39,6 +39,7 @@ interface Member {
   photo_url: string | null;
   segment: string | null;
   faixa: Faixa;
+  faixa_declarada: Faixa | null;
   is_approved: boolean;
   created_at: string;
   email: string | null;
@@ -199,6 +200,7 @@ export default function AdminMembers() {
                   <TableHead>Membro</TableHead>
                   <TableHead>Segmento</TableHead>
                   <TableHead>Faixa</TableHead>
+                  <TableHead>Declarou ser</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Data Cadastro</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
@@ -222,6 +224,17 @@ export default function AdminMembers() {
                       </div>
                     </TableCell>
                     <TableCell>{member.segment || '-'}</TableCell>
+                    <TableCell>
+                      {/* O que a PESSOA disse ser. Fica ao lado da oficial de propósito: é a
+                          comparação entre as duas que o time usa pra decidir a aprovação. */}
+                      {member.faixa_declarada ? (
+                        <span className={FAIXA_INFO[member.faixa_declarada].texto}>
+                          {FAIXA_INFO[member.faixa_declarada].nome}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">nao informou</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge className={`${FAIXA_INFO[member.faixa]?.fundo} ${FAIXA_INFO[member.faixa]?.texto} ${FAIXA_INFO[member.faixa]?.borda}`}>
                         {member.faixa.toUpperCase()}

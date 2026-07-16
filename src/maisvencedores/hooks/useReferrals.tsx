@@ -24,9 +24,9 @@ export interface ReferralStats {
   id: string;
   profile_id: string;
   total_referrals: number;
-  bronze_referrals: number;
-  prata_referrals: number;
-  ouro_referrals: number;
+  // bronze/prata/ouro_referrals sairam do banco junto com os planos: contar indicado por tier
+  // comprado nao faz sentido quando o que existe e faixa, e a faixa do indicado nao diz nada
+  // sobre o merito de quem indicou.
   pending_referrals: number;
   rank_position: number | null;
 }

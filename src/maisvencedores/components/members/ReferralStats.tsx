@@ -1,4 +1,5 @@
-import { Users, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { POINTS_PER_REFERRAL } from '@/maisvencedores/lib/netweaving';
+import { Users, Clock, CheckCircle, XCircle, Trophy } from 'lucide-react';
 import type { ReferralStats as Stats } from '@/maisvencedores/hooks/useReferrals';
 
 interface ReferralStatsProps {
@@ -21,19 +22,15 @@ export function ReferralStats({ stats }: ReferralStatsProps) {
       color: 'text-yellow-500',
       bgColor: 'bg-yellow-500/10',
     },
+    // 'Bronze' e 'Prata' saíram: contavam indicado por PLANO comprado, e plano não existe mais.
+    // No lugar entra o que o padrinho de fato quer saber — quanto rendeu. 10 pontos por
+    // indicação aprovada (POINTS_PER_REFERRAL); pendente não pontua.
     {
-      icon: CheckCircle,
-      label: 'Bronze',
-      value: stats?.bronze_referrals ?? 0,
-      color: 'text-amber-600',
-      bgColor: 'bg-amber-600/10',
-    },
-    {
-      icon: CheckCircle,
-      label: 'Prata',
-      value: stats?.prata_referrals ?? 0,
-      color: 'text-platinum',
-      bgColor: 'bg-platinum/10',
+      icon: Trophy,
+      label: 'Pontos ganhos',
+      value: (stats?.total_referrals ?? 0) * POINTS_PER_REFERRAL,
+      color: 'text-primary',
+      bgColor: 'bg-primary/10',
     },
   ];
 

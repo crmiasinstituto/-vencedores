@@ -4,6 +4,7 @@ import "@/maisvencedores/landing/landing.css";
 import { ShaderBackground } from "@/maisvencedores/components/ShaderBackground";
 import { SignalField } from "@/maisvencedores/landing/SignalField";
 import { Arco } from "@/maisvencedores/landing/Arco";
+import { MuralDeMembros } from "@/maisvencedores/landing/MuralDeMembros";
 import { ProofSlot } from "@/maisvencedores/landing/ProofSlot";
 import { AREAS, NUMEROS, PERKS, NAO_E_PARA_QUEM, TREINADORES } from "@/maisvencedores/landing/dados";
 
@@ -93,6 +94,13 @@ const Index = () => {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* A parede de rostos entra AQUI, logo abaixo do "34.000+": o número é a
+                afirmação e os rostos são a prova. Some sozinha enquanto não houver membro
+                com foto — ver MuralDeMembros. */}
+            <div style={{ marginTop: 48 }}>
+              <MuralDeMembros />
             </div>
 
             <div style={{ marginTop: 64 }}>
