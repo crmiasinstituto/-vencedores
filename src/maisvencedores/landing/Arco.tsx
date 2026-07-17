@@ -75,6 +75,14 @@ export function Arco() {
           ))}
         </div>
         <p className="arc-end">Tudo começa com uma decisão.</p>
+        {/* O momento mais forte da página: a lista inteira aterrissou na luz e a frase pede
+            uma decisão. É AQUI que precisa ter o botão pra tomá-la — antes não tinha. */}
+        <div className="arc-cta">
+          <a className="btn" href="#entrar">
+            Começar agora <span className="a">→</span>
+          </a>
+          <p className="fine">Cadastro gratuito · leva menos de 1 minuto.</p>
+        </div>
       </div>
     </section>
   );

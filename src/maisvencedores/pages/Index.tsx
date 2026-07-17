@@ -4,6 +4,7 @@ import "@/maisvencedores/landing/landing.css";
 import { CanvasHero } from "@/maisvencedores/landing/CanvasHero";
 import { Arco } from "@/maisvencedores/landing/Arco";
 import { MuralDeMembros } from "@/maisvencedores/landing/MuralDeMembros";
+import { FloatingCTA } from "@/maisvencedores/landing/FloatingCTA";
 import { ProofSlot } from "@/maisvencedores/landing/ProofSlot";
 import { AREAS, NUMEROS, PERKS, NAO_E_PARA_QUEM, TREINADORES } from "@/maisvencedores/landing/dados";
 
@@ -20,6 +21,7 @@ import { AREAS, NUMEROS, PERKS, NAO_E_PARA_QUEM, TREINADORES } from "@/maisvence
 const Index = () => {
   return (
     <div className="mv-landing">
+      <FloatingCTA />
       <div className="night">
         <header className="bar">
           <div className="wrap bar-in">
@@ -41,6 +43,11 @@ const Index = () => {
           <CanvasHero />
           <div className="wrap">
             <p className="kicker">Uma iniciativa do IAS Instituto · desde 2019</p>
+            {/* O gancho principal vira selo, em vez de ficar só em negrito no meio do texto. */}
+            <span className="selo">
+              <span className="dot" />
+              Gratuito nos primeiros 12 meses
+            </span>
             <h1>
               A maior comunidade de desenvolvimento{" "}
               <span className="hl">pessoal, profissional e financeiro</span> do Brasil.
@@ -136,6 +143,17 @@ const Index = () => {
                   </ul>
                 </div>
               ))}
+            </div>
+
+            {/* CTA no pico do desejo: a pessoa acabou de ver tudo que vai aprender. */}
+            <div className="midcta">
+              <p>
+                Tudo isso, de graça, nos primeiros 12 meses.
+                <span className="sub">Cadastro gratuito · sem cartão · menos de 1 minuto.</span>
+              </p>
+              <a className="btn" href="#entrar">
+                Quero fazer parte <span className="a">→</span>
+              </a>
             </div>
           </div>
         </section>
