@@ -9,7 +9,10 @@ export interface DadosCadastro {
   email: string;
   password: string;
   nomeCompleto: string;
-  telefone?: string;
+  instagram?: string;
+  whatsapp?: string;
+  cpf?: string;
+  dataNascimento?: string; // ISO yyyy-mm-dd
   profissao?: string;
   /** Faixa declarada pela pessoa. Não dá acesso: entra como palpite pro time conferir. */
   faixaDeclarada?: Faixa;
@@ -94,7 +97,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           emailRedirectTo: `${window.location.origin}/maisvencedores/login`,
           data: {
             nome_completo: dados.nomeCompleto,
-            telefone: dados.telefone || null,
+            instagram: dados.instagram || null,
+            whatsapp: dados.whatsapp || null,
+            telefone: dados.whatsapp || null,
+            cpf: dados.cpf || null,
+            data_nascimento: dados.dataNascimento || null,
             profissao: dados.profissao || null,
             faixa_declarada: dados.faixaDeclarada || null,
             referral_code: dados.referralCode || null,

@@ -1,6 +1,16 @@
 import { lerAtribuicao } from '@/maisvencedores/pages/LinkIndicacao';
 import { FAIXAS, FAIXA_INFO, type Faixa } from '@/maisvencedores/types/member';
 import {
+  apenasDigitos,
+  cpfValido,
+  instagramValido,
+  mascaraCpf,
+  mascaraTelefone,
+  nascimentoValido,
+  normalizaInstagram,
+  telefoneValido,
+} from '@/maisvencedores/lib/validacoes';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -39,6 +49,10 @@ export default function Signup() {
   const referralCode = code || searchParams.get('ref') || lerAtribuicao() || '';
   
   const [nomeCompleto, setNomeCompleto] = useState('');
+  const [instagram, setInstagram] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [dataNascimento, setDataNascimento] = useState('');
   // 'nao_sei' é o padrão de propósito: exigir a faixa na porta trava justamente quem é
   // novo e nunca ouviu falar de FPO ou Practitioner.
   const [faixaDeclarada, setFaixaDeclarada] = useState<Faixa | 'nao_sei'>('nao_sei');
@@ -59,6 +73,22 @@ export default function Signup() {
       setErrors({ nomeCompleto: 'Diga seu nome completo' });
       return;
     }
+    if (!instagramValido(instagram)) {
+      setErrors({ instagram: 'Informe seu @ do Instagram' });
+      return;
+    }
+    if (!telefoneValido(whatsapp)) {
+      setErrors({ whatsapp: 'WhatsApp com DDD, ex: (71) 99999-9999' });
+      return;
+    }
+    if (!cpfValido(cpf)) {
+      setErrors({ cpf: 'CPF inválido' });
+      return;
+    }
+    if (!nascimentoValido(dataNascimento)) {
+      setErrors({ dataNascimento: 'Data de nascimento inválida' });
+      return;
+    }
     const result = signupSchema.safeParse({ email, password, confirmPassword });
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
@@ -74,6 +104,10 @@ export default function Signup() {
       email,
       password,
       nomeCompleto: nomeCompleto.trim(),
+      instagram: normalizaInstagram(instagram),
+      whatsapp: apenasDigitos(whatsapp),
+      cpf: apenasDigitos(cpf),
+      dataNascimento,
       // 'nao_sei' e 'branco' não viram pedido: branca é onde todo mundo começa, não um
       // privilégio a conceder. Só faixa acima disso vira solicitação pro time.
       faixaDeclarada:
@@ -190,6 +224,54 @@ export default function Signup() {
                 onChange={(e) => setNomeCompleto(e.target.value)}
               />
               {errors.nomeCompleto && <p className="text-sm text-destructive">{errors.nomeCompleto}</p>}
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="instagram">Instagram</Label>
+                <Input
+                  id="instagram"
+                  placeholder="@seuperfil"
+                  value={instagram}
+                  onChange={(e) => setInstagram(e.target.value)}
+                />
+                {errors.instagram && <p className="text-sm text-destructive">{errors.instagram}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="whatsapp">WhatsApp</Label>
+                <Input
+                  id="whatsapp"
+                  inputMode="tel"
+                  placeholder="(71) 99999-9999"
+                  value={whatsapp}
+                  onChange={(e) => setWhatsapp(mascaraTelefone(e.target.value))}
+                />
+                {errors.whatsapp && <p className="text-sm text-destructive">{errors.whatsapp}</p>}
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="cpf">CPF</Label>
+                <Input
+                  id="cpf"
+                  inputMode="numeric"
+                  placeholder="000.000.000-00"
+                  value={cpf}
+                  onChange={(e) => setCpf(mascaraCpf(e.target.value))}
+                />
+                {errors.cpf && <p className="text-sm text-destructive">{errors.cpf}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="nascimento">Data de nascimento</Label>
+                <Input
+                  id="nascimento"
+                  type="date"
+                  value={dataNascimento}
+                  onChange={(e) => setDataNascimento(e.target.value)}
+                />
+                {errors.dataNascimento && <p className="text-sm text-destructive">{errors.dataNascimento}</p>}
+              </div>
             </div>
 
             <div className="space-y-2">
