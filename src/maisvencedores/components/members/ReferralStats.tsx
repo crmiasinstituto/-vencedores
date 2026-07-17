@@ -23,12 +23,13 @@ export function ReferralStats({ stats }: ReferralStatsProps) {
       bgColor: 'bg-yellow-500/10',
     },
     // 'Bronze' e 'Prata' saíram: contavam indicado por PLANO comprado, e plano não existe mais.
-    // No lugar entra o que o padrinho de fato quer saber — quanto rendeu. 10 pontos por
-    // indicação aprovada (POINTS_PER_REFERRAL); pendente não pontua.
+    // No lugar entra o que o padrinho de fato quer saber — quanto rendeu. Só a indicação
+    // aprovada pontua (POINTS_PER_REFERRAL = 1); pendente não conta. A compra (+10) aparece
+    // nos pontos vitalícios/temporada, que vêm direto do banco.
     {
       icon: Trophy,
-      label: 'Pontos ganhos',
-      value: (stats?.total_referrals ?? 0) * POINTS_PER_REFERRAL,
+      label: 'Pontos por indicação',
+      value: Math.max(0, (stats?.total_referrals ?? 0) - (stats?.pending_referrals ?? 0)) * POINTS_PER_REFERRAL,
       color: 'text-primary',
       bgColor: 'bg-primary/10',
     },

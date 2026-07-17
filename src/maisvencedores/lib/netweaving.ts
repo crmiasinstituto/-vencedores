@@ -1,7 +1,11 @@
 // Regras de negócio do + que Vencedores (método de netweaving do Instituto Isaac Santos)
 
-// Cada indicação que se cadastra vale este número de pontos.
-export const POINTS_PER_REFERRAL = 10;
+// Modelo de pontos (decisão do Carlos, 18/07/2026):
+//   indicação direta que só se cadastra e é aprovada = +1 ponto pro padrinho;
+//   quando essa indicação COMPRA (Eduzz/outra plataforma) = +10 pontos pro padrinho.
+// Precisa bater com nw_lifetime_points/nw_season_points no banco.
+export const POINTS_PER_REFERRAL = 1;
+export const POINTS_PER_PURCHASE = 10;
 
 // Plano único de entrada
 export const SEMENTE_PLAN = {

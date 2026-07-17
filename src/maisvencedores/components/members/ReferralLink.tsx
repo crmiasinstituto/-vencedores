@@ -83,7 +83,7 @@ export function ReferralLink({ referralCode }: ReferralLinkProps) {
       </div>
 
       <p className="text-xs text-muted-foreground text-center">
-        Cada indicação que se cadastrar usando seu link vale 10 pontos no ranking!
+        Cada pessoa que se cadastrar pelo seu link vale +1 ponto, e +10 quando ela comprar.
       </p>
     </div>
   );

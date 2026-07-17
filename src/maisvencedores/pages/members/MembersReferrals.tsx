@@ -7,7 +7,7 @@ import { ReferralList } from '@/maisvencedores/components/members/ReferralList';
 import { useProfile } from '@/maisvencedores/hooks/useProfile';
 import { useReferrals } from '@/maisvencedores/hooks/useReferrals';
 import { useNwPoints } from '@/maisvencedores/hooks/useNwPoints';
-import { POINTS_PER_REFERRAL } from '@/maisvencedores/lib/netweaving';
+import { POINTS_PER_REFERRAL, POINTS_PER_PURCHASE } from '@/maisvencedores/lib/netweaving';
 import { Loader2 } from 'lucide-react';
 
 export default function MembersReferrals() {
@@ -37,7 +37,7 @@ export default function MembersReferrals() {
     <div className="p-6 lg:p-8 space-y-8">
       <MembersHeader
         title="Indicações"
-        subtitle={`Cada indicação que se cadastra vale ${POINTS_PER_REFERRAL} pontos. Convide e suba no ranking!`}
+        subtitle={`Cada indicação vale +${POINTS_PER_REFERRAL} ponto, e +${POINTS_PER_PURCHASE} quando ela compra. Convide e suba no ranking!`}
       />
 
       {/* Stats Grid */}

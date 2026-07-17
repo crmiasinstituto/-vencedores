@@ -13,6 +13,8 @@ import { MembersLayout } from "./components/members/MembersLayout";
 const Index = lazy(() => import("./pages/Index"));
 const Login = lazy(() => import("./pages/auth/Login"));
 const Signup = lazy(() => import("./pages/auth/Signup"));
+const RecuperarSenha = lazy(() => import("./pages/auth/RecuperarSenha"));
+const NovaSenha = lazy(() => import("./pages/auth/NovaSenha"));
 
 const MembersDashboard = lazy(() => import("./pages/members/MembersDashboard"));
 const MembersPortfolio = lazy(() => import("./pages/members/MembersPortfolio"));
@@ -39,6 +41,8 @@ export default function MaisVencedoresRoutes() {
       <Routes>
         <Route index element={<Index />} />
         <Route path="login" element={<Login />} />
+        <Route path="recuperar-senha" element={<RecuperarSenha />} />
+        <Route path="nova-senha" element={<NovaSenha />} />
         <Route path="cadastro" element={<Signup />} />
         <Route path="convite/:code" element={<Signup />} />
 

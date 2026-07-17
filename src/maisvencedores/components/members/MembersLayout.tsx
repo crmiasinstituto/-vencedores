@@ -1,9 +1,11 @@
-import { Outlet, Navigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { MembersSidebar } from './MembersSidebar';
 import { MembershipProvider } from '@/maisvencedores/contexts/MembershipContext';
 import { useAuth } from '@/maisvencedores/contexts/AuthContext';
 import { useNotificacaoIndicacao } from '@/maisvencedores/hooks/useNotificacaoIndicacao';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Menu } from 'lucide-react';
+import { useEffect } from 'react';
 
 /**
  * Só existe pra ligar o realtime de indicações enquanto o membro está na área. Renderiza nada:
@@ -17,6 +19,13 @@ function RealtimeIndicacoes() {
 
 export function MembersLayout() {
   const { user, loading } = useAuth();
+  const location = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Trocar de tela fecha a gaveta (rede de segurança além do onClose de cada item).
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   if (loading) {
     return (
@@ -34,8 +43,32 @@ export function MembersLayout() {
     <MembershipProvider>
       <RealtimeIndicacoes />
       <div className="flex min-h-screen w-full bg-background">
-        <MembersSidebar />
-        <main className="flex-1 overflow-x-hidden">
+        <MembersSidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
+
+        {/* Fundo escuro atrás da gaveta no mobile; tocar fecha. */}
+        {mobileOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+            onClick={() => setMobileOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+
+        <main className="flex-1 min-w-0 overflow-x-hidden">
+          {/* Barra de topo só no mobile: hambúrguer + marca. No desktop a sidebar já basta. */}
+          <header className="lg:hidden sticky top-0 z-30 flex items-center gap-3 h-14 px-4 border-b border-border/50 bg-background/95 backdrop-blur">
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-foreground hover:bg-white/[0.06]"
+              aria-label="Abrir menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <span className="font-display text-lg font-bold text-foreground">
+              <span className="text-primary">+</span> que Vencedores
+            </span>
+          </header>
+
           <Outlet />
         </main>
       </div>

@@ -4,16 +4,20 @@ import { useProfile } from '@/maisvencedores/hooks/useProfile';
 import { useToast } from '@/hooks/use-toast';
 
 /**
- * Avisa o padrinho, em tempo real, quando uma indicação dele é aprovada.
+ * Avisa o padrinho, em tempo real, sobre dois momentos da jornada de quem ele trouxe:
  *
- * Pedido do Carlos: "manter todos cientes da evolução". No segundo em que o time aprova o
- * indicado, quem indicou recebe um toast — sem recarregar a página.
+ *   1. INDICAÇÃO APROVADA (UPDATE em referrals → status 'approved'): a pessoa entrou de fato.
+ *      Vale +1 ponto (modelo novo do Carlos, 18/07: indicação direta = 1, compra = 10).
+ *   2. COMPRA (INSERT em referral_conversions): o indicado comprou algo na Eduzz/outra
+ *      plataforma. Vale +10 pontos. É o evento mais valioso — o padrinho é avisado na hora.
  *
- * COMO FUNCIONA: escuta UPDATE na tabela referrals filtrado por referrer_id = meu profile.
- * O Realtime já respeita RLS (o Supabase só entrega linha que eu poderia ler), mas o filtro
- * por referrer_id evita até receber o evento de indicação de terceiros. Só reage quando o
- * status VIRA 'approved' (transição), não a qualquer update — por isso precisa do valor antigo,
- * que vem porque a tabela está com replica identity full.
+ * COMO FUNCIONA: dois canais Realtime filtrados por referrer_id = meu profile. O Realtime já
+ * respeita RLS (só entrega linha que eu poderia ler), e o filtro evita receber evento de
+ * terceiros. Na aprovação, só reage à VIRADA de status (precisa do valor antigo → replica
+ * identity full em referrals).
+ *
+ * O socket precisa do JWT ANTES de assinar, senão conecta como anon e o RLS nega a linha — o
+ * canal fica SUBSCRIBED mas nunca entrega nada. Por isso pegamos a sessão primeiro.
  *
  * Monta uma vez por sessão de membro (ver MembersLayout). onNova permite ao chamador também
  * atualizar contadores/badges.
@@ -30,9 +34,6 @@ export function useNotificacaoIndicacao(onNova?: () => void) {
 
     let canal: ReturnType<typeof supabase.channel> | null = null;
 
-    // O socket precisa do JWT ANTES de assinar, senão o Realtime conecta como anon e o RLS de
-    // referrals nega a linha — o canal fica SUBSCRIBED mas nunca entrega nada. Provado: sem
-    // setAuth o evento não chega; com ele, chega na hora. Por isso pegamos a sessão primeiro.
     (async () => {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
@@ -55,10 +56,30 @@ export function useNotificacaoIndicacao(onNova?: () => void) {
             if (novo?.status === 'approved' && antigo?.status !== 'approved') {
               toast({
                 title: 'Sua indicação foi aprovada',
-                description: 'Alguém que você trouxe acabou de ser aprovado. +10 pontos pra você.',
+                description: 'Alguém que você trouxe acabou de ser aprovado. +1 ponto pra você.',
               });
               onNovaRef.current?.();
             }
+          },
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'referral_conversions',
+            filter: `referrer_id=eq.${meuId}`,
+          },
+          (payload) => {
+            const conv = payload.new as { pontos?: number; produto?: string };
+            const pts = conv?.pontos ?? 10;
+            toast({
+              title: 'Alguém que você indicou comprou!',
+              description: conv?.produto
+                ? `${conv.produto} — +${pts} pontos pra você.`
+                : `+${pts} pontos pra você.`,
+            });
+            onNovaRef.current?.();
           },
         )
         .subscribe();

@@ -26,6 +26,10 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (dados: DadosCadastro) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  /** Dispara o email de recuperação. O link do email cai em /maisvencedores/nova-senha. */
+  recuperarSenha: (email: string) => Promise<{ error: Error | null }>;
+  /** Define a nova senha DEPOIS que o usuário chegou pela sessão de recovery do email. */
+  definirNovaSenha: (novaSenha: string) => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -122,8 +126,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
   };
 
+  // O redirectTo tem que bater com o uri_allow_list do projeto (config do Auth no Supabase),
+  // senão o Supabase recusa o link. Em produção é iasinstituto.com.br; em dev, o origin local.
+  const recuperarSenha = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/maisvencedores/nova-senha`,
+      });
+      if (error) throw error;
+      return { error: null };
+    } catch (error) {
+      return { error: error as Error };
+    }
+  };
+
+  const definirNovaSenha = async (novaSenha: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({ password: novaSenha });
+      if (error) throw error;
+      return { error: null };
+    } catch (error) {
+      return { error: error as Error };
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut, recuperarSenha, definirNovaSenha }}>
       {children}
     </AuthContext.Provider>
   );

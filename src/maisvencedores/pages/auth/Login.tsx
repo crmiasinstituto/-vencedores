@@ -66,19 +66,19 @@ export default function Login() {
           <div className="flex items-center gap-2 mb-12">            <span className="font-display text-2xl font-bold text-gold">+ que Vencedores</span>
           </div>
           <h1 className="text-4xl font-display font-bold text-foreground mb-4">
-            Conecte-se à sua<br/>
-            <span className="text-gradient-gold">rede de negócios</span>
+            Continue a sua<br/>
+            <span className="text-gradient-gold">jornada de transformação</span>
           </h1>
           <p className="text-muted-foreground text-lg max-w-md">
-            Acesse sua área exclusiva e continue expandindo suas conexões estratégicas.
+            Acesse a sua área e volte para as aulas, treinamentos e para a comunidade.
           </p>
         </div>
 
         <div className="relative z-10 glass-gold rounded-2xl p-6">
-          <p className="text-sm text-muted-foreground italic">
-            "O + que Vencedores transformou a forma como faço networking. Em 3 meses, fechei 5 parcerias estratégicas."
+          <p className="text-sm text-muted-foreground">
+            Uma iniciativa do IAS Instituto, desde 2019. Desenvolvimento pessoal, profissional e
+            financeiro, ao lado de quem decidiu viver com propósito.
           </p>
-          <p className="text-gold font-medium mt-2">— Maria S., Consultora</p>
         </div>
       </div>
 
@@ -128,6 +128,11 @@ export default function Login() {
                 />
               </div>
               {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
+              <div className="text-right">
+                <Link to="/maisvencedores/recuperar-senha" className="text-sm text-gold hover:underline">
+                  Esqueceu a senha?
+                </Link>
+              </div>
             </div>
 
             <Button type="submit" variant="gold" className="w-full" disabled={loading}>

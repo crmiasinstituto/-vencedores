@@ -12,7 +12,8 @@ import {
   Sprout,
   Settings,
   Shield,
-  TrendingUp
+  TrendingUp,
+  X
 } from 'lucide-react';
 import { useAdmin } from '@/maisvencedores/hooks/useAdmin';
 import { FaixaBadge } from './FaixaBadge';
@@ -37,7 +38,18 @@ const menuItems: { icon: typeof LayoutDashboard; label: string; path: string; fa
   { icon: Settings, label: 'Configurações', path: '/maisvencedores/membros/configuracoes' },
 ];
 
-export function MembersSidebar() {
+/**
+ * Sidebar do membro. No desktop (lg+) é fixa e pode encolher (isCollapsed). No mobile vira uma
+ * GAVETA: fica escondida fora da tela e desliza por cima quando o hambúrguer do topo abre —
+ * quem controla o abre/fecha é o MembersLayout (mobileOpen/onClose), porque o botão vive lá.
+ */
+export function MembersSidebar({
+  mobileOpen = false,
+  onClose,
+}: {
+  mobileOpen?: boolean;
+  onClose?: () => void;
+}) {
   const { faixa, currentMember, alcanca } = useMembership();
   const { signOut } = useAuth();
   const { isAdmin } = useAdmin();
@@ -52,8 +64,10 @@ export function MembersSidebar() {
 
   return (
     <aside className={cn(
-      'h-screen sticky top-0 flex flex-col bg-card/50 backdrop-blur-xl border-r border-border/50 transition-all duration-300',
-      isCollapsed ? 'w-16' : 'w-64'
+      'fixed inset-y-0 left-0 z-50 h-screen w-72 flex flex-col bg-card/95 lg:bg-card/50 backdrop-blur-xl border-r border-border/50 transition-transform duration-300',
+      'lg:sticky lg:top-0 lg:z-auto lg:translate-x-0',
+      mobileOpen ? 'translate-x-0' : '-translate-x-full',
+      isCollapsed ? 'lg:w-16' : 'lg:w-64',
     )}>
       {/* Header */}
       <div className="p-4 border-b border-border/50">
@@ -63,13 +77,23 @@ export function MembersSidebar() {
               <span className="text-primary">+</span> que Vencedores
             </span>
           )}
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="h-8 w-8 p-0"
+          {/* Desktop: botão de encolher. Mobile: botão de fechar a gaveta. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="hidden lg:flex h-8 w-8 p-0"
             onClick={() => setIsCollapsed(!isCollapsed)}
           >
             {isCollapsed ? <Menu className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="lg:hidden h-8 w-8 p-0"
+            onClick={onClose}
+            aria-label="Fechar menu"
+          >
+            <X className="w-4 h-4" />
           </Button>
         </div>
       </div>
@@ -125,7 +149,13 @@ export function MembersSidebar() {
                     : 'text-muted-foreground/40 cursor-not-allowed',
                 isCollapsed && 'justify-center px-2',
               )}
-              onClick={(e) => !temAcesso && e.preventDefault()}
+              onClick={(e) => {
+                if (!temAcesso) {
+                  e.preventDefault();
+                  return;
+                }
+                onClose?.();
+              }}
             >
               {isActive && (
                 <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-primary" />
@@ -151,6 +181,7 @@ export function MembersSidebar() {
         <div className="p-2 border-t border-border/50">
           <NavLink
             to="/admin/maisvencedores"
+            onClick={() => onClose?.()}
             className={cn(
               'flex items-center gap-3 px-3 py-2.5 rounded-lg text-gold hover:bg-gold/10 transition-all duration-200 w-full',
               isCollapsed && 'justify-center px-2'
