@@ -5,8 +5,9 @@ import { CanvasHero } from "@/maisvencedores/landing/CanvasHero";
 import { Arco } from "@/maisvencedores/landing/Arco";
 import { MuralDeMembros } from "@/maisvencedores/landing/MuralDeMembros";
 import { FloatingCTA } from "@/maisvencedores/landing/FloatingCTA";
+import { TreinadoresVitrine } from "@/maisvencedores/landing/TreinadoresVitrine";
 import { ProofSlot } from "@/maisvencedores/landing/ProofSlot";
-import { AREAS, NUMEROS, PERKS, NAO_E_PARA_QUEM, TREINADORES } from "@/maisvencedores/landing/dados";
+import { AREAS, NUMEROS, PERKS, NAO_E_PARA_QUEM } from "@/maisvencedores/landing/dados";
 
 /**
  * Landing da Comunidade + que Vencedores (IAS Instituto).
@@ -222,15 +223,10 @@ const Index = () => {
             </p>
             <div className="team">
               <span className="k">Ao lado de</span>
-              <ul>
-                {TREINADORES.map((nome) => (
-                  <li key={nome}>
-                    <i className="sig" />
-                    {nome}
-                  </li>
-                ))}
-              </ul>
-              <p className="etc">e outros treinadores do IAS Instituto</p>
+              <p style={{ marginTop: 8, color: "var(--day-ink-2)" }}>
+                Ludmila Badaró, Soraya Storino, Alexandre Solto Maior, Claudia Uchoa e outros
+                treinadores do IAS Instituto.
+              </p>
             </div>
           </div>
           <ProofSlot
@@ -238,6 +234,18 @@ const Index = () => {
             o_que="Fotos de Isaac em treinamentos, fotos da equipe e de eventos, bastidores, matérias na imprensa, certificados, livros publicados."
             porque="Esta seção fala de autoridade — e autoridade se mostra, não se afirma. Uma foto de auditório cheio faz mais aqui do que qualquer adjetivo."
           />
+        </section>
+
+        {/* A vitrine dos treinadores (carrossel de rostos), pedida pelo Carlos. Largura total,
+            fora do grid do .who. Rola sozinha; sem foto, mostra iniciais. */}
+        <section style={{ padding: "0 0 48px" }}>
+          <div className="wrap" style={{ marginBottom: 24 }}>
+            <p className="kicker">Os treinadores</p>
+            <h2 style={{ marginTop: 12, maxWidth: "18ch", fontSize: "clamp(26px, 3vw, 38px)" }}>
+              Gente que conduz a transformação.
+            </h2>
+          </div>
+          <TreinadoresVitrine />
         </section>
 
         <section className="close" id="entrar">

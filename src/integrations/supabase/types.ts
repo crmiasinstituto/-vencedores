@@ -11065,6 +11065,15 @@ export type Database = {
         Returns: Json
       }
       total_de_membros: { Args: never; Returns: number }
+      treinadores_publicos: {
+        Args: never
+        Returns: {
+          foto_url: string
+          nome: string
+          ordem: number
+          papel: string
+        }[]
+      }
       wa_can_send_now: { Args: { p_instance_id: string }; Returns: Json }
       wa_canon: { Args: { p: string }; Returns: string }
       wa_increment_instance_stat: {
