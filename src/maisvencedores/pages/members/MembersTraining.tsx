@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { MembersHeader } from '@/maisvencedores/components/members/MembersHeader';
 import { TrainingCard } from '@/maisvencedores/components/members/TrainingCard';
+import { TreinamentosDestaque } from '@/maisvencedores/components/members/TreinamentosDestaque';
 import { useTrainings } from '@/maisvencedores/hooks/useTrainings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -53,6 +54,9 @@ export default function MembersTraining() {
           </div>
         ) : (
           <Tabs value={aba} onValueChange={setAba}>
+            {/* Leque de destaques no topo (só na aba "Todos", pra não competir com o filtro). */}
+            {aba === TODOS && <TreinamentosDestaque trainings={trainings} />}
+
             <TabsList className="mb-6 bg-card/50 flex-wrap h-auto">
               <TabsTrigger value={TODOS}>Todos</TabsTrigger>
               {categorias.map((c) => (
