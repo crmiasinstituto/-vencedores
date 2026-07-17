@@ -33,6 +33,7 @@ import {
   CalendarHeart,
   HardDrive,
   Building2,
+  KeyRound,
 } from 'lucide-react';
 import { UpcomingMeetingsWidget } from './UpcomingMeetingsWidget';
 import {
@@ -82,6 +83,7 @@ const secondaryItems = [
   { title: 'Operações', url: '/admin/operacoes', icon: ClipboardList },
   { title: 'Recrutamento', url: '/admin/recrutamento', icon: UserCheck },
   { title: 'Configurações', url: '/admin/configuracoes', icon: Settings },
+  { title: 'Credenciais', url: '/admin/credenciais', icon: KeyRound },
 ];
 
 // Admin do netweaving (+ que Vencedores). Fica em grupo próprio porque os cadastros são

@@ -43,6 +43,7 @@ const AdminOperacoes = lazy(() => import("./pages/AdminOperacoes"));
 const AdminPlaybooks = lazy(() => import("./pages/AdminPlaybooks"));
 const AdminAgentes = lazy(() => import("./pages/AdminAgentes"));
 const AdminConfiguracoes = lazy(() => import("./pages/AdminConfiguracoes"));
+const AdminCredenciais = lazy(() => import("./pages/AdminCredenciais"));
 const AdminImportarKirvano = lazy(() => import("./pages/AdminImportarKirvano"));
 const AdminRecrutamento = lazy(() => import("./pages/AdminRecrutamento"));
 const AdminMembros = lazy(() => import("./pages/AdminMembros"));
@@ -183,6 +184,7 @@ const App = () => {
                 <Route path="/admin/maisvencedores/*" element={<AdminLayout><MaisVencedoresAdminRoutes /></AdminLayout>} />
                 <Route path="/admin/acervo" element={<AdminLayout><AdminAcervo /></AdminLayout>} />
                 <Route path="/admin/configuracoes" element={<AdminLayout><AdminConfiguracoes /></AdminLayout>} />
+                <Route path="/admin/credenciais" element={<AdminLayout><AdminCredenciais /></AdminLayout>} />
                 <Route path="/admin/importar-kirvano" element={<AdminLayout><AdminImportarKirvano /></AdminLayout>} />
 
                 {/* Marketing — Email + WhatsApp blast + Automações */}

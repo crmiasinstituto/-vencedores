@@ -605,6 +605,27 @@ export type Database = {
         }
         Relationships: []
       }
+      app_credentials: {
+        Row: {
+          atualizado_em: string
+          atualizado_por: string | null
+          slug: string
+          valor: string
+        }
+        Insert: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          slug: string
+          valor: string
+        }
+        Update: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          slug?: string
+          valor?: string
+        }
+        Relationships: []
+      }
       billing_config: {
         Row: {
           api_key: string | null
@@ -7053,7 +7074,9 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           company_name: string
+          cpf: string | null
           created_at: string | null
+          data_nascimento: string | null
           description: string | null
           email: string | null
           employee_count: string | null
@@ -7091,7 +7114,9 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           company_name?: string
+          cpf?: string | null
           created_at?: string | null
+          data_nascimento?: string | null
           description?: string | null
           email?: string | null
           employee_count?: string | null
@@ -7129,7 +7154,9 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           company_name?: string
+          cpf?: string | null
           created_at?: string | null
+          data_nascimento?: string | null
           description?: string | null
           email?: string | null
           employee_count?: string | null
@@ -10634,6 +10661,14 @@ export type Database = {
         }
         Returns: Json
       }
+      credenciais_status: {
+        Args: never
+        Returns: {
+          atualizado_em: string
+          configurada: boolean
+          slug: string
+        }[]
+      }
       cron_dispatch_all_collective_events: { Args: never; Returns: Json }
       current_faixa: {
         Args: never
@@ -10999,6 +11034,10 @@ export type Database = {
         Returns: Json
       }
       run_daily_engagement_alert: { Args: never; Returns: Json }
+      salvar_credencial: {
+        Args: { p_slug: string; p_valor: string }
+        Returns: undefined
+      }
       save_attendee_instagram: {
         Args: { p_attendee_id: string; p_data: Json; p_pic: string }
         Returns: Json
