@@ -1,8 +1,7 @@
 import { Link } from "react-router-dom";
 
 import "@/maisvencedores/landing/landing.css";
-import { ShaderBackground } from "@/maisvencedores/components/ShaderBackground";
-import { SignalField } from "@/maisvencedores/landing/SignalField";
+import { CanvasHero } from "@/maisvencedores/landing/CanvasHero";
 import { Arco } from "@/maisvencedores/landing/Arco";
 import { MuralDeMembros } from "@/maisvencedores/landing/MuralDeMembros";
 import { ProofSlot } from "@/maisvencedores/landing/ProofSlot";
@@ -37,10 +36,9 @@ const Index = () => {
 
         {/* HERO — o campo de sinais é a comunidade */}
         <section className="hero">
-          {/* Duas camadas de fundo: o shader dá a profundidade de cor e o campo de sinais
-              desenha as 34 mil pessoas por cima dele. */}
-          <ShaderBackground />
-          <SignalField />
+          {/* O rastro que segue o cursor, escolha do Carlos (ver CanvasHero). Substituiu o
+              shader + o campo de "+". */}
+          <CanvasHero />
           <div className="wrap">
             <p className="kicker">Uma iniciativa do IAS Instituto · desde 2019</p>
             <h1>
