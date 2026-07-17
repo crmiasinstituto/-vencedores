@@ -149,7 +149,7 @@
 
 /* ── ATO I: NOITE ─────────────────────────────────────── */
 .mv-landing .night { background: var(--night); position: relative; }
-.mv-landing .hero { padding: 86px 0 76px; position: relative; overflow: hidden; }
+.mv-landing .hero { padding: 64px 0 56px; position: relative; overflow: hidden; }
 .mv-landing #field { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
 /* o campo desvanece pra não brigar com o texto */
 .mv-landing .hero::after {
@@ -199,7 +199,7 @@
 .mv-landing .rail a:hover .sig { color: var(--cobalt); }
 
 /* ── 34 mil ───────────────────────────────────────────── */
-.mv-landing .mass { padding: 96px 0; border-top: 1px solid var(--night-rule); background: var(--night-2); }
+.mv-landing .mass { padding: 64px 0; border-top: 1px solid var(--night-rule); background: var(--night-2); }
 .mv-landing .mass-top { display: grid; grid-template-columns: 1.1fr 1fr; gap: 60px; align-items: end; }
 .mv-landing .huge {
   font-weight: 800;
@@ -223,7 +223,7 @@
 .mv-landing .mf b { color: var(--night-ink); font-weight: 700; font-variant-numeric: tabular-nums; min-width: 52px; }
 
 /* ── áreas ────────────────────────────────────────────── */
-.mv-landing .learn { padding: 96px 0; border-top: 1px solid var(--night-rule); }
+.mv-landing .learn { padding: 64px 0; border-top: 1px solid var(--night-rule); }
 .mv-landing .area {
   display: grid;
   grid-template-columns: minmax(180px, 240px) 1fr;
@@ -239,7 +239,7 @@
 .mv-landing .area li .sig { --sig: 9px; color: var(--cobalt); transform: translateY(-1px); }
 
 /* ── perks ────────────────────────────────────────────── */
-.mv-landing .perks { padding: 96px 0; border-top: 1px solid var(--night-rule); background: var(--night-2); }
+.mv-landing .perks { padding: 64px 0; border-top: 1px solid var(--night-rule); background: var(--night-2); }
 .mv-landing .pg {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
@@ -254,7 +254,7 @@
 .mv-landing .pk .fn { font-size: 11.5px; color: #5a6479; margin-top: auto; padding-top: 10px; }
 
 /* ── manifesto ────────────────────────────────────────── */
-.mv-landing .manifesto { padding: 104px 0; border-top: 1px solid var(--night-rule); }
+.mv-landing .manifesto { padding: 64px 0; border-top: 1px solid var(--night-rule); }
 .mv-landing .manifesto h2 { max-width: 14ch; }
 .mv-landing .manifesto ul { margin: 44px 0 0; padding: 0; list-style: none; max-width: 760px; }
 .mv-landing .manifesto li {
@@ -277,7 +277,7 @@
    lá nem claro nem escuro passam de ~3:1. */
 .mv-landing .arc {
   background: linear-gradient(180deg, var(--night) 0%, var(--night) 58%, #1a2334 70%, #7c88a4 88%, var(--day) 100%);
-  padding: 110px 0 120px;
+  padding: 72px 0 80px;
   color: var(--night-ink);
 }
 .mv-landing .arc h2 { max-width: 15ch; }
@@ -341,7 +341,7 @@
 .mv-landing .who {
   max-width: 1160px;
   margin: 0 auto;
-  padding: 100px 30px;
+  padding: 64px 30px;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 60px;
@@ -368,7 +368,7 @@
 .mv-landing .team .etc { font-weight: 400; font-size: 15px; color: var(--day-ink-2); padding-left: 20px; }
 
 /* ── fecho ────────────────────────────────────────────── */
-.mv-landing .close { padding: 110px 0 120px; border-top: 1px solid var(--day-rule); }
+.mv-landing .close { padding: 72px 0 80px; border-top: 1px solid var(--day-rule); }
 .mv-landing .close-grid { display: grid; grid-template-columns: 1fr auto; gap: 56px; align-items: end; }
 .mv-landing .close h2 { max-width: 16ch; }
 .mv-landing .close .btn { background: var(--cobalt-deep); }

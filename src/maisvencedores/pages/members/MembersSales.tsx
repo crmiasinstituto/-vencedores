@@ -1,8 +1,6 @@
 import { useSalesRanking } from '@/maisvencedores/hooks/useSalesRanking';
 import { SalesStats } from '@/maisvencedores/components/members/SalesStats';
-import { SalesProgress } from '@/maisvencedores/components/members/SalesProgress';
 import { SalesLeaderboard } from '@/maisvencedores/components/members/SalesLeaderboard';
-import { AnnualRanking } from '@/maisvencedores/components/members/AnnualRanking';
 import { DealForm } from '@/maisvencedores/components/shared/DealForm';
 import { useProfile } from '@/maisvencedores/hooks/useProfile';
 import { Button } from '@/components/ui/button';
@@ -46,11 +44,12 @@ export default function MembersSales() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="font-display text-2xl md:text-3xl font-bold flex items-center gap-2">
-              <TrendingUp className="w-7 h-7 text-green-500" />
-              Minhas Vendas
+              <TrendingUp className="w-7 h-7 text-primary" />
+              Negócios da rede
             </h1>
             <p className="text-muted-foreground mt-1">
-              Acompanhe suas vendas via + que Vencedores e sua contribuição para o grupo
+              Os negócios que nasceram das conexões do + que Vencedores. Registrar é opcional —
+              serve pra celebrar o que a rede gerou, não pra bater meta.
             </p>
           </div>
 
@@ -59,7 +58,7 @@ export default function MembersSales() {
             trigger={
               <Button className="gap-2">
                 <Plus className="w-4 h-4" />
-                Declarar Venda
+                Registrar negócio
               </Button>
             }
           />
@@ -70,13 +69,11 @@ export default function MembersSales() {
           <SalesStats stats={myStats} rankPosition={getMyRankPosition()} />
         )}
 
-        {/* Progress */}
-        {myStats && (
-          <SalesProgress stats={myStats} />
-        )}
-
-        {/* Ranking Anual + prêmios */}
-        <AnnualRanking currentProfileId={profile?.id} />
+        {/* A "Meta de Vendas" (SalesProgress) e o "Ranking Anual" com prêmios (passagens
+            aéreas, mentoria — tudo chumbado no código, nunca acordado) saíram a pedido do
+            Carlos em 16/07: o ecossistema não é sobre ganho direto nem meta comercial, é sobre
+            conexão e crescimento. A moeda é ponto, não faturamento. Os componentes seguem no
+            repo caso o modelo mude. */}
 
         {/* Grid: Ranking + Deals */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -88,16 +85,16 @@ export default function MembersSales() {
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <FileText className="w-5 h-5" />
-                Histórico de Vendas
+                Negócios registrados
               </CardTitle>
-              <Badge variant="secondary">{myDeals.length} negócios</Badge>
+              <Badge variant="secondary">{myDeals.length}</Badge>
             </CardHeader>
             <CardContent>
               {myDeals.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>Você ainda não declarou nenhuma venda.</p>
-                  <p className="text-sm">Comece a registrar seus negócios fechados!</p>
+                  <p>Nenhum negócio registrado ainda.</p>
+                  <p className="text-sm">Fechou algo através de uma conexão da rede? Registre aqui.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">

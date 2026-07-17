@@ -1,4 +1,4 @@
-import { TrendingUp, Target, Percent, Trophy, Star } from 'lucide-react';
+import { TrendingUp, Target, Trophy, Handshake } from 'lucide-react';
 import { StatCard } from '@/maisvencedores/components/shared/StatCard';
 import type { SalesStats as SalesStatsType } from '@/maisvencedores/hooks/useSalesRanking';
 
@@ -15,37 +15,27 @@ export function SalesStats({ stats, rankPosition }: SalesStatsProps) {
     }).format(value);
   };
 
+  // "Contribuição 5%" saiu a pedido do Carlos: o ecossistema trabalha só com pontuação por
+  // ora, não com repasse de venda. Os outros são celebração do que a rede gerou, não meta.
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <StatCard
-        title="Total Vendido"
+        title="Valor gerado pela rede"
         value={formatCurrency(stats.totalSales)}
         icon={TrendingUp}
-        iconColor="text-green-500"
+        iconColor="text-primary"
       />
       <StatCard
-        title="Negócios Fechados"
+        title="Negócios registrados"
         value={stats.totalDeals.toString()}
-        icon={Target}
-        iconColor="text-blue-500"
+        icon={Handshake}
+        iconColor="text-primary"
       />
       <StatCard
-        title="Contribuição 5%"
-        value={formatCurrency(stats.contributionAmount)}
-        icon={Percent}
-        iconColor="text-gold"
-        description={stats.eligibleForSpotlight ? "Meta batida!" : "Após bater meta"}
-      />
-      <StatCard
-        title="Posição Ranking"
+        title="Posição no ranking"
         value={rankPosition ? `#${rankPosition}` : '-'}
         icon={Trophy}
         iconColor="text-amber-500"
-        description={stats.eligibleForSpotlight ? (
-          <span className="flex items-center gap-1 text-gold">
-            <Star className="w-3 h-3" /> Elegível
-          </span>
-        ) : undefined}
       />
     </div>
   );
