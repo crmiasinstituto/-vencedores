@@ -12,6 +12,7 @@ const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminMembers = lazy(() => import("./pages/admin/AdminMembers"));
 const AdminEvents = lazy(() => import("./pages/admin/AdminEvents"));
 const AdminTrainings = lazy(() => import("./pages/admin/AdminTrainings"));
+const AdminGeradorTemplates = lazy(() => import("./pages/admin/AdminGeradorTemplates"));
 
 /**
  * Tudo abaixo de /admin/maisvencedores. O AdminLayout do CRM (que já barra não-admin) envolve
@@ -28,6 +29,7 @@ export default function MaisVencedoresAdminRoutes() {
         <Route path="membros" element={<AdminMembers />} />
         <Route path="eventos" element={<AdminEvents />} />
         <Route path="treinamentos" element={<AdminTrainings />} />
+        <Route path="templates" element={<AdminGeradorTemplates />} />
         {/* 'Negócios Gerados' (AdminDeals) e 'Anúncios' (AdminAdvertisements) saíram em
             15/07/2026 a pedido do Carlos. Eram do modelo de netweaving; o ecossistema do IAS
             é transformação de vida, não geração de lead entre membros. Os arquivos das duas

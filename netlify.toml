@@ -15,6 +15,12 @@
   path = "/__sb/*"
   function = "sb"
 
+# Funções serverless (Node). gerar-template.mjs chama o Claude pra gerar templates do Instituto —
+# fica aqui, e não no Supabase, porque o projeto está no teto de 100 edge functions do Supabase.
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
 # URL limpa da apresentacao Masterclass (sem .html), serve o arquivo estatico
 [[redirects]]
   from = "/apresentacoes/masterclass-ia-negocios"

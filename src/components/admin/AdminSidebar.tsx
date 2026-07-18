@@ -95,6 +95,7 @@ const maisVencedoresItems = [
   { title: 'Membros do Ecossistema', url: '/admin/maisvencedores/membros', icon: Users },
   { title: 'Eventos', url: '/admin/maisvencedores/eventos', icon: CalendarDays },
   { title: 'Treinamentos', url: '/admin/maisvencedores/treinamentos', icon: GraduationCap },
+  { title: 'Gerador de Templates', url: '/admin/maisvencedores/templates', icon: Sparkles },
 ];
 
 const socialSellingItems = [
