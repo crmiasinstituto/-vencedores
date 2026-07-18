@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Wand2, Copy, FileDown, RotateCcw } from 'lucide-react';
+import { Loader2, Wand2, Copy, FileDown, RotateCcw, Mic, Square } from 'lucide-react';
 
 /**
  * Gerador de templates do Instituto (e-mail, comunicado, certificado, post) com IA.
@@ -33,6 +33,41 @@ export default function AdminGeradorTemplates() {
   const [extra, setExtra] = useState('');
   const [loading, setLoading] = useState(false);
   const [res, setRes] = useState<Resultado | null>(null);
+
+  // Ditado por voz: o próprio navegador transcreve (Web Speech API), sem chave de IA nem
+  // upload de áudio. Só existe no Chrome/Edge; em navegador sem suporte, o botão nem aparece.
+  const [ouvindo, setOuvindo] = useState(false);
+  const recRef = useRef<any>(null);
+  const suportaVoz = typeof window !== 'undefined' &&
+    ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+
+  useEffect(() => () => { try { recRef.current?.stop(); } catch { /* noop */ } }, []);
+
+  const alternarVoz = () => {
+    if (!suportaVoz) return;
+    if (ouvindo) { try { recRef.current?.stop(); } catch { /* noop */ } return; }
+
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const rec = new SR();
+    rec.lang = 'pt-BR';
+    rec.continuous = true;
+    rec.interimResults = false;
+    rec.onresult = (e: any) => {
+      let trecho = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) trecho += e.results[i][0].transcript;
+      }
+      if (trecho) setPrompt((p) => (p ? p.trim() + ' ' : '') + trecho.trim());
+    };
+    rec.onerror = (e: any) => {
+      setOuvindo(false);
+      if (e.error === 'not-allowed') toast({ title: 'Permita o microfone pra ditar', variant: 'destructive' });
+    };
+    rec.onend = () => setOuvindo(false);
+    recRef.current = rec;
+    rec.start();
+    setOuvindo(true);
+  };
 
   const gerar = async () => {
     if (!prompt.trim()) {
@@ -111,7 +146,22 @@ export default function AdminGeradorTemplates() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="prompt">O que você quer comunicar?</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="prompt">O que você quer comunicar?</Label>
+              {suportaVoz && (
+                <button
+                  type="button"
+                  onClick={alternarVoz}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs transition ${
+                    ouvindo
+                      ? 'border-red-500/60 bg-red-500/10 text-red-500 animate-pulse'
+                      : 'border-border/60 text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {ouvindo ? <><Square className="w-3.5 h-3.5" /> Parar</> : <><Mic className="w-3.5 h-3.5" /> Ditar por voz</>}
+                </button>
+              )}
+            </div>
             <Textarea
               id="prompt"
               rows={5}
@@ -119,6 +169,7 @@ export default function AdminGeradorTemplates() {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
             />
+            {ouvindo && <p className="text-xs text-red-500">Ouvindo… fale o briefing e clique em Parar.</p>}
           </div>
 
           <div className="space-y-2">

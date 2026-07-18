@@ -1,3 +1,5 @@
+functionsDirectory = "/Users/carloseduardosilvasouza/Downloads/AGENTE DE IA/mais-que-vencedores-crm/netlify/functions"
+functionsDirectoryOrigin = "config"
 headersOrigin = "config"
 redirectsOrigin = "config"
 plugins = []
@@ -8,6 +10,7 @@ publish = "/Users/carloseduardosilvasouza/Downloads/AGENTE DE IA/mais-que-venced
 publishOrigin = "config"
 commandOrigin = "config"
 command = "npm run build"
+functions = "/Users/carloseduardosilvasouza/Downloads/AGENTE DE IA/mais-que-vencedores-crm/netlify/functions"
 
 [build.environment]
 NODE_VERSION = "20"
@@ -32,6 +35,7 @@ function = "sb"
 [functions]
 
 [functions."*"]
+node_bundler = "esbuild"
 
 [[headers]]
 for = "/*"
