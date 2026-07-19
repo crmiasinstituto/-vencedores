@@ -23,7 +23,7 @@ import { Loader2, Check, Users, DollarSign, ShoppingBag, Pencil, Trash2, X, Chec
  */
 
 type Opcao = { id: string; label: string; total: number; parcelas: number; parcela?: number };
-type Produto = { id: string; nome: string; casal?: boolean; opcoes: Opcao[] };
+type Produto = { id: string; nome: string; casal?: boolean; valorLivre?: boolean; opcoes: Opcao[] };
 
 const PRODUTOS: Produto[] = [
   {
@@ -58,6 +58,14 @@ const PRODUTOS: Produto[] = [
       { id: 'avista', label: 'À vista — 15% off', total: 4080, parcelas: 1 },
       { id: '12x', label: '12x de R$ 400,00', total: 4800, parcelas: 12, parcela: 400 },
     ],
+  },
+  {
+    // Combo de 3 livros que dá direito a uma sessão de Tutoria em Grupo. Sem preço fixo — o
+    // valor é digitado na venda (valorLivre). O importante aqui é o cadastro de quem tem direito.
+    id: 'livros3_tutoria',
+    nome: '3 Livros + Tutoria em Grupo',
+    valorLivre: true,
+    opcoes: [{ id: 'avista', label: 'À vista', total: 0, parcelas: 1 }],
   },
 ];
 
@@ -145,6 +153,8 @@ export default function AdminVendasFormacao() {
   const [valorCheque, setValorCheque] = useState('');
   // Data do cheque (1x) ou do 1º cheque (sinal + cheque). O restante é mensal a partir dela.
   const [dataPag, setDataPag] = useState('');
+  // Produtos de valor livre (3 Livros + Tutoria): o valor é digitado na venda.
+  const [valorLivreInput, setValorLivreInput] = useState('');
 
   const [salvando, setSalvando] = useState(false);
   const [vendas, setVendas] = useState<Venda[]>([]);
@@ -221,7 +231,7 @@ export default function AdminVendasFormacao() {
   const limpar = () => {
     setNome(''); setTelefone(''); setEmail(''); setCpf(''); setEndereco('');
     setNome2(''); setTelefone2(''); setEmail2(''); setCpf2('');
-    setObs(''); setTotalSinal(''); setEntrada(''); setNBoletos('1'); setValorCheque(''); setDataPag('');
+    setObs(''); setTotalSinal(''); setEntrada(''); setNBoletos('1'); setValorCheque(''); setDataPag(''); setValorLivreInput('');
   };
 
   const cancelarEdicao = () => { setEditandoId(null); limpar(); };
@@ -246,6 +256,7 @@ export default function AdminVendasFormacao() {
     setEmail2(v.email_2 || ''); setCpf2(v.cpf_2 || '');
     setObs(v.observacao || '');
     setDataPag(v.data_pagamento || (v.vencimentos?.[0] ?? ''));
+    setValorLivreInput(v.produto === 'livros3_tutoria' ? String(v.valor_total) : '');
     setEditandoId(v.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -276,7 +287,7 @@ export default function AdminVendasFormacao() {
       ? { forma_pagamento: ehSinalCheque ? SINAL_CHEQUE : SINAL, parcelas: nBoletosN, valor_parcela: valorBoleto, valor_entrada: entradaN, valor_total: totalSinalN, data_pagamento: dataPag || null, vencimentos: datasCheque }
       : ehCheque
       ? { forma_pagamento: CHEQUE, parcelas: 1, valor_parcela: null, valor_entrada: null, valor_total: valorChequeN, data_pagamento: dataPag || null, vencimentos: datasCheque }
-      : { forma_pagamento: opcaoCatalogo!.id, parcelas: opcaoCatalogo!.parcelas, valor_parcela: opcaoCatalogo!.parcela ?? null, valor_entrada: null, valor_total: opcaoCatalogo!.total, data_pagamento: null, vencimentos: null };
+      : { forma_pagamento: opcaoCatalogo!.id, parcelas: opcaoCatalogo!.parcelas, valor_parcela: opcaoCatalogo!.parcela ?? null, valor_entrada: null, valor_total: produto.valorLivre ? num(valorLivreInput) : opcaoCatalogo!.total, data_pagamento: null, vencimentos: null };
 
     const registro = {
       produto: produto.id,
@@ -437,6 +448,11 @@ export default function AdminVendasFormacao() {
                     )}
                   </div>
                 )}
+              </div>
+            ) : produto.valorLivre ? (
+              <div className="space-y-1 rounded-lg bg-primary/5 border border-primary/20 p-3">
+                <Label className="text-xs">Valor da venda (deixe 0 se for cortesia)</Label>
+                <Input value={valorLivreInput} onChange={(e) => setValorLivreInput(e.target.value)} placeholder="0" inputMode="decimal" />
               </div>
             ) : (
               <div className="rounded-lg bg-primary/5 border border-primary/20 px-3 py-2">
