@@ -44,6 +44,7 @@ const AdminPlaybooks = lazy(() => import("./pages/AdminPlaybooks"));
 const AdminAgentes = lazy(() => import("./pages/AdminAgentes"));
 const AdminConfiguracoes = lazy(() => import("./pages/AdminConfiguracoes"));
 const AdminCredenciais = lazy(() => import("./pages/AdminCredenciais"));
+const AdminVendasFormacao = lazy(() => import("./pages/AdminVendasFormacao"));
 const AdminImportarKirvano = lazy(() => import("./pages/AdminImportarKirvano"));
 const AdminRecrutamento = lazy(() => import("./pages/AdminRecrutamento"));
 const AdminMembros = lazy(() => import("./pages/AdminMembros"));
@@ -158,6 +159,7 @@ const App = () => {
                 <Route path="/admin/crm" element={<AdminLayout><AdminCRM /></AdminLayout>} />
                 <Route path="/admin/clientes" element={<AdminLayout><AdminClientes360 /></AdminLayout>} />
                 <Route path="/admin/vendas" element={<AdminLayout><SalesDashboard /></AdminLayout>} />
+                <Route path="/admin/vendas-formacoes" element={<AdminLayout><AdminVendasFormacao /></AdminLayout>} />
                 <Route path="/admin/recebimentos" element={<AdminLayout><AdminRecebimentos /></AdminLayout>} />
                 <Route path="/admin/financeiro" element={<AdminLayout><AdminFinanceiro /></AdminLayout>} />
                 <Route path="/admin/whatsapp" element={<AdminLayout><AdminWhatsApp /></AdminLayout>} />

@@ -58,6 +58,7 @@ const menuItems = [
   { title: 'CRM de Vendas', url: '/admin/crm', icon: Kanban },
   { title: 'Central 360', url: '/admin/clientes', icon: Users },
   { title: 'Vendas', url: '/admin/vendas', icon: ShoppingCart },
+  { title: 'Vendas — Formações', url: '/admin/vendas-formacoes', icon: DollarSign },
   { title: 'Funil', url: '/admin/funil', icon: TrendingDown },
   { title: 'Financeiro', url: '/admin/recebimentos', icon: DollarSign },
   { title: 'Projeções', url: '/admin/financeiro', icon: TrendingUp },
