@@ -5,6 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
+  AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 import { Loader2, Check, Users, DollarSign, ShoppingBag, Pencil, Trash2, X, CheckCircle2, Circle } from 'lucide-react';
 
 /**
@@ -147,6 +151,7 @@ export default function AdminVendasFormacao() {
   const [parcelasPorVenda, setParcelasPorVenda] = useState<Record<string, Parcela[]>>({});
   const [carregando, setCarregando] = useState(true);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [vendaExcluir, setVendaExcluir] = useState<Venda | null>(null);
   // Ao carregar uma venda pra editar, a troca de produto NÃO deve resetar a forma de pagamento.
   const pulaReset = useRef(false);
 
@@ -245,12 +250,14 @@ export default function AdminVendasFormacao() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const excluir = async (v: Venda) => {
-    if (!window.confirm(`Apagar a venda de ${v.cliente_nome} (${brl(Number(v.valor_total))})? Não dá pra desfazer.`)) return;
+  const confirmarExclusao = async () => {
+    const v = vendaExcluir;
+    if (!v) return;
     const { error } = await (supabase as any).from('vendas_formacao').delete().eq('id', v.id);
     if (error) { toast({ title: 'Não deu pra apagar', description: error.message, variant: 'destructive' }); return; }
     if (editandoId === v.id) cancelarEdicao();
     toast({ title: 'Venda apagada' });
+    setVendaExcluir(null);
     carregar();
   };
 
@@ -543,7 +550,7 @@ export default function AdminVendasFormacao() {
                       className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-white/[0.06] hover:text-foreground">
                       <Pencil className="w-3.5 h-3.5" /> Editar
                     </button>
-                    <button onClick={() => excluir(v)}
+                    <button onClick={() => setVendaExcluir(v)}
                       className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-red-500 hover:bg-red-500/10">
                       <Trash2 className="w-3.5 h-3.5" /> Apagar
                     </button>
@@ -555,6 +562,25 @@ export default function AdminVendasFormacao() {
           )}
         </div>
       </div>
+
+      <AlertDialog open={!!vendaExcluir} onOpenChange={(aberto) => !aberto && setVendaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar esta venda?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {vendaExcluir && (
+                <>Você vai apagar a venda de <strong className="text-foreground">{vendaExcluir.cliente_nome}</strong> ({brl(Number(vendaExcluir.valor_total))}) e todos os recebíveis dela. Essa ação não dá pra desfazer.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarExclusao} className="bg-red-600 hover:bg-red-700 text-white">
+              Apagar venda
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
