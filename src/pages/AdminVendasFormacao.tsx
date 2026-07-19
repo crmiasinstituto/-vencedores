@@ -63,6 +63,16 @@ const CHEQUE = 'cheque_predatado';
 const brl = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 const num = (s: string) => Number(String(s).replace(/[^\d,.-]/g, '').replace('.', '').replace(',', '.')) || 0;
+// Datas ISO (YYYY-MM-DD) mensais a partir de uma data inicial, sem susto de fuso.
+function gerarMensais(inicio: string, n: number): string[] {
+  if (!inicio) return [];
+  const [y, m, d] = inicio.split('-').map(Number);
+  return Array.from({ length: Math.max(1, n) }, (_, i) => {
+    const dt = new Date(y, m - 1 + i, d);
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  });
+}
+const dataBR = (iso?: string | null) => (iso ? iso.split('-').reverse().join('/') : '');
 
 type Venda = {
   id: string;
@@ -83,6 +93,8 @@ type Venda = {
   cpf_2: string | null;
   endereco: string | null;
   observacao: string | null;
+  data_pagamento: string | null;
+  vencimentos: string[] | null;
   created_at: string;
 };
 
@@ -111,6 +123,8 @@ export default function AdminVendasFormacao() {
   const [nBoletos, setNBoletos] = useState('1');
   // Cheque pré-datado (1x) — valor editável, condição varia por negociação.
   const [valorCheque, setValorCheque] = useState('');
+  // Data do cheque (1x) ou do 1º cheque (sinal + cheque). O restante é mensal a partir dela.
+  const [dataPag, setDataPag] = useState('');
 
   const [salvando, setSalvando] = useState(false);
   const [vendas, setVendas] = useState<Venda[]>([]);
@@ -160,7 +174,7 @@ export default function AdminVendasFormacao() {
   const limpar = () => {
     setNome(''); setTelefone(''); setEmail(''); setCpf(''); setEndereco('');
     setNome2(''); setTelefone2(''); setEmail2(''); setCpf2('');
-    setObs(''); setTotalSinal(''); setEntrada(''); setNBoletos('1'); setValorCheque('');
+    setObs(''); setTotalSinal(''); setEntrada(''); setNBoletos('1'); setValorCheque(''); setDataPag('');
   };
 
   const cancelarEdicao = () => { setEditandoId(null); limpar(); };
@@ -184,6 +198,7 @@ export default function AdminVendasFormacao() {
     setNome2(v.cliente_nome_2 || ''); setTelefone2(v.cliente_telefone_2 || '');
     setEmail2(v.email_2 || ''); setCpf2(v.cpf_2 || '');
     setObs(v.observacao || '');
+    setDataPag(v.data_pagamento || (v.vencimentos?.[0] ?? ''));
     setEditandoId(v.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -206,11 +221,13 @@ export default function AdminVendasFormacao() {
     }
     if (ehCheque && valorChequeN <= 0) { toast({ title: 'Informe o valor do cheque', variant: 'destructive' }); return; }
 
+    // Datas: cheque 1x = a data do cheque; sinal+cheque = 1º cheque + mensais.
+    const datasCheque = ehSinalCheque ? gerarMensais(dataPag, nBoletosN) : ehCheque && dataPag ? [dataPag] : null;
     const payload = ehSinal
-      ? { forma_pagamento: ehSinalCheque ? SINAL_CHEQUE : SINAL, parcelas: nBoletosN, valor_parcela: valorBoleto, valor_entrada: entradaN, valor_total: totalSinalN }
+      ? { forma_pagamento: ehSinalCheque ? SINAL_CHEQUE : SINAL, parcelas: nBoletosN, valor_parcela: valorBoleto, valor_entrada: entradaN, valor_total: totalSinalN, data_pagamento: dataPag || null, vencimentos: datasCheque }
       : ehCheque
-      ? { forma_pagamento: CHEQUE, parcelas: 1, valor_parcela: null, valor_entrada: null, valor_total: valorChequeN }
-      : { forma_pagamento: opcaoCatalogo!.id, parcelas: opcaoCatalogo!.parcelas, valor_parcela: opcaoCatalogo!.parcela ?? null, valor_entrada: null, valor_total: opcaoCatalogo!.total };
+      ? { forma_pagamento: CHEQUE, parcelas: 1, valor_parcela: null, valor_entrada: null, valor_total: valorChequeN, data_pagamento: dataPag || null, vencimentos: datasCheque }
+      : { forma_pagamento: opcaoCatalogo!.id, parcelas: opcaoCatalogo!.parcelas, valor_parcela: opcaoCatalogo!.parcela ?? null, valor_entrada: null, valor_total: opcaoCatalogo!.total, data_pagamento: null, vencimentos: null };
 
     const registro = {
       produto: produto.id,
@@ -310,9 +327,20 @@ export default function AdminVendasFormacao() {
 
             {ehCheque ? (
               <div className="space-y-2 rounded-lg bg-primary/5 border border-primary/20 p-3">
-                <Label className="text-xs">Valor do cheque (1x)</Label>
-                <Input value={valorCheque} onChange={(e) => setValorCheque(e.target.value)} placeholder="7140" inputMode="decimal" />
-                <p className="text-sm text-muted-foreground">Um cheque pré-datado de <strong className="text-foreground">{brl(valorChequeN)}</strong>.</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Valor do cheque (1x)</Label>
+                    <Input value={valorCheque} onChange={(e) => setValorCheque(e.target.value)} placeholder="7140" inputMode="decimal" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Data do cheque</Label>
+                    <Input type="date" value={dataPag} onChange={(e) => setDataPag(e.target.value)} />
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Cheque pré-datado de <strong className="text-foreground">{brl(valorChequeN)}</strong>
+                  {dataPag && <> para <strong className="text-foreground">{dataBR(dataPag)}</strong></>}.
+                </p>
               </div>
             ) : ehSinal ? (
               <div className="space-y-3 rounded-lg bg-primary/5 border border-primary/20 p-3">
@@ -334,6 +362,17 @@ export default function AdminVendasFormacao() {
                   Restante <strong>{brl(restante)}</strong> em {nBoletosN}x de <strong>{brl(valorBoleto)}</strong> no {palavraParcela}.
                   <span className="text-muted-foreground"> Total {brl(totalSinalN)}.</span>
                 </p>
+                {ehSinalCheque && (
+                  <div className="space-y-1 border-t border-primary/20 pt-2">
+                    <Label className="text-xs">Data do 1º cheque</Label>
+                    <Input type="date" value={dataPag} onChange={(e) => setDataPag(e.target.value)} />
+                    {dataPag && (
+                      <p className="text-xs text-muted-foreground">
+                        {nBoletosN} cheques mensais: {gerarMensais(dataPag, nBoletosN).map(dataBR).join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="rounded-lg bg-primary/5 border border-primary/20 px-3 py-2">
@@ -418,6 +457,9 @@ export default function AdminVendasFormacao() {
                     {v.cliente_telefone && <p>{v.cliente_telefone}{v.email ? ` · ${v.email}` : ''}</p>}
                     {!v.cliente_telefone && v.email && <p>{v.email}</p>}
                     {v.cpf && <p>CPF {v.cpf}</p>}
+                    {(v.vencimentos?.length || v.data_pagamento) && (
+                      <p>Cheque(s): {(v.vencimentos?.length ? v.vencimentos : [v.data_pagamento!]).filter(Boolean).map(dataBR).join(' · ')}</p>
+                    )}
                   </div>
                   <div className="mt-2 flex justify-end gap-1 border-t border-border/40 pt-2">
                     <button onClick={() => editarVenda(v)}
