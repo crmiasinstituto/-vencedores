@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Check, Users, DollarSign, ShoppingBag } from 'lucide-react';
+import { Loader2, Check, Users, DollarSign, ShoppingBag, Pencil, Trash2, X } from 'lucide-react';
 
 /**
  * Vendas das formações do Instituto (FPI, FPO, FPI+FPO) — ferramenta interna.
@@ -66,6 +66,7 @@ const num = (s: string) => Number(String(s).replace(/[^\d,.-]/g, '').replace('.'
 
 type Venda = {
   id: string;
+  produto: string;
   produto_nome: string;
   forma_pagamento: string;
   parcelas: number;
@@ -75,8 +76,13 @@ type Venda = {
   cliente_nome: string;
   cliente_telefone: string | null;
   cliente_nome_2: string | null;
+  cliente_telefone_2: string | null;
   email: string | null;
+  email_2: string | null;
   cpf: string | null;
+  cpf_2: string | null;
+  endereco: string | null;
+  observacao: string | null;
   created_at: string;
 };
 
@@ -109,6 +115,9 @@ export default function AdminVendasFormacao() {
   const [salvando, setSalvando] = useState(false);
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  // Ao carregar uma venda pra editar, a troca de produto NÃO deve resetar a forma de pagamento.
+  const pulaReset = useRef(false);
 
   const produto = PRODUTOS.find((p) => p.id === produtoId)!;
   const opcaoCatalogo = produto.opcoes.find((o) => o.id === opcaoId);
@@ -117,8 +126,9 @@ export default function AdminVendasFormacao() {
   const ehCheque = opcaoId === CHEQUE;
   const palavraParcela = ehSinalCheque ? 'cheque' : 'boleto';
 
-  // Troca de produto: volta pra 1ª opção e sugere o valor à vista no modo sinal.
+  // Troca de produto: volta pra 1ª opção (mas não quando estamos carregando uma venda pra editar).
   useEffect(() => {
+    if (pulaReset.current) { pulaReset.current = false; return; }
     setOpcaoId(produto.opcoes[0].id);
   }, [produtoId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -153,6 +163,40 @@ export default function AdminVendasFormacao() {
     setObs(''); setTotalSinal(''); setEntrada(''); setNBoletos('1'); setValorCheque('');
   };
 
+  const cancelarEdicao = () => { setEditandoId(null); limpar(); };
+
+  const editarVenda = (v: Venda) => {
+    pulaReset.current = true;            // impede o reset da forma de pagamento ao setar o produto
+    setProdutoId(v.produto);
+    // Reconstrói a forma de pagamento e seus campos a partir da venda salva.
+    if (v.forma_pagamento === CHEQUE) {
+      setOpcaoId(CHEQUE); setValorCheque(String(v.valor_total));
+    } else if (v.forma_pagamento === SINAL || v.forma_pagamento === SINAL_CHEQUE) {
+      setOpcaoId(v.forma_pagamento);
+      setTotalSinal(String(v.valor_total));
+      setEntrada(String(v.valor_entrada ?? ''));
+      setNBoletos(String(v.parcelas || 1));
+    } else {
+      setOpcaoId(v.forma_pagamento);    // 'avista' | '12x'
+    }
+    setNome(v.cliente_nome || ''); setTelefone(v.cliente_telefone || '');
+    setEmail(v.email || ''); setCpf(v.cpf || ''); setEndereco(v.endereco || '');
+    setNome2(v.cliente_nome_2 || ''); setTelefone2(v.cliente_telefone_2 || '');
+    setEmail2(v.email_2 || ''); setCpf2(v.cpf_2 || '');
+    setObs(v.observacao || '');
+    setEditandoId(v.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const excluir = async (v: Venda) => {
+    if (!window.confirm(`Apagar a venda de ${v.cliente_nome} (${brl(Number(v.valor_total))})? Não dá pra desfazer.`)) return;
+    const { error } = await (supabase as any).from('vendas_formacao').delete().eq('id', v.id);
+    if (error) { toast({ title: 'Não deu pra apagar', description: error.message, variant: 'destructive' }); return; }
+    if (editandoId === v.id) cancelarEdicao();
+    toast({ title: 'Venda apagada' });
+    carregar();
+  };
+
   const registrar = async () => {
     if (!nome.trim()) { toast({ title: 'Informe o nome do cliente', variant: 'destructive' }); return; }
     if (produto.casal && !nome2.trim()) { toast({ title: 'No casal, informe as duas pessoas', variant: 'destructive' }); return; }
@@ -168,8 +212,7 @@ export default function AdminVendasFormacao() {
       ? { forma_pagamento: CHEQUE, parcelas: 1, valor_parcela: null, valor_entrada: null, valor_total: valorChequeN }
       : { forma_pagamento: opcaoCatalogo!.id, parcelas: opcaoCatalogo!.parcelas, valor_parcela: opcaoCatalogo!.parcela ?? null, valor_entrada: null, valor_total: opcaoCatalogo!.total };
 
-    setSalvando(true);
-    const { error } = await (supabase as any).from('vendas_formacao').insert({
+    const registro = {
       produto: produto.id,
       produto_nome: produto.nome,
       ...payload,
@@ -183,10 +226,17 @@ export default function AdminVendasFormacao() {
       email_2: produto.casal ? email2.trim() || null : null,
       cpf_2: produto.casal ? cpf2.trim() || null : null,
       observacao: obs.trim() || null,
-    });
+    };
+
+    setSalvando(true);
+    const tbl = (supabase as any).from('vendas_formacao');
+    const { error } = editandoId
+      ? await tbl.update(registro).eq('id', editandoId)
+      : await tbl.insert(registro);
     setSalvando(false);
-    if (error) { toast({ title: 'Não deu pra registrar', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Venda registrada', description: `${produto.nome} — ${brl(payload.valor_total)}` });
+    if (error) { toast({ title: 'Não deu pra salvar', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: editandoId ? 'Venda atualizada' : 'Venda registrada', description: `${produto.nome} — ${brl(payload.valor_total)}` });
+    setEditandoId(null);
     limpar();
     carregar();
   };
@@ -323,9 +373,18 @@ export default function AdminVendasFormacao() {
             <Textarea id="obs" rows={2} value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Ex.: sinal no PIX, boletos mensais; turma de agosto…" />
           </div>
 
-          <Button onClick={registrar} disabled={salvando} variant="gold">
-            {salvando ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Registrando…</>) : (<><Check className="w-4 h-4 mr-2" /> Registrar venda</>)}
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={registrar} disabled={salvando} variant="gold">
+              {salvando ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Salvando…</>)
+                : editandoId ? (<><Check className="w-4 h-4 mr-2" /> Salvar alterações</>)
+                : (<><Check className="w-4 h-4 mr-2" /> Registrar venda</>)}
+            </Button>
+            {editandoId && (
+              <Button variant="outline" onClick={cancelarEdicao} disabled={salvando}>
+                <X className="w-4 h-4 mr-2" /> Cancelar
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Lista */}
@@ -338,7 +397,7 @@ export default function AdminVendasFormacao() {
           ) : (
             <div className="space-y-2 max-h-[620px] overflow-y-auto pr-1">
               {vendas.map((v) => (
-                <div key={v.id} className="rounded-lg border border-border/50 bg-card/50 p-3">
+                <div key={v.id} className={`rounded-lg border bg-card/50 p-3 ${editandoId === v.id ? 'border-primary ring-1 ring-primary/40' : 'border-border/50'}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{v.cliente_nome}{v.cliente_nome_2 ? ` e ${v.cliente_nome_2}` : ''}</p>
@@ -359,6 +418,16 @@ export default function AdminVendasFormacao() {
                     {v.cliente_telefone && <p>{v.cliente_telefone}{v.email ? ` · ${v.email}` : ''}</p>}
                     {!v.cliente_telefone && v.email && <p>{v.email}</p>}
                     {v.cpf && <p>CPF {v.cpf}</p>}
+                  </div>
+                  <div className="mt-2 flex justify-end gap-1 border-t border-border/40 pt-2">
+                    <button onClick={() => editarVenda(v)}
+                      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-white/[0.06] hover:text-foreground">
+                      <Pencil className="w-3.5 h-3.5" /> Editar
+                    </button>
+                    <button onClick={() => excluir(v)}
+                      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-red-500 hover:bg-red-500/10">
+                      <Trash2 className="w-3.5 h-3.5" /> Apagar
+                    </button>
                   </div>
                 </div>
               ))}
