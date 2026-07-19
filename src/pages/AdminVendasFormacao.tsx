@@ -107,6 +107,7 @@ type Venda = {
   observacao: string | null;
   data_pagamento: string | null;
   vencimentos: string[] | null;
+  data_compra: string | null;
   created_at: string;
 };
 
@@ -129,8 +130,10 @@ const hojeISO = () => {
 export default function AdminVendasFormacao() {
   const { toast } = useToast();
 
+  const [aba, setAba] = useState<'vendas' | 'recebiveis'>('vendas');
   const [produtoId, setProdutoId] = useState('fpi_fpo');
   const [opcaoId, setOpcaoId] = useState('avista'); // 'avista' | '12x' | 'sinal_boleto'
+  const [dataCompra, setDataCompra] = useState(hojeISO());
 
   // Cliente (pessoa 1)
   const [nome, setNome] = useState('');
@@ -231,7 +234,7 @@ export default function AdminVendasFormacao() {
   const limpar = () => {
     setNome(''); setTelefone(''); setEmail(''); setCpf(''); setEndereco('');
     setNome2(''); setTelefone2(''); setEmail2(''); setCpf2('');
-    setObs(''); setTotalSinal(''); setEntrada(''); setNBoletos('1'); setValorCheque(''); setDataPag(''); setValorLivreInput('');
+    setObs(''); setTotalSinal(''); setEntrada(''); setNBoletos('1'); setValorCheque(''); setDataPag(''); setValorLivreInput(''); setDataCompra(hojeISO());
   };
 
   const cancelarEdicao = () => { setEditandoId(null); limpar(); };
@@ -257,6 +260,7 @@ export default function AdminVendasFormacao() {
     setObs(v.observacao || '');
     setDataPag(v.data_pagamento || (v.vencimentos?.[0] ?? ''));
     setValorLivreInput(v.produto === 'livros3_tutoria' ? String(v.valor_total) : '');
+    setDataCompra(v.data_compra || hojeISO());
     setEditandoId(v.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -292,6 +296,7 @@ export default function AdminVendasFormacao() {
     const registro = {
       produto: produto.id,
       produto_nome: produto.nome,
+      data_compra: dataCompra || null,
       ...payload,
       cliente_nome: nome.trim(),
       cliente_telefone: telefone.trim() || null,
@@ -328,6 +333,20 @@ export default function AdminVendasFormacao() {
     };
   }, [vendas, parcelasPorVenda]);
 
+  // Todas as parcelas, com o cliente/produto da venda — pra aba Recebíveis. Não recebidas
+  // primeiro, ordenadas por vencimento.
+  const recebiveis = useMemo(() => {
+    const nomeVenda = new Map(vendas.map((v) => [v.id, v]));
+    const rows = Object.values(parcelasPorVenda).flat()
+      .map((p) => ({ p, v: nomeVenda.get(p.venda_id) }))
+      .filter((r) => r.v);
+    rows.sort((a, b) => {
+      if (a.p.pago !== b.p.pago) return a.p.pago ? 1 : -1;
+      return (a.p.vencimento || '9999') < (b.p.vencimento || '9999') ? -1 : 1;
+    });
+    return rows as { p: Parcela; v: Venda }[];
+  }, [vendas, parcelasPorVenda]);
+
   return (
     <div className="p-4 lg:p-6 max-w-6xl mx-auto">
       <div className="mb-6">
@@ -361,6 +380,17 @@ export default function AdminVendasFormacao() {
         </div>
       </div>
 
+      {/* Abas: separa a venda (cadastro + lista) dos recebíveis (os pagamentos). */}
+      <div className="mb-5 flex gap-1 rounded-lg border border-border/50 bg-card/40 p-1 w-fit">
+        {(['vendas', 'recebiveis'] as const).map((t) => (
+          <button key={t} onClick={() => setAba(t)}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${aba === t ? 'bg-primary/15 text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+            {t === 'vendas' ? 'Vendas' : 'Recebíveis'}
+          </button>
+        ))}
+      </div>
+
+      {aba === 'vendas' && (
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Formulário */}
         <div className="space-y-5">
@@ -487,6 +517,11 @@ export default function AdminVendasFormacao() {
             </div>
           )}
 
+          <div className="space-y-2 max-w-[220px]">
+            <Label htmlFor="dcompra">Data da compra</Label>
+            <Input id="dcompra" type="date" value={dataCompra} onChange={(e) => setDataCompra(e.target.value)} />
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="obs">Observação (opcional)</Label>
             <Textarea id="obs" rows={2} value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Ex.: sinal no PIX, boletos mensais; turma de agosto…" />
@@ -543,22 +578,12 @@ export default function AdminVendasFormacao() {
                     {v.cpf && <p>CPF {v.cpf}</p>}
                   </div>
 
-                  {/* Recebíveis: cada parcela/cheque; clicar marca como recebida. */}
+                  {/* Resumo dos recebíveis; o detalhe (marcar pago) fica na aba Recebíveis. */}
                   {ps.length > 0 && (
-                    <div className="mt-2 space-y-0.5 border-t border-border/40 pt-2">
-                      {ps.map((p) => {
-                        const atrasada = !p.pago && p.vencimento && p.vencimento < hojeISO();
-                        return (
-                          <button key={p.id} onClick={() => togglePago(p)}
-                            className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-xs hover:bg-white/[0.05]">
-                            {p.pago ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" /> : <Circle className={`w-4 h-4 shrink-0 ${atrasada ? 'text-red-500' : 'text-muted-foreground'}`} />}
-                            <span className="w-16 text-left capitalize text-muted-foreground">{p.tipo}</span>
-                            <span className={`font-medium ${p.pago ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{brl(Number(p.valor))}</span>
-                            <span className={`ml-auto ${atrasada ? 'text-red-500' : 'text-muted-foreground'}`}>{p.vencimento ? dataBR(p.vencimento) : '—'}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <p className="mt-2 border-t border-border/40 pt-2 text-xs text-muted-foreground">
+                      {ps.filter((p) => p.pago).length}/{ps.length} recebidas · {brl(ps.filter((p) => !p.pago).reduce((s, p) => s + Number(p.valor || 0), 0))} a receber
+                      {v.data_compra && <> · compra {dataBR(v.data_compra)}</>}
+                    </p>
                   )}
 
                   <div className="mt-2 flex justify-end gap-1 border-t border-border/40 pt-2">
@@ -578,6 +603,43 @@ export default function AdminVendasFormacao() {
           )}
         </div>
       </div>
+      )}
+
+      {aba === 'recebiveis' && (
+        <div className="rounded-xl border border-border/50 overflow-hidden">
+          {recebiveis.length === 0 ? (
+            <div className="p-8 text-center text-sm text-muted-foreground">Nenhum recebível ainda. Registre uma venda na aba Vendas.</div>
+          ) : (
+            <div className="divide-y divide-border/40">
+              {/* Cabeçalho (desktop) */}
+              <div className="hidden md:grid grid-cols-[1fr_140px_120px_110px_90px] gap-3 px-4 py-2 text-[11px] uppercase tracking-wider text-muted-foreground bg-card/40">
+                <span>Cliente / produto</span><span>Parcela</span><span>Valor</span><span>Vencimento</span><span className="text-right">Status</span>
+              </div>
+              {recebiveis.map(({ p, v }) => {
+                const atrasada = !p.pago && p.vencimento && p.vencimento < hojeISO();
+                return (
+                  <button key={p.id} onClick={() => togglePago(p)}
+                    className="grid w-full grid-cols-[1fr_auto] md:grid-cols-[1fr_140px_120px_110px_90px] items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-white/[0.03]">
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium text-foreground">{v.cliente_nome}</span>
+                      <span className="block truncate text-xs text-muted-foreground">{v.produto_nome}</span>
+                    </span>
+                    <span className="hidden md:inline capitalize text-muted-foreground">{p.tipo}</span>
+                    <span className={`hidden md:inline font-medium ${p.pago ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{brl(Number(p.valor))}</span>
+                    <span className={`hidden md:inline ${atrasada ? 'text-red-500' : 'text-muted-foreground'}`}>{p.vencimento ? dataBR(p.vencimento) : '—'}</span>
+                    <span className="flex items-center justify-end gap-1.5">
+                      <span className="md:hidden font-medium">{brl(Number(p.valor))}</span>
+                      {p.pago
+                        ? <span className="inline-flex items-center gap-1 text-emerald-500"><CheckCircle2 className="w-4 h-4" /> <span className="text-xs">Recebido</span></span>
+                        : <span className={`inline-flex items-center gap-1 ${atrasada ? 'text-red-500' : 'text-amber-500'}`}><Circle className="w-4 h-4" /> <span className="text-xs">{atrasada ? 'Atrasado' : 'A receber'}</span></span>}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <AlertDialog open={!!vendaExcluir} onOpenChange={(aberto) => !aberto && setVendaExcluir(null)}>
         <AlertDialogContent>
