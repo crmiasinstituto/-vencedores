@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Check, Users, DollarSign, ShoppingBag, Pencil, Trash2, X } from 'lucide-react';
+import { Loader2, Check, Users, DollarSign, ShoppingBag, Pencil, Trash2, X, CheckCircle2, Circle } from 'lucide-react';
 
 /**
  * Vendas das formações do Instituto (FPI, FPO, FPI+FPO) — ferramenta interna.
@@ -98,6 +98,22 @@ type Venda = {
   created_at: string;
 };
 
+type Parcela = {
+  id: string;
+  venda_id: string;
+  numero: number;
+  tipo: string;
+  valor: number;
+  vencimento: string | null;
+  pago: boolean;
+  pago_em: string | null;
+};
+
+const hojeISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 export default function AdminVendasFormacao() {
   const { toast } = useToast();
 
@@ -128,6 +144,7 @@ export default function AdminVendasFormacao() {
 
   const [salvando, setSalvando] = useState(false);
   const [vendas, setVendas] = useState<Venda[]>([]);
+  const [parcelasPorVenda, setParcelasPorVenda] = useState<Record<string, Parcela[]>>({});
   const [carregando, setCarregando] = useState(true);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   // Ao carregar uma venda pra editar, a troca de produto NÃO deve resetar a forma de pagamento.
@@ -162,14 +179,39 @@ export default function AdminVendasFormacao() {
 
   const carregar = async () => {
     setCarregando(true);
-    const { data, error } = await (supabase as any)
-      .from('vendas_formacao')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (!error) setVendas((data as Venda[]) || []);
+    const [{ data: vd }, { data: pc }] = await Promise.all([
+      (supabase as any).from('vendas_formacao').select('*').order('created_at', { ascending: false }),
+      (supabase as any).from('vendas_formacao_parcelas').select('*').order('numero', { ascending: true }),
+    ]);
+    setVendas((vd as Venda[]) || []);
+    const mapa: Record<string, Parcela[]> = {};
+    for (const p of (pc as Parcela[]) || []) (mapa[p.venda_id] ||= []).push(p);
+    setParcelasPorVenda(mapa);
     setCarregando(false);
   };
   useEffect(() => { carregar(); }, []);
+
+  const togglePago = async (p: Parcela) => {
+    const novo = !p.pago;
+    // Atualização otimista pra a marcação parecer instantânea.
+    setParcelasPorVenda((m) => ({
+      ...m,
+      [p.venda_id]: (m[p.venda_id] || []).map((x) => x.id === p.id ? { ...x, pago: novo, pago_em: novo ? hojeISO() : null } : x),
+    }));
+    const { error } = await (supabase as any).from('vendas_formacao_parcelas')
+      .update({ pago: novo, pago_em: novo ? hojeISO() : null }).eq('id', p.id);
+    if (error) { toast({ title: 'Não deu pra atualizar', description: error.message, variant: 'destructive' }); carregar(); }
+  };
+
+  // Status da venda a partir das parcelas: quitada / atrasada / em aberto.
+  const statusVenda = (vid: string) => {
+    const ps = parcelasPorVenda[vid] || [];
+    if (ps.length === 0) return { label: '—', cor: 'text-muted-foreground bg-muted/40' };
+    if (ps.every((p) => p.pago)) return { label: 'Quitada', cor: 'text-emerald-500 bg-emerald-500/10' };
+    const hoje = hojeISO();
+    if (ps.some((p) => !p.pago && p.vencimento && p.vencimento < hoje)) return { label: 'Atrasada', cor: 'text-red-500 bg-red-500/10' };
+    return { label: 'Em aberto', cor: 'text-amber-500 bg-amber-500/10' };
+  };
 
   const limpar = () => {
     setNome(''); setTelefone(''); setEmail(''); setCpf(''); setEndereco('');
@@ -258,10 +300,15 @@ export default function AdminVendasFormacao() {
     carregar();
   };
 
-  const totais = useMemo(() => ({
-    qtd: vendas.length,
-    soma: vendas.reduce((s, v) => s + Number(v.valor_total || 0), 0),
-  }), [vendas]);
+  const totais = useMemo(() => {
+    const todas = Object.values(parcelasPorVenda).flat();
+    return {
+      qtd: vendas.length,
+      soma: vendas.reduce((s, v) => s + Number(v.valor_total || 0), 0),
+      recebido: todas.filter((p) => p.pago).reduce((s, p) => s + Number(p.valor || 0), 0),
+      aReceber: todas.filter((p) => !p.pago).reduce((s, p) => s + Number(p.valor || 0), 0),
+    };
+  }, [vendas, parcelasPorVenda]);
 
   return (
     <div className="p-4 lg:p-6 max-w-6xl mx-auto">
@@ -273,16 +320,26 @@ export default function AdminVendasFormacao() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-6 max-w-md">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6 max-w-3xl">
         <div className="rounded-xl border border-border/50 bg-card/50 p-4">
           <ShoppingBag className="w-5 h-5 text-primary mb-2" />
           <p className="text-2xl font-bold">{totais.qtd}</p>
-          <p className="text-xs text-muted-foreground">Vendas registradas</p>
+          <p className="text-xs text-muted-foreground">Vendas</p>
         </div>
         <div className="rounded-xl border border-border/50 bg-card/50 p-4">
           <DollarSign className="w-5 h-5 text-primary mb-2" />
-          <p className="text-2xl font-bold">{brl(totais.soma)}</p>
-          <p className="text-xs text-muted-foreground">Total em vendas</p>
+          <p className="text-xl font-bold">{brl(totais.soma)}</p>
+          <p className="text-xs text-muted-foreground">Total vendido</p>
+        </div>
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+          <CheckCircle2 className="w-5 h-5 text-emerald-500 mb-2" />
+          <p className="text-xl font-bold text-emerald-500">{brl(totais.recebido)}</p>
+          <p className="text-xs text-muted-foreground">Recebido</p>
+        </div>
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+          <Circle className="w-5 h-5 text-amber-500 mb-2" />
+          <p className="text-xl font-bold text-amber-500">{brl(totais.aReceber)}</p>
+          <p className="text-xs text-muted-foreground">A receber</p>
         </div>
       </div>
 
@@ -435,7 +492,10 @@ export default function AdminVendasFormacao() {
             <div className="rounded-xl border border-dashed border-border/50 p-8 text-center text-sm text-muted-foreground">Nenhuma venda registrada ainda.</div>
           ) : (
             <div className="space-y-2 max-h-[620px] overflow-y-auto pr-1">
-              {vendas.map((v) => (
+              {vendas.map((v) => {
+                const st = statusVenda(v.id);
+                const ps = parcelasPorVenda[v.id] || [];
+                return (
                 <div key={v.id} className={`rounded-lg border bg-card/50 p-3 ${editandoId === v.id ? 'border-primary ring-1 ring-primary/40' : 'border-border/50'}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -451,16 +511,33 @@ export default function AdminVendasFormacao() {
                           : v.forma_pagamento === SINAL_CHEQUE ? `Sinal ${brl(Number(v.valor_entrada || 0))} + ${v.parcelas}x cheque`
                           : `${v.parcelas}x`}
                       </p>
+                      <span className={`inline-block mt-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${st.cor}`}>{st.label}</span>
                     </div>
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
                     {v.cliente_telefone && <p>{v.cliente_telefone}{v.email ? ` · ${v.email}` : ''}</p>}
                     {!v.cliente_telefone && v.email && <p>{v.email}</p>}
                     {v.cpf && <p>CPF {v.cpf}</p>}
-                    {(v.vencimentos?.length || v.data_pagamento) && (
-                      <p>Cheque(s): {(v.vencimentos?.length ? v.vencimentos : [v.data_pagamento!]).filter(Boolean).map(dataBR).join(' · ')}</p>
-                    )}
                   </div>
+
+                  {/* Recebíveis: cada parcela/cheque; clicar marca como recebida. */}
+                  {ps.length > 0 && (
+                    <div className="mt-2 space-y-0.5 border-t border-border/40 pt-2">
+                      {ps.map((p) => {
+                        const atrasada = !p.pago && p.vencimento && p.vencimento < hojeISO();
+                        return (
+                          <button key={p.id} onClick={() => togglePago(p)}
+                            className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-xs hover:bg-white/[0.05]">
+                            {p.pago ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" /> : <Circle className={`w-4 h-4 shrink-0 ${atrasada ? 'text-red-500' : 'text-muted-foreground'}`} />}
+                            <span className="w-16 text-left capitalize text-muted-foreground">{p.tipo}</span>
+                            <span className={`font-medium ${p.pago ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{brl(Number(p.valor))}</span>
+                            <span className={`ml-auto ${atrasada ? 'text-red-500' : 'text-muted-foreground'}`}>{p.vencimento ? dataBR(p.vencimento) : '—'}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
                   <div className="mt-2 flex justify-end gap-1 border-t border-border/40 pt-2">
                     <button onClick={() => editarVenda(v)}
                       className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-white/[0.06] hover:text-foreground">
@@ -472,7 +549,8 @@ export default function AdminVendasFormacao() {
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
