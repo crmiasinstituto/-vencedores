@@ -58,6 +58,7 @@ const PRODUTOS: Produto[] = [
 ];
 
 const SINAL = 'sinal_boleto';
+const CHEQUE = 'cheque_predatado';
 const brl = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 const num = (s: string) => Number(String(s).replace(/[^\d,.-]/g, '').replace('.', '').replace(',', '.')) || 0;
@@ -101,6 +102,8 @@ export default function AdminVendasFormacao() {
   const [totalSinal, setTotalSinal] = useState('');
   const [entrada, setEntrada] = useState('');
   const [nBoletos, setNBoletos] = useState('1');
+  // Cheque pré-datado (1x) — valor editável, condição varia por negociação.
+  const [valorCheque, setValorCheque] = useState('');
 
   const [salvando, setSalvando] = useState(false);
   const [vendas, setVendas] = useState<Venda[]>([]);
@@ -109,20 +112,21 @@ export default function AdminVendasFormacao() {
   const produto = PRODUTOS.find((p) => p.id === produtoId)!;
   const opcaoCatalogo = produto.opcoes.find((o) => o.id === opcaoId);
   const ehSinal = opcaoId === SINAL;
+  const ehCheque = opcaoId === CHEQUE;
 
   // Troca de produto: volta pra 1ª opção e sugere o valor à vista no modo sinal.
   useEffect(() => {
     setOpcaoId(produto.opcoes[0].id);
   }, [produtoId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Ao entrar no modo sinal, pré-preenche o total com o preço à vista do produto.
+  // Ao entrar no modo sinal/cheque, pré-preenche o valor com o preço à vista do produto.
   useEffect(() => {
-    if (ehSinal && !totalSinal) {
-      const avista = produto.opcoes.find((o) => o.id === 'avista');
-      if (avista) setTotalSinal(String(avista.total));
-    }
-  }, [ehSinal]); // eslint-disable-line react-hooks/exhaustive-deps
+    const avista = produto.opcoes.find((o) => o.id === 'avista');
+    if (ehSinal && !totalSinal && avista) setTotalSinal(String(avista.total));
+    if (ehCheque && !valorCheque && avista) setValorCheque(String(avista.total));
+  }, [ehSinal, ehCheque]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const valorChequeN = num(valorCheque);
   const totalSinalN = num(totalSinal);
   const entradaN = num(entrada);
   const nBoletosN = Math.max(1, parseInt(nBoletos || '1', 10) || 1);
@@ -143,7 +147,7 @@ export default function AdminVendasFormacao() {
   const limpar = () => {
     setNome(''); setTelefone(''); setEmail(''); setCpf(''); setEndereco('');
     setNome2(''); setTelefone2(''); setEmail2(''); setCpf2('');
-    setObs(''); setTotalSinal(''); setEntrada(''); setNBoletos('1');
+    setObs(''); setTotalSinal(''); setEntrada(''); setNBoletos('1'); setValorCheque('');
   };
 
   const registrar = async () => {
@@ -153,9 +157,12 @@ export default function AdminVendasFormacao() {
       if (totalSinalN <= 0) { toast({ title: 'Informe o valor total', variant: 'destructive' }); return; }
       if (entradaN <= 0 || entradaN >= totalSinalN) { toast({ title: 'O sinal deve ser maior que zero e menor que o total', variant: 'destructive' }); return; }
     }
+    if (ehCheque && valorChequeN <= 0) { toast({ title: 'Informe o valor do cheque', variant: 'destructive' }); return; }
 
     const payload = ehSinal
       ? { forma_pagamento: SINAL, parcelas: nBoletosN, valor_parcela: valorBoleto, valor_entrada: entradaN, valor_total: totalSinalN }
+      : ehCheque
+      ? { forma_pagamento: CHEQUE, parcelas: 1, valor_parcela: null, valor_entrada: null, valor_total: valorChequeN }
       : { forma_pagamento: opcaoCatalogo!.id, parcelas: opcaoCatalogo!.parcelas, valor_parcela: opcaoCatalogo!.parcela ?? null, valor_entrada: null, valor_total: opcaoCatalogo!.total };
 
     setSalvando(true);
@@ -238,9 +245,19 @@ export default function AdminVendasFormacao() {
                 className={`rounded-lg border px-3 py-1.5 text-sm transition ${ehSinal ? 'border-primary bg-primary/10 text-foreground' : 'border-border/60 text-muted-foreground hover:text-foreground'}`}>
                 Sinal + boleto
               </button>
+              <button onClick={() => setOpcaoId(CHEQUE)}
+                className={`rounded-lg border px-3 py-1.5 text-sm transition ${ehCheque ? 'border-primary bg-primary/10 text-foreground' : 'border-border/60 text-muted-foreground hover:text-foreground'}`}>
+                Cheque pré-datado (1x)
+              </button>
             </div>
 
-            {ehSinal ? (
+            {ehCheque ? (
+              <div className="space-y-2 rounded-lg bg-primary/5 border border-primary/20 p-3">
+                <Label className="text-xs">Valor do cheque (1x)</Label>
+                <Input value={valorCheque} onChange={(e) => setValorCheque(e.target.value)} placeholder="7140" inputMode="decimal" />
+                <p className="text-sm text-muted-foreground">Um cheque pré-datado de <strong className="text-foreground">{brl(valorChequeN)}</strong>.</p>
+              </div>
+            ) : ehSinal ? (
               <div className="space-y-3 rounded-lg bg-primary/5 border border-primary/20 p-3">
                 <div className="grid grid-cols-3 gap-2">
                   <div className="space-y-1">
@@ -324,6 +341,7 @@ export default function AdminVendasFormacao() {
                       <p className="text-sm font-bold text-foreground">{brl(Number(v.valor_total))}</p>
                       <p className="text-[11px] text-muted-foreground">
                         {v.forma_pagamento === 'avista' ? 'À vista'
+                          : v.forma_pagamento === CHEQUE ? 'Cheque pré-datado'
                           : v.forma_pagamento === SINAL ? `Sinal ${brl(Number(v.valor_entrada || 0))} + ${v.parcelas}x boleto`
                           : `${v.parcelas}x`}
                       </p>
