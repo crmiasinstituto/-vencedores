@@ -34,7 +34,7 @@ export default function AdminAuth() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/admin/onboarding`
+            emailRedirectTo: `${window.location.origin}/admin`
           }
         });
 
@@ -67,7 +67,7 @@ export default function AdminAuth() {
         }
 
         toast.success('Login realizado!');
-        navigate('/admin/onboarding');
+        navigate('/admin');
       }
     } catch (err) {
       console.error('Auth error:', err);
