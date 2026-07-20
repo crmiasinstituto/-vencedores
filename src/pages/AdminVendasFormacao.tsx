@@ -211,6 +211,23 @@ export default function AdminVendasFormacao() {
 
   const [filtroReceb, setFiltroReceb] = useState<'todos' | 'aberto' | 'atrasado'>('todos');
 
+  // Resumo do topo da aba Recebíveis.
+  const resumoReceb = useMemo(() => {
+    const todas = Object.values(parcelasPorVenda).flat();
+    const hoje = hojeISO();
+    const mes = hoje.slice(0, 7); // 'YYYY-MM'
+    const abertas = todas.filter((p) => !p.pago);
+    const vencidas = abertas.filter((p) => p.vencimento && p.vencimento < hoje);
+    const soma = (arr: Parcela[]) => arr.reduce((s, p) => s + Number(p.valor || 0), 0);
+    return {
+      aReceber: soma(abertas),
+      vencido: soma(vencidas),
+      vencidoQtd: vencidas.length,
+      aVencerMes: soma(abertas.filter((p) => p.vencimento && p.vencimento >= hoje && p.vencimento.slice(0, 7) === mes)),
+      recebidoMes: soma(todas.filter((p) => p.pago && p.pago_em && p.pago_em.slice(0, 7) === mes)),
+    };
+  }, [parcelasPorVenda]);
+
   const atualizarVencimento = async (p: Parcela, data: string) => {
     setParcelasPorVenda((m) => ({
       ...m,
@@ -616,6 +633,26 @@ export default function AdminVendasFormacao() {
 
         return (
           <div className="space-y-4">
+            {/* Resumo do topo */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+                <p className="text-xl font-bold text-amber-500">{brl(resumoReceb.aReceber)}</p>
+                <p className="text-xs text-muted-foreground">A receber (total)</p>
+              </div>
+              <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4">
+                <p className="text-xl font-bold text-red-500">{brl(resumoReceb.vencido)}</p>
+                <p className="text-xs text-muted-foreground">Vencido{resumoReceb.vencidoQtd ? ` · ${resumoReceb.vencidoQtd} parcela${resumoReceb.vencidoQtd > 1 ? 's' : ''}` : ''}</p>
+              </div>
+              <div className="rounded-xl border border-border/50 bg-card/50 p-4">
+                <p className="text-xl font-bold text-foreground">{brl(resumoReceb.aVencerMes)}</p>
+                <p className="text-xs text-muted-foreground">A vencer este mês</p>
+              </div>
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+                <p className="text-xl font-bold text-emerald-500">{brl(resumoReceb.recebidoMes)}</p>
+                <p className="text-xs text-muted-foreground">Recebido este mês</p>
+              </div>
+            </div>
+
             <div className="flex gap-1 rounded-lg border border-border/50 bg-card/40 p-1 w-fit text-sm">
               {([['todos', 'Todos'], ['aberto', 'Em aberto'], ['atrasado', 'Atrasados']] as const).map(([k, lbl]) => (
                 <button key={k} onClick={() => setFiltroReceb(k)}
