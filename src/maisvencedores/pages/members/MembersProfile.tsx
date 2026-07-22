@@ -6,13 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { ImageUpload } from '@/maisvencedores/components/shared/ImageUpload';
-import { DealForm } from '@/maisvencedores/components/shared/DealForm';
 import { FaixaBadge } from '@/maisvencedores/components/members/FaixaBadge';
 import { Faixa } from '@/maisvencedores/types/member';
 import { ReferralLink } from '@/maisvencedores/components/members/ReferralLink';
-import { Loader2, Save, Globe, Instagram, Linkedin, Mail, Phone } from 'lucide-react';
+import { Loader2, Save, Globe, Instagram, Linkedin, Mail, Phone, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function MembersProfile() {
@@ -20,10 +18,8 @@ export default function MembersProfile() {
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    company_name: '',
     owner_name: '',
-    title: '',
-    segment: '',
+    cidade: '',
     description: '',
     website: '',
     instagram: '',
@@ -31,16 +27,13 @@ export default function MembersProfile() {
     whatsapp: '',
     email: '',
     photo_url: '',
-    logo_url: ''
   });
 
   const startEditing = () => {
     if (profile) {
       setFormData({
-        company_name: profile.company_name || '',
         owner_name: profile.owner_name || '',
-        title: profile.title || '',
-        segment: profile.segment || '',
+        cidade: profile.cidade || '',
         description: profile.description || '',
         website: profile.website || '',
         instagram: profile.instagram || '',
@@ -48,7 +41,6 @@ export default function MembersProfile() {
         whatsapp: profile.whatsapp || '',
         email: profile.email || '',
         photo_url: profile.photo_url || '',
-        logo_url: profile.logo_url || ''
       });
     }
     setIsEditing(true);
@@ -92,7 +84,6 @@ export default function MembersProfile() {
           <p className="text-muted-foreground">Gerencie suas informações</p>
         </div>
         <div className="flex gap-2">
-          <DealForm />
           {isEditing ? (
             <>
               <Button variant="outline" onClick={() => setIsEditing(false)}>Cancelar</Button>
@@ -135,38 +126,31 @@ export default function MembersProfile() {
               <div className="flex-1 space-y-4">
                 {isEditing ? (
                   <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Nome da Empresa</Label>
-                        <Input value={formData.company_name} onChange={(e) => setFormData({ ...formData, company_name: e.target.value })} />
-                      </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Seu Nome</Label>
                         <Input value={formData.owner_name} onChange={(e) => setFormData({ ...formData, owner_name: e.target.value })} />
                       </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Cargo</Label>
-                        <Input value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Segmento</Label>
-                        <Input value={formData.segment} onChange={(e) => setFormData({ ...formData, segment: e.target.value })} />
+                        <Label>Cidade / Região</Label>
+                        <Input value={formData.cidade} onChange={(e) => setFormData({ ...formData, cidade: e.target.value })} placeholder="Ex.: Salvador, BA" />
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label>Descrição</Label>
-                      <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={3} />
+                      <Label>Sobre você</Label>
+                      <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={3} placeholder="Conte um pouco da sua história, seus valores, o que te move..." />
                     </div>
                   </>
                 ) : (
                   <>
                     <div>
-                      <h2 className="text-2xl font-bold">{profile.company_name || 'Empresa não informada'}</h2>
-                      <p className="text-muted-foreground">{profile.owner_name} • {profile.title || 'Cargo não informado'}</p>
+                      <h2 className="text-2xl font-bold">{profile.owner_name || 'Membro'}</h2>
+                      {profile.cidade && (
+                        <p className="text-muted-foreground flex items-center gap-1">
+                          <MapPin className="h-4 w-4" /> {profile.cidade}
+                        </p>
+                      )}
                     </div>
-                    {profile.segment && <Badge variant="outline">{profile.segment}</Badge>}
                     <p className="text-muted-foreground">{profile.description || 'Sem descrição'}</p>
                   </>
                 )}

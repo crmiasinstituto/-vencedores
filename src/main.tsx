@@ -11,5 +11,10 @@ import { patchAudioWorkletForWavoip } from './lib/wavoip-init'
 // Sem isso o startCall do WaVoIP pode dar TIMEOUT_15S silencioso.
 patchAudioWorkletForWavoip();
 
+// Aplica a preferência de tema salva antes do render, pra não piscar dark→claro.
+if (localStorage.getItem('mv-theme') === 'light') {
+  document.documentElement.classList.add('theme-light');
+}
+
 createRoot(document.getElementById("root")!).render(<App />);
 // build: 1776091819

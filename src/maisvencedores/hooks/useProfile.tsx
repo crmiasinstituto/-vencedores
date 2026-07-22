@@ -13,6 +13,7 @@ export interface Profile {
   description: string | null;
   email: string | null;
   instagram: string | null;
+  cidade: string | null;
   faixa: Faixa;
   /** Campos de empresa: opcionais, o onboarding não pergunta. Só o portfólio lê. */
   company_name: string;

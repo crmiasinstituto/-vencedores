@@ -30,7 +30,6 @@ const menuItems: { icon: typeof LayoutDashboard; label: string; path: string; fa
   { icon: LayoutDashboard, label: 'Dashboard', path: '/maisvencedores/membros/dashboard' },
   { icon: Users, label: 'Portfólios', path: '/maisvencedores/membros/portfolio' },
   { icon: Sprout, label: 'Generosidade', path: '/maisvencedores/membros/indicacoes' },
-  { icon: TrendingUp, label: 'Vendas', path: '/maisvencedores/membros/vendas' },
   { icon: GraduationCap, label: 'Treinamentos', path: '/maisvencedores/membros/treinamentos' },
   { icon: Calendar, label: 'Eventos', path: '/maisvencedores/membros/eventos' },
   { icon: Megaphone, label: 'Publicidade', path: '/maisvencedores/membros/publicidade', faixaMinima: 'verde' },

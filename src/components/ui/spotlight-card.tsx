@@ -11,7 +11,9 @@ interface GlowCardProps {
 }
 
 const glowColorMap = {
-  blue: { base: 220, spread: 200 },
+  // 'blue' com spread pequeno: o tom fica entre azul e anil, sem escapar pra rosa/amarelo
+  // conforme o cursor anda pela tela (o spread grande do original fazia o hue passar de 360).
+  blue: { base: 212, spread: 40 },
   purple: { base: 280, spread: 300 },
   green: { base: 120, spread: 200 },
   red: { base: 0, spread: 200 },

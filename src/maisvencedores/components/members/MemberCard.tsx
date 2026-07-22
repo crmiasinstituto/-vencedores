@@ -122,9 +122,11 @@ export function MemberCard({ member }: MemberCardProps) {
       </HoverCardTrigger>
 
       <HoverCardContent
-        className="w-[460px] max-w-[92vw] border-0 bg-transparent p-0 shadow-none"
+        className="w-[400px] max-w-[92vw] border-0 bg-transparent p-0 shadow-none"
         side="right"
         align="start"
+        sideOffset={8}
+        collisionPadding={16}
       >
         <ProfilePreviewCard
           name={member.nomeCompleto}

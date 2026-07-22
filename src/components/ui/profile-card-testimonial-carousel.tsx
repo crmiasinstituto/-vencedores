@@ -42,8 +42,8 @@ export function ProfilePreviewCard({
 }: ProfilePreviewCardProps) {
   return (
     <div className={cn('flex items-stretch', className)}>
-      {/* Avatar grande */}
-      <div className="relative w-40 flex-shrink-0 overflow-hidden rounded-3xl bg-navy-light">
+      {/* Avatar */}
+      <div className="relative w-28 flex-shrink-0 self-start overflow-hidden rounded-2xl bg-navy-light aspect-[4/5]">
         <motion.div
           key={imageUrl || name}
           initial={{ opacity: 0 }}
@@ -59,7 +59,7 @@ export function ProfilePreviewCard({
               className="h-full w-full object-cover"
             />
           ) : (
-            <span className="font-display text-5xl font-bold text-gold">{initials}</span>
+            <span className="font-display text-4xl font-bold text-gold">{initials}</span>
           )}
         </motion.div>
       </div>
@@ -70,7 +70,7 @@ export function ProfilePreviewCard({
         initial={{ opacity: 0, x: 12 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.35, ease: 'easeInOut' }}
-        className="z-10 -ml-8 flex flex-1 flex-col rounded-3xl border border-border/50 bg-card p-5 shadow-2xl"
+        className="z-10 -ml-6 flex flex-1 flex-col rounded-2xl border border-border/50 bg-card p-4 shadow-2xl"
       >
         <div className="mb-3">
           <h2 className="font-display text-xl font-bold leading-tight text-foreground">{name}</h2>
