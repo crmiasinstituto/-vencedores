@@ -11,9 +11,12 @@ import { patchAudioWorkletForWavoip } from './lib/wavoip-init'
 // Sem isso o startCall do WaVoIP pode dar TIMEOUT_15S silencioso.
 patchAudioWorkletForWavoip();
 
-// Aplica a preferência de tema salva antes do render, pra não piscar dark→claro.
-if (localStorage.getItem('mv-theme') === 'light') {
-  document.documentElement.classList.add('theme-light');
+// Tema: claro é o padrão do produto (+vencedores/landing). O admin segue escuro por
+// padrão pra não mexer no painel interno. Preferência salva sempre vence.
+{
+  const saved = localStorage.getItem('mv-theme');
+  const wantLight = saved ? saved === 'light' : !window.location.pathname.startsWith('/admin');
+  if (wantLight) document.documentElement.classList.add('theme-light');
 }
 
 createRoot(document.getElementById("root")!).render(<App />);

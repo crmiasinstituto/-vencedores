@@ -5,6 +5,7 @@ import { PROFISSOES_SUGERIDAS } from '@/maisvencedores/types/member';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { ImageUpload } from '@/maisvencedores/components/shared/ImageUpload';
 import { ArrowRight, ArrowLeft, Check, User, Sparkles, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -43,9 +44,11 @@ export default function MembersOnboarding() {
     instagram: currentMember?.instagram || '',
     profissao: currentMember?.profissao || '',
     description: currentMember?.description || '',
+    photo_url: currentMember?.photo_url || '',
   });
 
   const nomeOk = form.nome_completo.trim().length >= 3;
+  const fotoOk = form.photo_url.trim().length > 0;
 
   const concluir = async () => {
     setSalvando(true);
@@ -60,6 +63,7 @@ export default function MembersOnboarding() {
         instagram: form.instagram.trim().replace(/^@/, ''),
         profissao: form.profissao.trim(),
         description: form.description.trim(),
+        photo_url: form.photo_url,
         onboarding_completed: true,
         is_new_member: false,
       });
@@ -135,6 +139,19 @@ export default function MembersOnboarding() {
                 <h2 className="text-2xl font-display font-bold">Sobre você</h2>
                 <p className="text-sm text-muted-foreground mt-1">
                   É assim que a comunidade vai te conhecer.
+                </p>
+              </div>
+
+              {/* Foto obrigatória: dá rosto à comunidade e deixa o portfólio bonito. */}
+              <div className="flex flex-col items-center gap-3 rounded-xl border border-border/50 bg-card/40 p-6">
+                <ImageUpload
+                  value={form.photo_url}
+                  onChange={(url) => setForm({ ...form, photo_url: url || '' })}
+                  folder="photos"
+                  placeholder="Sua foto"
+                />
+                <p className="text-center text-xs text-muted-foreground">
+                  Sua foto de perfil é <span className="font-semibold text-foreground">obrigatória</span> — é o rosto que a comunidade vai reconhecer.
                 </p>
               </div>
 
@@ -239,7 +256,7 @@ export default function MembersOnboarding() {
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             ) : (
-              <Button onClick={concluir} disabled={salvando || !nomeOk}>
+              <Button onClick={concluir} disabled={salvando || !nomeOk || !fotoOk} title={!fotoOk ? 'Adicione sua foto de perfil para concluir' : undefined}>
                 {salvando ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (

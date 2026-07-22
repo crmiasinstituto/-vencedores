@@ -21,7 +21,9 @@ export function ThemeToggle() {
   const [light, setLight] = useState(false);
 
   useEffect(() => {
-    const isLight = localStorage.getItem(KEY) === 'light';
+    // Claro é o padrão na área de membros; só fica escuro se a pessoa escolheu.
+    const saved = localStorage.getItem(KEY);
+    const isLight = saved ? saved === 'light' : true;
     setLight(isLight);
     apply(isLight);
   }, []);
