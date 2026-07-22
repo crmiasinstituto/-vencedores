@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MemberProfile, FAIXAS, FAIXA_INFO } from '@/maisvencedores/types/member';
 import { MemberCard } from './MemberCard';
+import { GlowCard } from '@/components/ui/spotlight-card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -95,7 +96,15 @@ export function PortfolioGrid({ members }: PortfolioGridProps) {
           : 'flex flex-col gap-3'
       }>
         {filteredMembers.map(member => (
-          <MemberCard key={member.id} member={member} />
+          // GlowCard: borda spotlight azul da marca acendendo com o cursor. Só moldura.
+          <GlowCard
+            key={member.id}
+            glowColor="blue"
+            customSize
+            className="!block w-full !gap-0 !p-0 !rounded-xl !shadow-none !backdrop-blur-none !touch-auto"
+          >
+            <MemberCard member={member} />
+          </GlowCard>
         ))}
       </div>
 

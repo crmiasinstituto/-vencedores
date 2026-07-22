@@ -17,6 +17,7 @@ import {
   HoverCardTrigger,
 } from '@/components/ui/hover-card';
 import { Button } from '@/components/ui/button';
+import { ProfilePreviewCard, type ProfileSocial } from '@/components/ui/profile-card-testimonial-carousel';
 
 interface MemberCardProps {
   member: MemberProfile;
@@ -29,6 +30,35 @@ export function MemberCard({ member }: MemberCardProps) {
   const displayImage = member.photo;
   // O card é da pessoa: quem nomeia é o nome dela, e a empresa é só contexto quando existe.
   const initials = member.nomeCompleto.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+  // Redes/contatos reais do membro para o preview no hover — só entra o que existe.
+  const socials: ProfileSocial[] = [
+    member.telefone && {
+      icon: Phone,
+      label: 'WhatsApp',
+      onClick: () => window.open(`https://wa.me/55${member.telefone}`, '_blank'),
+    },
+    member.email && {
+      icon: Mail,
+      label: 'Email',
+      onClick: () => window.open(`mailto:${member.email}`, '_blank'),
+    },
+    member.instagram && {
+      icon: Instagram,
+      label: 'Instagram',
+      onClick: () => window.open(`https://instagram.com/${member.instagram!.replace('@', '')}`, '_blank'),
+    },
+    member.linkedin && {
+      icon: Linkedin,
+      label: 'LinkedIn',
+      onClick: () => window.open(`https://linkedin.com/in/${member.linkedin}`, '_blank'),
+    },
+    member.website && {
+      icon: Globe,
+      label: 'Site',
+      onClick: () => window.open(member.website, '_blank'),
+    },
+  ].filter(Boolean) as ProfileSocial[];
 
   return (
     <HoverCard open={isOpen} onOpenChange={setIsOpen}>
@@ -92,136 +122,39 @@ export function MemberCard({ member }: MemberCardProps) {
       </HoverCardTrigger>
 
       <HoverCardContent
-        className={cn(
-          'w-80 p-0 overflow-hidden',
-          'bg-card/95 backdrop-blur-xl border',
-          info.borda
-        )}
+        className="w-[460px] max-w-[92vw] border-0 bg-transparent p-0 shadow-none"
         side="right"
         align="start"
       >
-        {/* Header na cor da faixa */}
-        <div className={cn('p-4 text-center', info.fundo)}>
-          <div className="flex items-center justify-center gap-3">
-            <div className={cn('w-14 h-14 rounded-full overflow-hidden border-2', info.borda)}>
-              {displayImage ? (
-                <img
-                  src={displayImage}
-                  alt={member.nomeCompleto}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-navy-light flex items-center justify-center text-gold text-lg font-bold">
-                  {initials}
+        <ProfilePreviewCard
+          name={member.nomeCompleto}
+          title={member.profissao || member.companyName || undefined}
+          description={member.description || undefined}
+          imageUrl={displayImage}
+          initials={initials}
+          badge={<FaixaBadge faixa={member.faixa} size="sm" />}
+          socials={socials}
+          footer={
+            <>
+              {member.services && member.services.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  {member.services.slice(0, 4).map((service, idx) => (
+                    <span
+                      key={idx}
+                      className="rounded-full bg-gold/10 px-2 py-1 text-xs text-gold"
+                    >
+                      {service}
+                    </span>
+                  ))}
                 </div>
               )}
-            </div>
-            <div className="text-left">
-              <h4 className="font-display text-lg font-bold text-foreground">
-                {member.nomeCompleto}
-              </h4>
-              {member.profissao && <p className="text-sm text-muted-foreground">{member.profissao}</p>}
-              {member.companyName && <p className="text-xs text-gold">{member.companyName}</p>}
-            </div>
-          </div>
-          <div className="mt-3">
-            <FaixaBadge faixa={member.faixa} size="sm" />
-          </div>
-        </div>
-
-        {/* Description */}
-        <div className="p-4 border-t border-border/50">
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            "{member.description}"
-          </p>
-        </div>
-
-        {/* Services */}
-        {member.services && member.services.length > 0 && (
-          <div className="px-4 pb-3">
-            <p className="text-xs text-muted-foreground mb-2 font-semibold uppercase tracking-wider">
-              Produtos/Serviços
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {member.services.slice(0, 4).map((service, idx) => (
-                <span 
-                  key={idx}
-                  className="text-xs bg-gold/10 text-gold px-2 py-1 rounded-full"
-                >
-                  {service}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Contact Links */}
-        <div className="px-4 pb-4 flex flex-wrap gap-2">
-          {member.telefone && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs"
-              onClick={() => window.open(`https://wa.me/55${member.telefone}`, '_blank')}
-            >
-              <Phone className="w-3 h-3 mr-1" />
-              WhatsApp
-            </Button>
-          )}
-          {member.email && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="h-8 text-xs"
-              onClick={() => window.open(`mailto:${member.email}`, '_blank')}
-            >
-              <Mail className="w-3 h-3 mr-1" />
-              Email
-            </Button>
-          )}
-          {member.linkedin && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-8 w-8 p-0"
-              onClick={() => window.open(`https://linkedin.com/in/${member.linkedin}`, '_blank')}
-            >
-              <Linkedin className="w-4 h-4" />
-            </Button>
-          )}
-          {member.instagram && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-8 w-8 p-0"
-              onClick={() => window.open(`https://instagram.com/${member.instagram.replace('@', '')}`, '_blank')}
-            >
-              <Instagram className="w-4 h-4" />
-            </Button>
-          )}
-          {member.website && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-8 w-8 p-0"
-              onClick={() => window.open(member.website, '_blank')}
-            >
-              <Globe className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-
-        {/* View Profile CTA */}
-        <div className="p-3 border-t border-border/50 bg-muted/30">
-          <Button 
-            variant="gold" 
-            size="sm" 
-            className="w-full"
-          >
-            Ver Perfil Completo
-            <ExternalLink className="w-3 h-3 ml-2" />
-          </Button>
-        </div>
+              <Button variant="gold" size="sm" className="w-full">
+                Ver Perfil Completo
+                <ExternalLink className="ml-2 h-3 w-3" />
+              </Button>
+            </>
+          }
+        />
       </HoverCardContent>
     </HoverCard>
   );
