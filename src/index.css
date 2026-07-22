@@ -165,6 +165,15 @@
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+
+    /* Exceção: a vitrine de treinadores é um carrossel decorativo que deve rolar
+       sozinho mesmo no celular com "Reduzir movimento" ligado — decisão de produto.
+       A classe vence o seletor * na especificidade, então o !important prevalece. */
+    .animate-marquee,
+    .animate-marquee-vertical {
+      animation-duration: var(--duration, 40s) !important;
+      animation-iteration-count: infinite !important;
+    }
   }
 }
 
