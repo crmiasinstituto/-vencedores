@@ -4,6 +4,7 @@ import { useMembers } from '@/maisvencedores/hooks/useMembers';
 import { useEvents } from '@/maisvencedores/hooks/useEvents';
 import { useTrainings } from '@/maisvencedores/hooks/useTrainings';
 import { MemberCard } from '@/maisvencedores/components/members/MemberCard';
+import { GlowCard } from '@/components/ui/spotlight-card';
 import { EventCard } from '@/maisvencedores/components/members/EventCard';
 import { TrainingCard } from '@/maisvencedores/components/members/TrainingCard';
 import { FaixaBadge } from '@/maisvencedores/components/members/FaixaBadge';
@@ -248,10 +249,20 @@ export default function MembersDashboard() {
                 // Os dois descrevem a mesma pessoa e divergem só no que o card nao usa
                 // (joinedAt/onboardingCompleted), entao completa aqui em vez de arrastar dois
                 // tipos quase iguais pelo app inteiro.
-                <MemberCard
+                //
+                // GlowCard: borda spotlight (azul da marca) que acende seguindo o cursor.
+                // customSize + !block + !p-0 = usa só como moldura de borda, sem mexer no card.
+                // !touch-auto restaura a rolagem por toque (o componente vem com touch-action:none).
+                <GlowCard
                   key={member.id}
-                  member={{ ...member, joinedAt: member.createdAt, onboardingCompleted: true }}
-                />
+                  glowColor="blue"
+                  customSize
+                  className="!block w-full !gap-0 !p-0 !rounded-xl !shadow-none !backdrop-blur-none !touch-auto"
+                >
+                  <MemberCard
+                    member={{ ...member, joinedAt: member.createdAt, onboardingCompleted: true }}
+                  />
+                </GlowCard>
               ))}
             </div>
           )}
