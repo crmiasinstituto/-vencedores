@@ -74,9 +74,11 @@ export function RankingLeaderboard({ ranking, currentProfileId }: RankingLeaderb
                   {entry.profile.owner_name}
                   {isCurrentUser && <span className="text-gold text-xs ml-2">(você)</span>}
                 </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {entry.profile.company_name}
-                </p>
+                {entry.profile.cidade && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {entry.profile.cidade}
+                  </p>
+                )}
               </div>
 
               <div className="text-right">

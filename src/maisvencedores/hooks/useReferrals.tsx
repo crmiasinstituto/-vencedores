@@ -36,10 +36,10 @@ export interface RankingEntry {
   total_referrals: number;
   rank_position: number;
   profile: {
-    company_name: string;
     owner_name: string;
     photo_url: string | null;
     faixa: Faixa;
+    cidade: string | null;
   };
 }
 
@@ -73,7 +73,7 @@ export function useReferrals() {
           company_name,
           owner_name,
           photo_url,
-          plan
+          faixa
         )
       `)
       .eq('referrer_id', profile.id)
@@ -102,10 +102,10 @@ export function useReferrals() {
         total_referrals,
         rank_position,
         profile:profiles!referral_stats_profile_id_fkey (
-          company_name,
           owner_name,
           photo_url,
-          plan
+          faixa,
+          cidade
         )
       `)
       .gt('total_referrals', 0)

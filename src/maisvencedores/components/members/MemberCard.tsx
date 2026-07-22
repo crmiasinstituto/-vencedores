@@ -137,24 +137,18 @@ export function MemberCard({ member }: MemberCardProps) {
           badge={<FaixaBadge faixa={member.faixa} size="sm" />}
           socials={socials}
           footer={
-            <>
-              {member.services && member.services.length > 0 && (
-                <div className="mb-3 flex flex-wrap gap-1.5">
-                  {member.services.slice(0, 4).map((service, idx) => (
-                    <span
-                      key={idx}
-                      className="rounded-full bg-gold/10 px-2 py-1 text-xs text-gold"
-                    >
-                      {service}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <Button variant="gold" size="sm" className="w-full">
-                Ver Perfil Completo
-                <ExternalLink className="ml-2 h-3 w-3" />
-              </Button>
-            </>
+            member.services && member.services.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {member.services.slice(0, 4).map((service, idx) => (
+                  <span
+                    key={idx}
+                    className="rounded-full bg-gold/10 px-2 py-1 text-xs text-gold"
+                  >
+                    {service}
+                  </span>
+                ))}
+              </div>
+            ) : undefined
           }
         />
       </HoverCardContent>
