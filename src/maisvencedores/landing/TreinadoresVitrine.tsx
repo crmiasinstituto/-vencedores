@@ -76,13 +76,27 @@ export function TreinadoresVitrine() {
   return (
     <div className="relative w-full">
       {/* Máscaras nas bordas pra o carrossel desaparecer suave em vez de cortar seco. */}
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-[var(--day)] to-transparent" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[var(--day)] to-transparent" />
-      <Marquee pauseOnHover className="[--duration:35s]">
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 hidden w-24 bg-gradient-to-r from-[var(--day)] to-transparent lg:block" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 hidden w-24 bg-gradient-to-l from-[var(--day)] to-transparent lg:block" />
+
+      {/* Mobile/tablet: rolagem por toque, com snap. No celular a animação automática
+          congela quando o usuário tem "Reduzir movimento" ligado — aqui ele arrasta com o dedo. */}
+      <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-4 px-4 pb-3 lg:hidden [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {treinadores.map((t) => (
-          <Card key={t.nome} t={t} />
+          <div key={t.nome} className="snap-start">
+            <Card t={t} />
+          </div>
         ))}
-      </Marquee>
+      </div>
+
+      {/* Desktop: carrossel que rola sozinho. */}
+      <div className="hidden lg:block">
+        <Marquee pauseOnHover className="[--duration:35s]">
+          {treinadores.map((t) => (
+            <Card key={t.nome} t={t} />
+          ))}
+        </Marquee>
+      </div>
     </div>
   );
 }
