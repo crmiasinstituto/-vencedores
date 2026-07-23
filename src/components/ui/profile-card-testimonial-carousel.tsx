@@ -56,7 +56,7 @@ export function ProfilePreviewCard({
               src={imageUrl}
               alt={name}
               draggable={false}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover object-center"
             />
           ) : (
             <span className="font-display text-4xl font-bold text-gold">{initials}</span>
