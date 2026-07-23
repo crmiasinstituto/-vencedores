@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { MembersSidebar } from './MembersSidebar';
+import { PhotoReminderBanner } from './PhotoReminderBanner';
 import { MembershipProvider } from '@/maisvencedores/contexts/MembershipContext';
 import { useAuth } from '@/maisvencedores/contexts/AuthContext';
 import { useNotificacaoIndicacao } from '@/maisvencedores/hooks/useNotificacaoIndicacao';
@@ -69,6 +70,7 @@ export function MembersLayout() {
             </span>
           </header>
 
+          <PhotoReminderBanner />
           <Outlet />
         </main>
       </div>
