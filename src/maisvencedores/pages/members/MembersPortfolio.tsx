@@ -6,8 +6,8 @@ import { Loader2 } from 'lucide-react';
 export default function MembersPortfolio() {
   const { members, loading } = useMembers();
 
-  // Map to the format expected by PortfolioGrid
-  const mappedMembers = members.map((m) => ({
+  // Só entram no portfólio os membros COM foto — card de iniciais fica feio na vitrine.
+  const mappedMembers = members.filter((m) => m.photoUrl).map((m) => ({
     id: m.id,
     userId: m.userId,
     companyName: m.companyName,
