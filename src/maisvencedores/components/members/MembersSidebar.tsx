@@ -16,6 +16,7 @@ import {
   X
 } from 'lucide-react';
 import { useAdmin } from '@/maisvencedores/hooks/useAdmin';
+import { Logo } from '@/maisvencedores/components/shared/Logo';
 import { FaixaBadge } from './FaixaBadge';
 import { useMembership } from '@/maisvencedores/contexts/MembershipContext';
 import { useAuth } from '@/maisvencedores/contexts/AuthContext';
@@ -71,11 +72,7 @@ export function MembersSidebar({
       {/* Header */}
       <div className="p-4 border-b border-border/50">
         <div className="flex items-center justify-between">
-          {!isCollapsed && (
-            <span className="font-display text-xl font-bold text-foreground">
-              <span className="text-primary">+</span> que Vencedores
-            </span>
-          )}
+          {!isCollapsed && <Logo className="h-9" />}
           {/* Desktop: botão de encolher. Mobile: botão de fechar a gaveta. */}
           <Button
             variant="ghost"

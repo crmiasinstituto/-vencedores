@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { MembersSidebar } from './MembersSidebar';
+import { Logo } from '@/maisvencedores/components/shared/Logo';
 import { PhotoReminderBanner } from './PhotoReminderBanner';
 import { MembershipProvider } from '@/maisvencedores/contexts/MembershipContext';
 import { useAuth } from '@/maisvencedores/contexts/AuthContext';
@@ -65,9 +66,7 @@ export function MembersLayout() {
             >
               <Menu className="w-5 h-5" />
             </button>
-            <span className="font-display text-lg font-bold text-foreground">
-              <span className="text-primary">+</span> que Vencedores
-            </span>
+            <Logo className="h-7" />
           </header>
 
           <PhotoReminderBanner />

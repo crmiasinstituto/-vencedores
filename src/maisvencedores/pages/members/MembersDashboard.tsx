@@ -67,7 +67,8 @@ export default function MembersDashboard() {
   const { events, loading: carregandoEventos } = useEvents();
   const { trainings, loading: carregandoTreinos } = useTrainings();
 
-  const novosMembros = members.filter((m) => m.isNewMember).slice(0, 3);
+  // Só mostra novos membros QUE JÁ TÊM foto — card de iniciais fica feio na vitrine.
+  const novosMembros = members.filter((m) => m.isNewMember && m.photoUrl).slice(0, 3);
   // Só os que ainda vão acontecer: "Próximos Eventos" com evento do mês passado é pior que
   // seção vazia.
   const proximosEventos = events

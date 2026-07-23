@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ImageUpload } from '@/maisvencedores/components/shared/ImageUpload';
+import { Logo } from '@/maisvencedores/components/shared/Logo';
 import { ArrowRight, ArrowLeft, Check, User, Sparkles, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -88,9 +89,7 @@ export default function MembersOnboarding() {
   return (
     <div className="min-h-screen bg-background flex">
       <aside className="hidden lg:flex w-80 bg-card/50 border-r border-border/50 p-8 flex-col">
-        <span className="font-display text-xl font-bold text-foreground mb-12">
-          <span className="text-primary">+</span> que Vencedores
-        </span>
+        <Logo className="h-8 mb-12" />
 
         <div className="space-y-6">
           {passos.map((passo, idx) => (
@@ -151,7 +150,7 @@ export default function MembersOnboarding() {
                   placeholder="Sua foto"
                 />
                 <p className="text-center text-xs text-muted-foreground">
-                  Sua foto de perfil é <span className="font-semibold text-foreground">obrigatória</span> — é o rosto que a comunidade vai reconhecer.
+                  Adicione sua foto de perfil — é o rosto que a comunidade vai reconhecer. Você pode colocar depois.
                 </p>
               </div>
 
@@ -256,7 +255,7 @@ export default function MembersOnboarding() {
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             ) : (
-              <Button onClick={concluir} disabled={salvando || !nomeOk || !fotoOk} title={!fotoOk ? 'Adicione sua foto de perfil para concluir' : undefined}>
+              <Button onClick={concluir} disabled={salvando || !nomeOk}>
                 {salvando ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (

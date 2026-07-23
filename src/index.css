@@ -191,6 +191,12 @@
     background: hsl(var(--background));
   }
 
+  /* Logo (componente Logo tone="auto"): branca no escuro, escura no claro. */
+  .logo-on-dark { display: inline-block; }
+  .logo-on-light { display: none; }
+  .theme-light .logo-on-dark { display: none; }
+  .theme-light .logo-on-light { display: inline-block; }
+
   html {
     scroll-behavior: smooth;
   }

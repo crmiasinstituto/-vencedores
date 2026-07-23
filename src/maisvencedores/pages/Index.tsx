@@ -7,6 +7,7 @@ import { MuralDeMembros } from "@/maisvencedores/landing/MuralDeMembros";
 import { FloatingCTA } from "@/maisvencedores/landing/FloatingCTA";
 import { TreinadoresVitrine } from "@/maisvencedores/landing/TreinadoresVitrine";
 import { ProofSlot } from "@/maisvencedores/landing/ProofSlot";
+import { Logo } from "@/maisvencedores/components/shared/Logo";
 import { AREAS, NUMEROS, PERKS, NAO_E_PARA_QUEM } from "@/maisvencedores/landing/dados";
 
 /**
@@ -26,10 +27,7 @@ const Index = () => {
       <div className="night">
         <header className="bar">
           <div className="wrap bar-in">
-            <span className="mark">
-              <i className="sig" />
-              que Vencedores
-            </span>
+            <Logo tone="branca" className="h-8" />
             <a className="btn" href="#entrar">
               <span className="lg">Quero fazer parte</span>
               <span className="sm">Fazer parte</span>

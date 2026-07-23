@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Mail, Lock, Sparkles, UserPlus, Gift } from 'lucide-react';
 import { z } from 'zod';
+import { Logo } from '@/maisvencedores/components/shared/Logo';
 
 const signupSchema = z.object({
   email: z.string().trim().email({ message: "Email inválido" }),
@@ -150,7 +151,8 @@ export default function Signup() {
         </div>
         
         <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-12">            <span className="font-display text-2xl font-bold text-gold">+ que Vencedores</span>
+          <div className="flex items-center gap-2 mb-12">
+            <Logo tone="branca" className="h-9" />
           </div>
           <h1 className="text-4xl font-display font-bold text-foreground mb-4">
             Junte-se à rede<br/>
@@ -193,7 +195,8 @@ export default function Signup() {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md space-y-8">
           <div className="text-center lg:text-left">
-            <div className="lg:hidden flex items-center justify-center gap-2 mb-6">              <span className="font-display text-xl font-bold text-gold">+ que Vencedores</span>
+            <div className="lg:hidden flex items-center justify-center gap-2 mb-6">
+              <Logo className="h-7" />
             </div>
             <h2 className="text-2xl font-display font-bold">Criar sua conta</h2>
             <p className="text-muted-foreground mt-2">
