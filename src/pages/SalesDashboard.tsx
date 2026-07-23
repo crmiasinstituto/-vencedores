@@ -103,19 +103,36 @@ export default function SalesDashboard() {
     setAllSales(prev => prev.filter(sale => sale.id !== id));
   };
 
-  // Realtime subscription
+  // Realtime subscription.
+  // sales_events tem RLS (só admin via is_admin()). Sem autenticar o socket, o realtime
+  // usa o papel anon e o RLS bloqueia — nenhum INSERT chega, e a música nunca toca.
+  // Por isso setamos o token da sessão ANTES de assinar.
   useEffect(() => {
-    const channel = supabase
-      .channel('sales_realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sales_events' }, (payload) => {
-        const newSale = payload.new as Sale;
-        setAllSales(prev => [newSale, ...prev]);
-        if (autoPlay) {
-          showSaleToast(newSale, { volume });
-        }
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelado = false;
+
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelado) return;
+      if (session?.access_token) {
+        supabase.realtime.setAuth(session.access_token);
+      }
+      channel = supabase
+        .channel('sales_realtime')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sales_events' }, (payload) => {
+          const newSale = payload.new as Sale;
+          setAllSales(prev => [newSale, ...prev]);
+          if (autoPlay) {
+            showSaleToast(newSale, { volume });
+          }
+        })
+        .subscribe();
+    })();
+
+    return () => {
+      cancelado = true;
+      if (channel) supabase.removeChannel(channel);
+    };
   }, [autoPlay, volume]);
 
   const toggleFullscreen = () => {
