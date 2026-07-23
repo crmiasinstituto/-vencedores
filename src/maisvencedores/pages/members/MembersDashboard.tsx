@@ -261,7 +261,7 @@ export default function MembersDashboard() {
                   className="!block w-full !gap-0 !p-0 !rounded-xl !shadow-none !backdrop-blur-none !touch-auto"
                 >
                   <MemberCard
-                    member={{ ...member, joinedAt: member.createdAt, onboardingCompleted: true }}
+                    member={{ ...member, photo: member.photoUrl, joinedAt: member.createdAt, onboardingCompleted: true }}
                   />
                 </GlowCard>
               ))}
