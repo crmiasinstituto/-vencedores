@@ -145,6 +145,24 @@
 .mv-landing .bar .btn .sm { display: none; }
 .mv-landing .btn .a { transition: transform 0.15s ease; }
 .mv-landing .btn:hover .a { transform: translateX(3px); }
+
+/* Ações do topo: "Sou membro" (entrar) + CTA. */
+.mv-landing .bar-actions { display: flex; align-items: center; gap: 10px; }
+.mv-landing .bar-login {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  color: var(--night-ink-2, #aeb6c6);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  border: 1px solid var(--night-rule, rgba(255,255,255,0.14));
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.mv-landing .bar-login:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
+@media (max-width: 520px) { .mv-landing .bar-login { padding: 0 12px; font-size: 13px; } }
 .mv-landing .fine { font-size: 13px; color: var(--night-ink-2); margin-top: 12px; }
 
 /* ── ATO I: NOITE ─────────────────────────────────────── */
@@ -388,6 +406,9 @@
 
 .mv-landing footer { background: var(--day); border-top: 1px solid var(--day-rule); padding: 38px 0; font-size: 13px; color: #79839a; }
 .mv-landing .foot { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+.mv-landing .foot-links { display: flex; gap: 18px; flex-wrap: wrap; }
+.mv-landing .foot-links a { color: inherit; text-decoration: none; transition: color 0.15s ease; }
+.mv-landing .foot-links a:hover { color: var(--cobalt, #2b5cff); text-decoration: underline; }
 
 @media (max-width: 880px) {
   .mv-landing .mass-top,

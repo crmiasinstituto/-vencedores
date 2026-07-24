@@ -15,6 +15,8 @@ const Login = lazy(() => import("./pages/auth/Login"));
 const Signup = lazy(() => import("./pages/auth/Signup"));
 const RecuperarSenha = lazy(() => import("./pages/auth/RecuperarSenha"));
 const NovaSenha = lazy(() => import("./pages/auth/NovaSenha"));
+const Privacidade = lazy(() => import("./pages/legal/Privacidade"));
+const Termos = lazy(() => import("./pages/legal/Termos"));
 
 const MembersDashboard = lazy(() => import("./pages/members/MembersDashboard"));
 const MembersPortfolio = lazy(() => import("./pages/members/MembersPortfolio"));
@@ -45,6 +47,8 @@ export default function MaisVencedoresRoutes() {
         <Route path="nova-senha" element={<NovaSenha />} />
         <Route path="cadastro" element={<Signup />} />
         <Route path="convite/:code" element={<Signup />} />
+        <Route path="privacidade" element={<Privacidade />} />
+        <Route path="termos" element={<Termos />} />
 
         {/* O onboarding fica FORA do MembersLayout: quem ainda não preencheu o perfil não
             deve ver a sidebar de membro. */}

@@ -28,10 +28,13 @@ const Index = () => {
         <header className="bar">
           <div className="wrap bar-in">
             <Logo tone="branca" className="h-8" />
-            <a className="btn" href="#entrar">
-              <span className="lg">Quero fazer parte</span>
-              <span className="sm">Fazer parte</span>
-            </a>
+            <div className="bar-actions">
+              <Link className="bar-login" to="/maisvencedores/login">Sou membro</Link>
+              <a className="btn" href="#entrar">
+                <span className="lg">Quero fazer parte</span>
+                <span className="sm">Fazer parte</span>
+              </a>
+            </div>
           </div>
         </header>
 
@@ -274,7 +277,11 @@ const Index = () => {
         <footer>
           <div className="wrap foot">
             <span>IAS Instituto — Comunidade + que Vencedores</span>
-            <span>Campanhas de indicação sujeitas a regulamento.</span>
+            <span className="foot-links">
+              <Link to="/maisvencedores/privacidade">Política de Privacidade</Link>
+              <Link to="/maisvencedores/termos">Termos de Uso</Link>
+              <Link to="/maisvencedores/login">Sou membro</Link>
+            </span>
           </div>
         </footer>
       </div>
