@@ -126,6 +126,18 @@ force = false
 [redirects.headers]
 
 [[redirects]]
+from = "/grupo-rpg10x"
+to = "https://chat.whatsapp.com/EouyMcd6Gre5JjdVq9TtfE"
+status = 302.0
+force = true
+
+[redirects.query]
+
+[redirects.conditions]
+
+[redirects.headers]
+
+[[redirects]]
 from = "/apresentacoes/masterclass-ia-negocios"
 to = "/apresentacoes/masterclass-ia-negocios.html"
 status = 200.0

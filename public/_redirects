@@ -2,6 +2,10 @@
 /.env     /404.html  404
 /.git/*   /404.html  404
 
+# Encaminhamento pro grupo do WhatsApp. A Meta proíbe link de WhatsApp (chat.whatsapp.com)
+# em botão de template — então o botão aponta pra cá (nosso domínio) e daqui vai pro grupo.
+/grupo-rpg10x   https://chat.whatsapp.com/EouyMcd6Gre5JjdVq9TtfE   302!
+
 # SPA redirect for React Router
 # (The /__sb/* proxy is handled by the Netlify Edge Function declared in
 # netlify.toml, which intercepts before this catch-all rule.)

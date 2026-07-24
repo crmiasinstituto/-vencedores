@@ -285,6 +285,10 @@ export default function WhatsAppTemplateNew() {
     }
     if (buttons.some((b) => !b.text.trim())) errs.push('Todos os botões precisam de texto');
     if (buttons.some((b) => b.type === 'URL' && !b.url?.startsWith('http'))) errs.push('Botão URL precisa começar com http://');
+    // A Meta proíbe link direto de WhatsApp (chat.whatsapp.com / wa.me) em botão (erro 2388081).
+    if (buttons.some((b) => b.type === 'URL' && /(?:chat\.whatsapp\.com|wa\.me|api\.whatsapp\.com|whatsapp:\/\/)/i.test(b.url || ''))) {
+      errs.push('A Meta não aceita link de WhatsApp (grupo/wa.me) em botão. Use um link do seu site que redireciona pro grupo (ex: https://iasinstituto.com.br/grupo-rpg10x), ou coloque o link do grupo no corpo da mensagem.');
+    }
     if (buttons.some((b) => b.type === 'PHONE_NUMBER' && !b.phone_number?.startsWith('+'))) errs.push('Telefone precisa começar com + (ex: +5511999999999)');
     return errs;
   }, [name, bodyText, bodyVarCount, bodyExamples, headerFormat, headerText, footerText, buttons]);
