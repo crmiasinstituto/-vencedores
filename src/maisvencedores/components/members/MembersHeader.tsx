@@ -1,6 +1,13 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, Search, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useMembership } from '@/maisvencedores/contexts/MembershipContext';
 
 interface MembersHeaderProps {
@@ -9,7 +16,14 @@ interface MembersHeaderProps {
 }
 
 export function MembersHeader({ title, subtitle }: MembersHeaderProps) {
-  const { currentMember, isOnboardingComplete } = useMembership();
+  const { isOnboardingComplete } = useMembership();
+  const navigate = useNavigate();
+  const [busca, setBusca] = useState('');
+
+  const buscar = () => {
+    const termo = busca.trim();
+    navigate(`/maisvencedores/membros/portfolio${termo ? `?q=${encodeURIComponent(termo)}` : ''}`);
+  };
 
   // Sticky só no desktop: no mobile quem fica fixo no topo é a barra do hambúrguer
   // (MembersLayout), e dois sticky no top-0 se sobrepõem.
@@ -28,23 +42,56 @@ export function MembersHeader({ title, subtitle }: MembersHeaderProps) {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2 lg:gap-3 shrink-0">
-          {/* Search */}
+          {/* Search — Enter (ou a lupa) leva ao Portfólio já filtrado */}
           <div className="relative hidden md:block">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input 
-              placeholder="Buscar membros, treinamentos..."
+            <button
+              type="button"
+              onClick={buscar}
+              aria-label="Buscar"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+            <Input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') buscar(); }}
+              placeholder="Buscar membros..."
               className="w-64 pl-9 bg-muted/50 border-border/50"
             />
           </div>
 
-          {/* Notifications */}
-          <Button variant="ghost" size="sm" className="relative h-9 w-9 p-0">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-electric rounded-full" />
-          </Button>
+          {/* Notifications — popover honesto (sem inventar notificação) */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="relative h-9 w-9 p-0" aria-label="Notificações">
+                <Bell className="w-5 h-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72 p-4">
+              <p className="text-sm font-semibold text-foreground">Notificações</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Você está em dia. Novidades da comunidade, indicações e eventos vão aparecer aqui.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 w-full"
+                onClick={() => navigate('/maisvencedores/membros/indicacoes')}
+              >
+                Ver minhas indicações
+              </Button>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Settings */}
-          <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 w-9 p-0"
+            aria-label="Configurações"
+            onClick={() => navigate('/maisvencedores/membros/configuracoes')}
+          >
             <Settings className="w-5 h-5" />
           </Button>
 

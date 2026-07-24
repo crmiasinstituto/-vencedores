@@ -15,10 +15,11 @@ import { Search, Grid, List } from 'lucide-react';
 
 interface PortfolioGridProps {
   members: MemberProfile[];
+  initialSearch?: string;
 }
 
-export function PortfolioGrid({ members }: PortfolioGridProps) {
-  const [searchTerm, setSearchTerm] = useState('');
+export function PortfolioGrid({ members, initialSearch = '' }: PortfolioGridProps) {
+  const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [faixaFilter, setFaixaFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 

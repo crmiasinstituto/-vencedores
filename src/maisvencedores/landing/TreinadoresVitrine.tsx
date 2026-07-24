@@ -2,31 +2,21 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
- * Vitrine dos treinadores na dobra "Quem está por trás" — carrossel de rostos que rola sozinho.
+ * Vitrine dos treinadores — carrossel que rola sozinho E pode ser arrastado.
  *
- * Os dados vêm da tabela `treinadores` via RPC pública; nada é fabricado.
+ * É um scroller nativo (overflow-x-auto): no celular arrasta com o dedo, no desktop arrasta
+ * com o mouse (handlers de pointer). Um requestAnimationFrame empurra o scrollLeft pra rolar
+ * sozinho; qualquer interação (arrastar, roda do mouse, toque) pausa o automático por alguns
+ * segundos e depois ele volta. Dois conjuntos idênticos lado a lado dão o loop sem emenda.
  *
- * POR QUE JAVASCRIPT E NÃO CSS: a página vive dentro de `.mv-landing`, que tem uma regra
- * `@media (prefers-reduced-motion: reduce) { .mv-landing * { animation: none !important } }`.
- * No iPhone com "Reduzir movimento" ligado (padrão em muitos aparelhos), essa regra matava a
- * animação CSS do marquee e a vitrine ficava parada. Aqui o movimento é feito com
- * requestAnimationFrame + transform, que o CSS de reduced-motion não alcança — roda em qualquer
- * aparelho, com ou sem a configuração ligada.
- *
- * ENQUANTO NÃO HÁ FOTO: o card mostra as iniciais num círculo. Assim que houver foto_url na
- * tabela, ela aparece no lugar — sem mexer aqui.
+ * Por que scrollLeft e não transform: assim o arrasto nativo funciona de graça, e o reduced-motion
+ * do CSS (que congela animações) não alcança — roda em qualquer aparelho.
  */
 
 type Treinador = { nome: string; foto_url: string | null; papel: string };
 
 function iniciais(nome: string) {
-  return nome
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0])
-    .join('')
-    .toUpperCase();
+  return nome.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
 }
 
 function Card({ t }: { t: Treinador }) {
@@ -39,7 +29,7 @@ function Card({ t }: { t: Treinador }) {
             alt={t.nome}
             loading="lazy"
             draggable={false}
-            className="h-full w-full object-cover grayscale transition-all duration-300 group-hover:grayscale-0"
+            className="h-full w-full object-cover object-center grayscale transition-all duration-300 group-hover:grayscale-0"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#1b3fd1]/10 to-[#dfe4ec] font-display text-5xl font-bold text-[#1b3fd1]">
@@ -57,80 +47,103 @@ function Card({ t }: { t: Treinador }) {
 
 export function TreinadoresVitrine() {
   const [treinadores, setTreinadores] = useState<Treinador[]>([]);
-  const trackRef = useRef<HTMLDivElement>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const groupRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let ativo = true;
     supabase.rpc('treinadores_publicos').then(({ data, error }) => {
       if (!ativo) return;
-      if (error) {
-        console.error('Erro ao carregar treinadores:', error);
-      } else {
-        setTreinadores((data as Treinador[]) || []);
-      }
+      if (error) console.error('Erro ao carregar treinadores:', error);
+      else setTreinadores((data as Treinador[]) || []);
     });
-    return () => {
-      ativo = false;
-    };
+    return () => { ativo = false; };
   }, []);
 
-  // Movimento contínuo em JS: imune ao reduced-motion do CSS.
   useEffect(() => {
     if (treinadores.length === 0) return;
-    const track = trackRef.current;
-    const group = groupRef.current;
-    if (!track || !group) return;
+    const el = scrollerRef.current;
+    const grp = groupRef.current;
+    if (!el || !grp) return;
 
+    const ctrl = { dragging: false, pausedUntil: 0, startX: 0, startScroll: 0 };
     let raf = 0;
-    let offset = 0;
     let last = performance.now();
-    let paused = false;
-    const speed = 45; // px por segundo
+    const speed = 55; // px por segundo
+
+    const wrap = () => {
+      const loop = grp.offsetWidth;
+      if (loop <= 0) return;
+      if (el.scrollLeft >= loop) el.scrollLeft -= loop;
+      else if (el.scrollLeft < 0) el.scrollLeft += loop;
+    };
 
     const step = (now: number) => {
-      const dt = Math.min((now - last) / 1000, 0.05); // trava saltos se a aba ficou em segundo plano
+      const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
-      if (!paused) {
-        const loop = group.offsetWidth; // largura de um conjunto (inclui o espaçamento final)
-        if (loop > 0) {
-          offset += speed * dt;
-          if (offset >= loop) offset -= loop;
-          track.style.transform = `translate3d(${-offset}px,0,0)`;
-        }
+      if (grp.offsetWidth > 0 && !ctrl.dragging && now >= ctrl.pausedUntil) {
+        el.scrollLeft += speed * dt;
       }
+      wrap();
       raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);
 
-    // Pausa só no mouse (desktop). No touch não pausa, pra não travar preso no dedo.
-    const enter = () => {
-      paused = true;
+    const pause = (ms: number) => { ctrl.pausedUntil = performance.now() + ms; };
+    const onWheel = () => pause(2500);
+    const onTouchStart = () => pause(8000);
+    const onTouchEnd = () => pause(2500);
+
+    // arrastar com o mouse (no touch o scroll nativo já resolve)
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return;
+      ctrl.dragging = true;
+      ctrl.startX = e.clientX;
+      ctrl.startScroll = el.scrollLeft;
+      el.style.cursor = 'grabbing';
     };
-    const leave = () => {
-      paused = false;
+    const onPointerMove = (e: PointerEvent) => {
+      if (!ctrl.dragging) return;
+      el.scrollLeft = ctrl.startScroll - (e.clientX - ctrl.startX);
     };
-    track.addEventListener('mouseenter', enter);
-    track.addEventListener('mouseleave', leave);
+    const onPointerUp = () => {
+      if (!ctrl.dragging) return;
+      ctrl.dragging = false;
+      el.style.cursor = '';
+      pause(2500);
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: true });
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    el.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
 
     return () => {
       cancelAnimationFrame(raf);
-      track.removeEventListener('mouseenter', enter);
-      track.removeEventListener('mouseleave', leave);
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
     };
   }, [treinadores]);
 
   if (treinadores.length === 0) return null;
 
   return (
-    <div className="relative w-full overflow-hidden">
-      {/* Máscaras nas bordas pra o carrossel desaparecer suave em vez de cortar seco. */}
+    <div className="relative w-full">
+      {/* Máscaras nas bordas pra o carrossel desaparecer suave. */}
       <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-[var(--day)] to-transparent sm:w-24" />
       <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-[var(--day)] to-transparent sm:w-24" />
 
-      <div ref={trackRef} className="flex w-max will-change-transform">
-        {/* Dois conjuntos idênticos lado a lado. Ao rolar a largura de um conjunto, reinicia
-            sem emenda visível. O pr-4 dá o mesmo espaçamento entre e depois dos cards. */}
+      <div
+        ref={scrollerRef}
+        className="flex cursor-grab select-none overflow-x-auto overflow-y-hidden [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{ scrollBehavior: 'auto', overscrollBehaviorX: 'contain' }}
+      >
         <div ref={groupRef} className="flex shrink-0 gap-4 pr-4 py-2">
           {treinadores.map((t) => (
             <Card key={t.nome} t={t} />

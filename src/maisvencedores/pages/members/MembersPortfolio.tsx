@@ -1,3 +1,4 @@
+import { useSearchParams } from 'react-router-dom';
 import { MembersHeader } from '@/maisvencedores/components/members/MembersHeader';
 import { PortfolioGrid } from '@/maisvencedores/components/members/PortfolioGrid';
 import { useMembers } from '@/maisvencedores/hooks/useMembers';
@@ -5,6 +6,8 @@ import { Loader2 } from 'lucide-react';
 
 export default function MembersPortfolio() {
   const { members, loading } = useMembers();
+  const [searchParams] = useSearchParams();
+  const buscaInicial = searchParams.get('q') || '';
 
   // Só entram no portfólio os membros COM foto — card de iniciais fica feio na vitrine.
   const mappedMembers = members.filter((m) => m.photoUrl).map((m) => ({
@@ -44,7 +47,7 @@ export default function MembersPortfolio() {
             Nenhum membro aprovado ainda.
           </div>
         ) : (
-          <PortfolioGrid members={mappedMembers} />
+          <PortfolioGrid members={mappedMembers} initialSearch={buscaInicial} />
         )}
       </div>
     </div>
