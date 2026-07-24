@@ -95,7 +95,7 @@ export function MemberCard({ member }: MemberCardProps) {
                 <img
                   src={displayImage}
                   alt={member.nomeCompleto}
-                  className="w-full h-full object-cover object-center"
+                  className="w-full h-full object-cover object-top"
                 />
               ) : (
                 <div className="w-full h-full bg-navy-light flex items-center justify-center text-gold text-xl font-bold">
