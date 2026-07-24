@@ -477,6 +477,18 @@ export default function MarketingAutomationEditor() {
                 </div>
               )}
 
+              {triggerEvent === 'lead_created' && (
+                <div className="mt-2 p-2.5 rounded-lg border border-blue-500/20 bg-blue-500/5 space-y-2">
+                  <p className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Filtro: em qual board/coluna?</p>
+                  <BoardColumnPicker
+                    boardId={triggerFilter.board_id || ''}
+                    columnId={triggerFilter.column_id || ''}
+                    onChange={(boardId, columnId) => setTriggerFilter((f: Record<string, any>) => ({ ...f, board_id: boardId || undefined, column_id: columnId || undefined }))}
+                  />
+                  <p className="text-[10px] text-muted-foreground">Deixe vazio pra qualquer lead novo. Escolha o board (ex: RPG10X) pra rodar só nele.</p>
+                </div>
+              )}
+
               {triggerEvent === 'lead_tag_added' && (
                 <div className="mt-2 p-2.5 rounded-lg border border-green-500/20 bg-green-500/5 space-y-2">
                   <p className="text-[10px] font-semibold text-green-600 uppercase tracking-wider">Filtro: qual tag?</p>
