@@ -32,6 +32,7 @@ const SalesDashboard = lazy(() => import("./pages/SalesDashboard"));
 const AdminRecebimentos = lazy(() => import("./pages/AdminRecebimentos"));
 const AdminFinanceiro = lazy(() => import("./pages/AdminFinanceiro"));
 const AdminWhatsApp = lazy(() => import("./pages/AdminWhatsApp"));
+const WhatsAppContabilizacao = lazy(() => import("./pages/WhatsAppContabilizacao"));
 const AdminCallMetrics = lazy(() => import("./pages/AdminCallMetrics"));
 const AdminMarketing = lazy(() => import("./pages/AdminMarketing"));
 const AdminCredenciamento = lazy(() => import("./pages/AdminCredenciamento"));
@@ -163,6 +164,7 @@ const App = () => {
                 <Route path="/admin/recebimentos" element={<AdminLayout><AdminRecebimentos /></AdminLayout>} />
                 <Route path="/admin/financeiro" element={<AdminLayout><AdminFinanceiro /></AdminLayout>} />
                 <Route path="/admin/whatsapp" element={<AdminLayout><AdminWhatsApp /></AdminLayout>} />
+                <Route path="/admin/whatsapp/contabilizacao" element={<AdminLayout><WhatsAppContabilizacao /></AdminLayout>} />
                 <Route path="/admin/ligacoes" element={<AdminLayout><AdminCallMetrics /></AdminLayout>} />
                 <Route path="/admin/marketing" element={<AdminLayout><AdminMarketing /></AdminLayout>} />
                 <Route path="/admin/social-selling" element={<AdminLayout><AdminSocialSelling /></AdminLayout>} />
