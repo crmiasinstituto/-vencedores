@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
+import { MetaPixel } from "@/components/tracking/MetaPixel";
 import { lazy, Suspense } from "react";
 
 import NotFound from "./pages/NotFound";
@@ -117,6 +118,7 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <MetaPixel />
             <Suspense fallback={<RouteFallback />}>
               <Routes>
                 {/* Públicas */}

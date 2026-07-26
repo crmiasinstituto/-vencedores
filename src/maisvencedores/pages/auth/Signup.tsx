@@ -27,6 +27,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Mail, Lock, Sparkles, UserPlus, Gift } from 'lucide-react';
 import { z } from 'zod';
 import { Logo } from '@/maisvencedores/components/shared/Logo';
+import { trackEvent, trackCustom } from '@/components/tracking/MetaPixel';
 
 const signupSchema = z.object({
   email: z.string().trim().email({ message: "Email inválido" }),
@@ -127,6 +128,10 @@ export default function Signup() {
       setLoading(false);
       return;
     }
+
+    // Meta Pixel: conversão de cadastro.
+    trackEvent('CompleteRegistration');
+    trackCustom('cadastrorpg10x');
 
     // Dizia "Bem-vindo ao + que Vencedores!" e mandava direto pro onboarding — mentira dupla:
     // o projeto exige confirmar email (não há sessão ainda) e ninguém entra aprovado. A pessoa
