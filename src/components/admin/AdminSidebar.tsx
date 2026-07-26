@@ -61,15 +61,12 @@ const menuItems = [
   { title: 'Vendas — Formações', url: '/admin/vendas-formacoes', icon: DollarSign },
   { title: 'Funil', url: '/admin/funil', icon: TrendingDown },
   { title: 'Financeiro', url: '/admin/recebimentos', icon: DollarSign },
-  { title: 'Projeções', url: '/admin/financeiro', icon: TrendingUp },
   { title: 'WhatsApp', url: '/admin/whatsapp', icon: MessageSquare },
   { title: 'Ligacoes', url: '/admin/ligacoes', icon: Phone },
   { title: 'Grupos WA', url: '/admin/grupos', icon: Users },
   { title: 'Playbooks', url: '/admin/playbooks', icon: BookOpen },
   { title: 'Agentes IA', url: '/admin/agentes', icon: Bot },
-  { title: 'Equipe', url: '/admin/equipe', icon: Users },
   { title: 'Membros', url: '/admin/membros', icon: GraduationCap },
-  { title: 'Acervo do Time', url: '/admin/acervo', icon: HardDrive },
   { title: 'Credenciamento', url: '/admin/credenciamento', icon: UserCheck },
 ];
 
