@@ -678,10 +678,14 @@ export const useCampaignInstances = () => {
   return useQuery({
     queryKey: ['campaign-instances'],
     queryFn: async () => {
+      // Elegível pra campanha:
+      //  - UAZAPI dedicado (purpose='campaign') — número separado do inbox, senão toma ban.
+      //  - Cloud API oficial da Meta (provider='cloud_api') — SEMPRE elegível, é a API de
+      //    disparo de template e não tem risco de ban por volume, independente do purpose.
       const { data, error } = await supabase
         .from('whatsapp_instances' as any)
         .select('*')
-        .eq('purpose', 'campaign')
+        .or('purpose.eq.campaign,provider.eq.cloud_api')
         .order('instance_name');
       if (error) throw error;
       return data || [];

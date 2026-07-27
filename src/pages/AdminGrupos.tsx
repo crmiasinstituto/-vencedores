@@ -38,6 +38,7 @@ export default function AdminGrupos() {
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState({ group_jid: '', name: '', instance_id: '' });
   const [instances, setInstances] = useState<any[]>([]);
+  const [syncing, setSyncing] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -51,6 +52,28 @@ export default function AdminGrupos() {
     setModules(modulesRes.data || []);
     setInstances(instRes.data || []);
     setLoading(false);
+  };
+
+  const syncGroups = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch('/.netlify/functions/sync-grupos-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const detalhe = (data.instances || [])
+        .map((i: any) => i.error ? `${i.instance}: erro (${i.error})` : `${i.instance}: ${i.groups} grupos`)
+        .join(' · ');
+      toast.success(`${data.total} grupos sincronizados`, { description: detalhe || undefined });
+      load();
+    } catch (e: any) {
+      toast.error('Falha ao sincronizar: ' + (e.message || e));
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const addGroupManual = async () => {
@@ -172,6 +195,10 @@ export default function AdminGrupos() {
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={load}><RefreshCw className="w-4 h-4 mr-1" /> Atualizar</Button>
+          <Button size="sm" variant="outline" onClick={syncGroups} disabled={syncing}>
+            {syncing ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-1" />}
+            Sincronizar grupos das instâncias
+          </Button>
           <Button size="sm" onClick={() => setShowAdd(true)} className="bg-primary text-primary-foreground">
             <Users className="w-4 h-4 mr-1" /> Adicionar grupo
           </Button>
