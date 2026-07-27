@@ -80,6 +80,9 @@ export default function SalesCampaignNew() {
   // Cloud API (template)
   const [cloudTemplateId, setCloudTemplateId] = useState<string | null>(null);
   const [cloudTemplateParams, setCloudTemplateParams] = useState<CloudTemplateParam[]>([]);
+  // Arquivo do HEADER de mídia. A Meta exige o arquivo em cada envio — o vídeo que aparece no
+  // template aprovado é só o exemplo da aprovação e não pode ser reaproveitado no disparo.
+  const [headerMediaUrl, setHeaderMediaUrl] = useState('');
 
   // Envio
   const [sendNow, setSendNow] = useState(true);
@@ -108,13 +111,26 @@ export default function SalesCampaignNew() {
 
   const stepIndex = STEPS.findIndex((s) => s.id === currentStep);
 
+  // Formato do HEADER do template escolhido: VIDEO/IMAGE/DOCUMENT exigem arquivo no envio.
+  const { data: allCloudTemplates = [] } = useWhatsAppTemplates();
+  const selectedCloudTemplate = useMemo(
+    () => allCloudTemplates.find((t: any) => t.id === cloudTemplateId) || null,
+    [allCloudTemplates, cloudTemplateId],
+  );
+  const headerMediaFormat = useMemo(() => {
+    const h = (selectedCloudTemplate?.components || []).find((c: any) => c?.type === 'HEADER');
+    const f = String(h?.format || 'TEXT').toUpperCase();
+    return ['VIDEO', 'IMAGE', 'DOCUMENT'].includes(f) ? f : null;
+  }, [selectedCloudTemplate]);
+  const needsHeaderMedia = provider === 'cloud_api' && !!headerMediaFormat;
+
   // Validações por step
   const stepValid: Record<StepId, boolean> = {
     basic: name.trim().length > 0,
     channel: !!provider,
     audience: (audienceCount || 0) > 0 || ((filters as any).lead_ids?.length || 0) > 0,
     message: provider === 'cloud_api'
-      ? !!cloudTemplateId
+      ? !!cloudTemplateId && (!needsHeaderMedia || headerMediaUrl.trim().length > 0)
       : messageContents.some((m) => m.trim().length > 0),
     send: instanceIds.length > 0 && (sendNow || !!scheduledAt),
     assignment: true,
@@ -145,6 +161,14 @@ export default function SalesCampaignNew() {
       toast({ title: 'Selecione um template aprovado', variant: 'destructive' });
       return;
     }
+    if (needsHeaderMedia && !headerMediaUrl.trim()) {
+      toast({
+        title: `Falta o arquivo do cabeçalho (${headerMediaFormat})`,
+        description: 'A Meta exige o arquivo em cada envio; sem ele a campanha falha no disparo.',
+        variant: 'destructive',
+      });
+      return;
+    }
     if (instanceIds.length === 0) {
       toast({ title: 'Selecione ao menos uma instância', variant: 'destructive' });
       return;
@@ -168,6 +192,9 @@ export default function SalesCampaignNew() {
         // Cloud API
         cloud_template_id: !isUazapi ? cloudTemplateId : null,
         cloud_template_params: !isUazapi ? cloudTemplateParams : [],
+        // Arquivo do header de mídia — o wa-blast-processor lê daqui e remanda em cada envio.
+        media_url: needsHeaderMedia ? headerMediaUrl.trim() : null,
+        media_type: needsHeaderMedia ? headerMediaFormat!.toLowerCase() : null,
         // Anti-block + janela só pra UAZAPI; Cloud API zera/usa defaults relaxados.
         ...(isUazapi
           ? {
@@ -349,14 +376,38 @@ export default function SalesCampaignNew() {
               {currentStep === 'message' && (
                 <div className="space-y-4">
                   {provider === 'cloud_api' ? (
+                    <>
                     <CloudTemplatePicker
                       selectedTemplateId={cloudTemplateId}
                       params={cloudTemplateParams}
                       onChange={(id, params) => {
                         setCloudTemplateId(id);
                         setCloudTemplateParams(params);
+                        setHeaderMediaUrl('');
                       }}
                     />
+                    {needsHeaderMedia && (
+                      <Card className="border-amber-500/40">
+                        <CardContent className="p-4 space-y-2">
+                          <Label className="flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 text-amber-500" />
+                            Arquivo do cabeçalho ({headerMediaFormat}) — obrigatório
+                          </Label>
+                          <Input
+                            value={headerMediaUrl}
+                            onChange={(e) => setHeaderMediaUrl(e.target.value)}
+                            placeholder="https://… (URL pública do arquivo) ou o media_id da Meta"
+                          />
+                          <p className="text-[11px] text-muted-foreground">
+                            Este template tem um cabeçalho de {headerMediaFormat?.toLowerCase()}. A Meta exige
+                            o arquivo em <strong>cada envio</strong> — o que aparece no template aprovado é
+                            só o exemplo usado na aprovação e não pode ser reaproveitado. Sem isso a Meta
+                            recusa a mensagem com o erro #132012.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
+                    </>
                   ) : (
                     <UazapiMessageEditor
                       messages={messageContents}

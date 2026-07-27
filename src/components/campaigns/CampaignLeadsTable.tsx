@@ -84,7 +84,6 @@ export default function CampaignLeadsTable({ campaignId, campaignStatus }: Props
               <TableRow>
                 <TableHead className="text-xs">Nome</TableHead>
                 <TableHead className="text-xs">Telefone</TableHead>
-                <TableHead className="text-xs">Cidade</TableHead>
                 <TableHead className="text-xs">Status</TableHead>
                 <TableHead className="text-xs">Enviado em</TableHead>
                 <TableHead className="text-xs">Respondeu em</TableHead>
@@ -106,8 +105,12 @@ export default function CampaignLeadsTable({ campaignId, campaignStatus }: Props
                     }}
                   >
                     <TableCell className="text-xs font-medium">{cl.lead?.name || '—'}</TableCell>
-                    <TableCell className="text-xs">{cl.lead?.phone || '—'}</TableCell>
-                    <TableCell className="text-xs">{cl.lead?.city_name || '—'}</TableCell>
+                    {/* O numero fica em wa_campaign_leads.whatsapp (snapshot no momento em que a
+                        campanha foi montada) — e e esse campo que o wa-blast-processor usa pra
+                        disparar. Antes aqui lia cl.lead?.phone, que nao existe: crm_leads so tem
+                        a coluna `whatsapp`. Dava "—" em toda linha e parecia que o telefone nao
+                        tinha sido capturado. Tinha. */}
+                    <TableCell className="text-xs">{cl.whatsapp || cl.lead?.whatsapp || '—'}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={cn('text-[10px]', statusCfg?.color, statusCfg?.bgColor)}>
                         {statusCfg?.label || cl.status}

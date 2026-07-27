@@ -11,6 +11,10 @@
 
 select cron.schedule('meeting-reminders-check', '*/15 * * * *', $job$ SELECT public.notify_meetings(); $job$);
 
+-- QUEBRADO: usa a extensao `http` (extensions.http_post), que NAO esta instalada — so ha
+-- pg_net. Todo run morre com "function extensions.http_post(unknown, jsonb, jsonb) does not
+-- exist". Deixado como esta de proposito: consertar liga os follow-ups de Instagram, que
+-- mandam DM pra um backlog acumulado. Migrar pra net.http_post so com a fila revisada.
 select cron.schedule('instagram-followup-check', '*/30 * * * *', $job$ SELECT extensions.http_post('https://__PROJECT_REF__.supabase.co/functions/v1/instagram-followup', '{"minutes_threshold": 60}'::jsonb, '{"Content-Type": "application/json", "apikey": "__ANON_KEY__"}'::jsonb); $job$);
 
 select cron.schedule('ai-cadences-tick', '*/2 * * * *', $job$ SELECT net.http_post( url := 'https://__PROJECT_REF__.supabase.co/functions/v1/process-ai-agent-cadences', headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer __ANON_KEY__'), body := '{}'::jsonb ); $job$);
@@ -23,17 +27,23 @@ select cron.schedule('gcal-pull-tick', '*/15 * * * *', $job$ SELECT net.http_pos
 
 select cron.schedule('admin-notif-tick', '*/10 * * * *', $job$ SELECT net.http_post( url := 'https://__PROJECT_REF__.supabase.co/functions/v1/generate-admin-notifications', headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer __ANON_KEY__'), body := '{}'::jsonb ); $job$);
 
-select cron.schedule('email-automation-tick', '* * * * *', $job$ SELECT net.http_post( url := 'https://__PROJECT_REF__.supabase.co/functions/v1/email-automation-tick', headers := '{"Content-Type": "application/json"}'::jsonb, body := '{}'::jsonb ); $job$);
+-- email-automation-tick tem verify_jwt=true: sem o header Authorization o gateway devolve
+-- 401 UNAUTHORIZED_NO_AUTH_HEADER e o motor de automacao nunca roda (foi o que aconteceu
+-- no projeto de producao ate 27/07 — 1 401 por minuto, calado).
+select cron.schedule('email-automation-tick', '* * * * *', $job$ SELECT net.http_post( url := 'https://__PROJECT_REF__.supabase.co/functions/v1/email-automation-tick', headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer __SERVICE_ROLE_KEY__'), body := '{}'::jsonb, timeout_milliseconds := 60000 ); $job$);
 
 select cron.schedule('wa-blast-processor-tick', '*/2 10-23,0-2 * * *', $job$ SELECT net.http_post( url := 'https://__PROJECT_REF__.supabase.co/functions/v1/wa-blast-processor', headers := jsonb_build_object('Authorization', 'Bearer __SERVICE_ROLE_KEY__', 'Content-Type', 'application/json'), body := '{}'::jsonb, timeout_milliseconds := 60000 ); $job$);
 
 select cron.schedule('engagement-daily-alert', '0 12 * * *', $job$ SELECT public.run_daily_engagement_alert(); $job$);
 
-select cron.schedule('email-automation-daily', '0 12 * * *', $job$ SELECT net.http_post( url := 'https://__PROJECT_REF__.supabase.co/functions/v1/email-automation-daily', headers := '{"Content-Type": "application/json"}'::jsonb, body := '{}'::jsonb ); $job$);
+select cron.schedule('email-automation-daily', '0 12 * * *', $job$ SELECT net.http_post( url := 'https://__PROJECT_REF__.supabase.co/functions/v1/email-automation-daily', headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer __SERVICE_ROLE_KEY__'), body := '{}'::jsonb, timeout_milliseconds := 120000 ); $job$);
 
-select cron.schedule('marketing-midia-cron', '0 */4 * * *', $job$ SELECT net.http_post( url := 'https://__PROJECT_REF__.supabase.co/functions/v1/marketing-midia-cron', headers := '{"Content-Type": "application/json"}'::jsonb, body := '{}'::jsonb ); $job$);
+-- A funcao chama-se 'marketing-midia'; nao existe 'marketing-midia-cron'. O modo de cron
+-- dela e action=schedule_tick (gera o relatorio_4h). Com a URL antiga dava 404 a cada 4h.
+select cron.schedule('marketing-midia-cron', '0 */4 * * *', $job$ SELECT net.http_post( url := 'https://__PROJECT_REF__.supabase.co/functions/v1/marketing-midia', headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer __SERVICE_ROLE_KEY__'), body := '{"action":"schedule_tick"}'::jsonb, timeout_milliseconds := 120000 ); $job$);
 
-select cron.schedule('disc-pdf-fallback', '*/5 10-23 * * *', $job$ SELECT net.http_post( url := 'https://__PROJECT_REF__.supabase.co/functions/v1/disc-pdf-fallback', headers := jsonb_build_object('Authorization', 'Bearer __SERVICE_ROLE_KEY__', 'Content-Type', 'application/json'), body := '{}'::jsonb, timeout_milliseconds := 180000 ); $job$);
+-- disc-pdf-fallback removido em 27/07: a edge function nao esta deployada (404 a cada 5 min).
+-- Se um dia voltar a ser deployada, reagendar aqui.
 
 select cron.schedule('collective_event_dispatch_sql_1min', '* * * * *', $job$
 DO $inner$

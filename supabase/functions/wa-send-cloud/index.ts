@@ -136,8 +136,32 @@ function hydrate(data: any): CloudInstance | null {
   return data as CloudInstance;
 }
 
+/**
+ * Monta o componente `header` de um template de mídia.
+ *
+ * Pegadinha da Meta: o `example.header_handle` que aparece no template aprovado serve SÓ pra
+ * aprovação — não dá pra reaproveitar no envio (é um handle da API de upload, e a URL do
+ * scontent expira). Todo envio de template com HEADER de mídia tem que remandar o arquivo,
+ * por `link` (URL pública) ou por `id` (media_id já enviado pra /media). Sem isso a Meta
+ * devolve #132012 "parameter format does not match format in the created template" e a
+ * mensagem simplesmente não sai.
+ */
+function buildHeaderComponent(headerMedia: any, headerTextParams?: string[]) {
+  if (Array.isArray(headerTextParams) && headerTextParams.length > 0) {
+    return { type: "header", parameters: headerTextParams.map((t: string) => ({ type: "text", text: t })) };
+  }
+  if (!headerMedia) return null;
+  const kind = String(headerMedia.type || "").toLowerCase();
+  if (!["video", "image", "document"].includes(kind)) return null;
+  // `id` tem precedência: media_id não expira tão cedo e evita a Meta ter que baixar a URL.
+  const asset: any = headerMedia.id ? { id: headerMedia.id } : headerMedia.link ? { link: headerMedia.link } : null;
+  if (!asset) return null;
+  if (kind === "document" && headerMedia.filename) asset.filename = headerMedia.filename;
+  return { type: "header", parameters: [{ type: kind, [kind]: asset }] };
+}
+
 async function sendTemplate(body: any, phone: string, graphUrl: string, instance: CloudInstance, supabase: any) {
-  const { template_name, template_params, template_language, button_url_params } = body;
+  const { template_name, template_params, template_language, button_url_params, header_media, header_text_params } = body;
   if (!template_name) throw new Error("template_name obrigatório");
   const language = template_language || "pt_BR";
   const payload: any = {
@@ -147,6 +171,9 @@ async function sendTemplate(body: any, phone: string, graphUrl: string, instance
     template: { name: template_name, language: { code: language } },
   };
   const components: any[] = [];
+  // header ANTES do body: a Meta valida os componentes na ordem declarada no template.
+  const headerComp = buildHeaderComponent(header_media, header_text_params);
+  if (headerComp) components.push(headerComp);
   if (template_params && template_params.length > 0) {
     components.push({
       type: "body",

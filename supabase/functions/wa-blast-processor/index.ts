@@ -275,6 +275,10 @@ async function processCampaign(supabase: any, campaign: any) {
 
   let processed = 0;
   let skipped = 0;
+  // Contadores DESTE lote. campaign.sent_count/failed_count sao um snapshot lido antes do loop,
+  // entao os incrementos tem que somar em cima dele, e nao ser recalculados a cada lead.
+  let sentInRun = 0;
+  let failedInRun = 0;
 
   for (let i = 0; i < pending.length; i++) {
     const cl: any = pending[i];
@@ -344,6 +348,31 @@ async function processCampaign(supabase: any, campaign: any) {
         }
         const params = buildTemplateParams(campaign.cloud_template_params || [], lead);
         const buttonUrlParams = buildButtonUrlParams(tpl.components || [], lead);
+
+        // Template com HEADER de mídia (VIDEO/IMAGE/DOCUMENT) exige o arquivo em TODO envio —
+        // o header_handle do template aprovado não vale (ver comentário em wa-send-cloud).
+        // A fonte é wa_campaigns.media_url: URL pública (vira `link`) ou media_id da Meta (`id`).
+        const headerComp = (tpl.components || []).find((c: any) => c?.type === "HEADER");
+        const headerFormat = String(headerComp?.format || "TEXT").toUpperCase();
+        let headerMedia: any = null;
+        if (["VIDEO", "IMAGE", "DOCUMENT"].includes(headerFormat)) {
+          const asset = String(campaign.media_url || "").trim();
+          if (!asset) {
+            await supabase
+              .from("wa_campaign_leads")
+              .update({
+                status: "failed",
+                error_message: `template '${tpl.name}' tem header ${headerFormat} e a campanha esta sem media_url — informe a URL publica (ou media_id) do arquivo`,
+                failed_at: new Date().toISOString(),
+              })
+              .eq("id", cl.id);
+            continue;
+          }
+          headerMedia = asset.startsWith("http")
+            ? { type: headerFormat.toLowerCase(), link: asset }
+            : { type: headerFormat.toLowerCase(), id: asset };
+        }
+
         resp = await fetch(`${SUPABASE_URL}/functions/v1/wa-send-cloud`, {
           method: "POST",
           headers: {
@@ -358,6 +387,7 @@ async function processCampaign(supabase: any, campaign: any) {
             template_language: tpl.language || "pt_BR",
             template_params: params.map((p) => p.text),
             button_url_params: buttonUrlParams,
+            header_media: headerMedia,
             lead_id: lead.id,
             campaign_id: campaign.id,
           }),
@@ -400,9 +430,12 @@ async function processCampaign(supabase: any, campaign: any) {
           .eq("id", cl.id);
 
         // wa_campaigns.sent_count++
+        // Usa contador de SUCESSOS do lote, nao o indice do loop: com `+ 1 + i` cada lead que
+        // falhava no meio do lote ainda empurrava o sent_count pra cima (1 lead virava "2 enviados").
+        sentInRun++;
         await supabase
           .from("wa_campaigns")
-          .update({ sent_count: (campaign.sent_count || 0) + 1 + i, updated_at: nowIso })
+          .update({ sent_count: (campaign.sent_count || 0) + sentInRun, updated_at: nowIso })
           .eq("id", campaign.id);
 
         // wa_campaign_instance_stats
@@ -460,9 +493,12 @@ async function processCampaign(supabase: any, campaign: any) {
             updated_at: nowIso,
           })
           .eq("id", cl.id);
+        // Mesmo motivo do sent_count, ao contrario: `+ 1` em cima do snapshot fazia todo lote
+        // com N falhas gravar sempre base+1, ou seja, so a primeira falha era contabilizada.
+        failedInRun++;
         await supabase
           .from("wa_campaigns")
-          .update({ failed_count: (campaign.failed_count || 0) + 1, updated_at: nowIso })
+          .update({ failed_count: (campaign.failed_count || 0) + failedInRun, updated_at: nowIso })
           .eq("id", campaign.id);
       }
     } catch (sendErr: any) {
