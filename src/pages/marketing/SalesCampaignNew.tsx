@@ -1,4 +1,6 @@
-import { useState, useMemo, useMemo as useMemoLib } from 'react';
+import { useState, useMemo, useEffect, useMemo as useMemoLib } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { useWhatsAppTemplates } from '@/hooks/useWhatsAppTemplates';
 import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -123,6 +125,28 @@ export default function SalesCampaignNew() {
     return ['VIDEO', 'IMAGE', 'DOCUMENT'].includes(f) ? f : null;
   }, [selectedCloudTemplate]);
   const needsHeaderMedia = provider === 'cloud_api' && !!headerMediaFormat;
+
+  // Preenche sozinho com a midia que a ultima campanha desse mesmo template usou. O media_id da
+  // Meta e reutilizavel, entao na pratica so a primeira campanha de cada template pede o arquivo.
+  const { data: ultimaMidia } = useQuery({
+    queryKey: ['wa-ultima-midia-template', cloudTemplateId],
+    enabled: !!cloudTemplateId && needsHeaderMedia,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('wa_campaigns')
+        .select('media_url, name, created_at')
+        .eq('cloud_template_id', cloudTemplateId!)
+        .not('media_url', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data as { media_url: string; name: string } | null;
+    },
+  });
+  useEffect(() => {
+    if (ultimaMidia?.media_url && !headerMediaUrl) setHeaderMediaUrl(ultimaMidia.media_url);
+  }, [ultimaMidia, headerMediaUrl]);
+  const preenchidoAutomatico = !!ultimaMidia?.media_url && headerMediaUrl === ultimaMidia.media_url;
 
   // Validações por step
   const stepValid: Record<StepId, boolean> = {
@@ -387,23 +411,35 @@ export default function SalesCampaignNew() {
                       }}
                     />
                     {needsHeaderMedia && (
-                      <Card className="border-amber-500/40">
+                      <Card className={preenchidoAutomatico ? 'border-emerald-500/40' : 'border-amber-500/40'}>
                         <CardContent className="p-4 space-y-2">
                           <Label className="flex items-center gap-2">
-                            <AlertCircle className="w-4 h-4 text-amber-500" />
-                            Arquivo do cabeçalho ({headerMediaFormat}) — obrigatório
+                            {preenchidoAutomatico ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                            ) : (
+                              <AlertCircle className="w-4 h-4 text-amber-500" />
+                            )}
+                            {headerMediaFormat} do cabeçalho
+                            {preenchidoAutomatico ? ' — já preenchido' : ' — obrigatório'}
                           </Label>
                           <Input
                             value={headerMediaUrl}
                             onChange={(e) => setHeaderMediaUrl(e.target.value)}
                             placeholder="https://… (URL pública do arquivo) ou o media_id da Meta"
                           />
-                          <p className="text-[11px] text-muted-foreground">
-                            Este template tem um cabeçalho de {headerMediaFormat?.toLowerCase()}. A Meta exige
-                            o arquivo em <strong>cada envio</strong> — o que aparece no template aprovado é
-                            só o exemplo usado na aprovação e não pode ser reaproveitado. Sem isso a Meta
-                            recusa a mensagem com o erro #132012.
-                          </p>
+                          {preenchidoAutomatico ? (
+                            <p className="text-[11px] text-muted-foreground">
+                              Reaproveitado da campanha <strong>{ultimaMidia?.name}</strong>. É o mesmo arquivo
+                              já hospedado na Meta — não precisa mexer. Só troque se for outro vídeo.
+                            </p>
+                          ) : (
+                            <p className="text-[11px] text-muted-foreground">
+                              Primeira campanha com este template, então precisa informar o arquivo uma vez —
+                              das próximas ele já vem preenchido. A Meta exige a mídia em <strong>cada
+                              envio</strong>; o que aparece no template aprovado é só o exemplo da aprovação
+                              e não pode ser reaproveitado (erro #132012).
+                            </p>
+                          )}
                         </CardContent>
                       </Card>
                     )}

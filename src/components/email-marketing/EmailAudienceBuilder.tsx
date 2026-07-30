@@ -183,13 +183,32 @@ export default function EmailAudienceBuilder({ filters, onChange }: Props) {
         />
 
         <MultiSelect
-          label="Tags"
+          label="Tags — incluir"
           icon={<Tag className="h-3 w-3" />}
           options={(opts?.tags || []).map(t => ({ value: t, label: t }))}
           selected={filters.tags_any || []}
           onChange={(v) => update('tags_any', v)}
           placeholder="Quaisquer tags"
         />
+
+        {/* Recorte do tipo "manda pra tag A, menos quem tambem tem a tag B". Vale sobre o
+            resultado das inclusoes: quem tiver QUALQUER uma destas tags sai da lista. */}
+        <div className="space-y-1.5">
+          <MultiSelect
+            label="Tags — excluir"
+            icon={<Tag className="h-3 w-3" />}
+            options={(opts?.tags || []).map(t => ({ value: t, label: t }))}
+            selected={filters.exclude_tags || []}
+            onChange={(v) => update('exclude_tags', v)}
+            placeholder="Não excluir ninguém"
+          />
+          {(filters.exclude_tags?.length || 0) > 0 && (
+            <p className="text-[11px] text-muted-foreground">
+              Quem tiver {filters.exclude_tags!.length === 1 ? 'essa tag' : 'qualquer uma dessas tags'} fica
+              de fora, mesmo que se encaixe nos filtros acima.
+            </p>
+          )}
+        </div>
 
         <MultiSelect
           label="Responsável (assigned_to)"

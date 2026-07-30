@@ -58,7 +58,9 @@ import {
   Sparkles,
   Copy,
   ShoppingCart,
+  Users,
 } from 'lucide-react';
+import ColaboradoresPanel from '@/components/admin/ColaboradoresPanel';
 import CsAgentSettings from '@/components/admin/CsAgentSettings';
 
 // ─── Webhook Types & Section ────────────────────────────────────────────────
@@ -614,8 +616,12 @@ const AdminConfiguracoes: React.FC = () => {
           </Button>
         </div>
 
-        <Tabs defaultValue="webhooks" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+        <Tabs defaultValue="colaboradores" className="w-full">
+          <TabsList className="grid w-full grid-cols-5 max-w-3xl">
+            <TabsTrigger value="colaboradores" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Colaboradores
+            </TabsTrigger>
             <TabsTrigger value="webhooks" className="flex items-center gap-2">
               <Webhook className="w-4 h-4" />
               Webhooks
@@ -633,6 +639,11 @@ const AdminConfiguracoes: React.FC = () => {
               CS IA
             </TabsTrigger>
           </TabsList>
+
+          {/* ── Colaboradores ───────────────────────────────────────────── */}
+          <TabsContent value="colaboradores" className="mt-4">
+            <ColaboradoresPanel />
+          </TabsContent>
 
           {/* ── Webhooks Tab ────────────────────────────────────────────── */}
           <TabsContent value="webhooks">

@@ -1,40 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  Kanban,
-  Users,
-  ShoppingCart,
-  DollarSign,
-  TrendingUp,
-  MessageSquare,
-  Megaphone,
-  ClipboardList,
-  LogOut,
-  ChevronLeft,
-  BookOpen,
-  Bot,
-  Settings,
-  UserCheck,
-  GraduationCap,
-  CalendarDays,
-  TrendingDown,
-  Sparkles,
-  Brain,
-  Mail,
-  Send,
-  Workflow,
-  FileText,
-  SlidersHorizontal,
-  Smartphone,
-  Target,
-  BarChart3,
-  Phone,
-  Camera,
-  CalendarHeart,
-  HardDrive,
-  Building2,
-  KeyRound,
-} from 'lucide-react';
+import * as Icons from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { UpcomingMeetingsWidget } from './UpcomingMeetingsWidget';
 import {
   Sidebar,
@@ -51,73 +17,18 @@ import {
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import logo from '@/assets/mais-que-vencedores-logo.svg';
-
-const menuItems = [
-  { title: 'Dashboard', url: '/admin', icon: LayoutDashboard },
-  { title: 'Agenda', url: '/admin/agenda', icon: CalendarDays },
-  { title: 'CRM de Vendas', url: '/admin/crm', icon: Kanban },
-  { title: 'Central 360', url: '/admin/clientes', icon: Users },
-  { title: 'Vendas', url: '/admin/vendas', icon: ShoppingCart },
-  { title: 'Vendas — Formações', url: '/admin/vendas-formacoes', icon: DollarSign },
-  { title: 'Funil', url: '/admin/funil', icon: TrendingDown },
-  { title: 'Financeiro', url: '/admin/recebimentos', icon: DollarSign },
-  { title: 'WhatsApp', url: '/admin/whatsapp', icon: MessageSquare },
-  { title: 'Ligacoes', url: '/admin/ligacoes', icon: Phone },
-  { title: 'Grupos WA', url: '/admin/grupos', icon: Users },
-  { title: 'Playbooks', url: '/admin/playbooks', icon: BookOpen },
-  { title: 'Agentes IA', url: '/admin/agentes', icon: Bot },
-  { title: 'Membros', url: '/admin/membros', icon: GraduationCap },
-  { title: 'Credenciamento', url: '/admin/credenciamento', icon: UserCheck },
-];
-
-// As apresentações eram os decks da SQUAAD (Masterclass IA, Reprograme 10x,
-// Estruturar Evento). Os HTMLs saíram de public/apresentacoes e as páginas de
-// configuração foram removidas — a seção inteira apontava pra lugar nenhum.
-
-const secondaryItems = [
-  { title: 'Marketing IA', url: '/admin/marketing-ia', icon: Brain },
-  { title: 'Marketing', url: '/admin/marketing', icon: Megaphone },
-  { title: 'Carrossel Viral', url: '/admin/carrossel-viral', icon: Sparkles },
-  { title: 'Operações', url: '/admin/operacoes', icon: ClipboardList },
-  { title: 'Recrutamento', url: '/admin/recrutamento', icon: UserCheck },
-  { title: 'Configurações', url: '/admin/configuracoes', icon: Settings },
-  { title: 'Credenciais', url: '/admin/credenciais', icon: KeyRound },
-];
-
-// Admin do netweaving (+ que Vencedores). Fica em grupo próprio porque os cadastros são
-// outros: 'Empresas' aqui é a tabela profiles (quem faz parte da rede), enquanto o
-// 'Membros' do grupo Principal é a tabela members (aluno do LMS). Mesmo nome, gente
-// diferente — daí os rótulos serem distintos aqui.
-const maisVencedoresItems = [
-  { title: 'Visão Geral', url: '/admin/maisvencedores', icon: LayoutDashboard },
-  { title: 'Membros do Ecossistema', url: '/admin/maisvencedores/membros', icon: Users },
-  { title: 'Eventos', url: '/admin/maisvencedores/eventos', icon: CalendarDays },
-  { title: 'Treinamentos', url: '/admin/maisvencedores/treinamentos', icon: GraduationCap },
-  { title: 'Gerador de Templates', url: '/admin/maisvencedores/templates', icon: Sparkles },
-];
-
-const socialSellingItems = [
-  { title: 'Social Selling IG', url: '/admin/social-selling', icon: Camera },
-];
-
-const marketingEmailItems = [
-  { title: 'Visão Geral', url: '/admin/marketing/email', icon: LayoutDashboard },
-  { title: 'Campanhas Email', url: '/admin/marketing/campanhas', icon: Mail },
-  { title: 'Templates Email', url: '/admin/marketing/templates', icon: FileText },
-  { title: 'Automações', url: '/admin/marketing/automacoes', icon: Workflow },
-  { title: 'Templates WhatsApp', url: '/admin/marketing/wa-templates', icon: MessageSquare },
-  { title: 'Campanhas WhatsApp', url: '/admin/marketing/wa-campanhas', icon: Send },
-  { title: 'Instâncias WhatsApp', url: '/admin/marketing/instancias', icon: Smartphone },
-  { title: 'Integração Meta Ads', url: '/admin/marketing/integracoes/meta', icon: Target },
-  { title: 'Dashboard Mídia', url: '/admin/marketing/midia', icon: BarChart3 },
-  { title: 'Lab de Criativos', url: '/admin/marketing/criativos/lab', icon: Sparkles },
-  { title: 'Eventos Coletivos', url: '/admin/marketing/eventos-coletivos', icon: CalendarHeart },
-  { title: 'Nova Campanha Meta', url: '/admin/marketing/midia/nova-campanha', icon: Megaphone },
-  { title: 'Configurações', url: '/admin/marketing/configuracoes', icon: SlidersHorizontal },
-];
+import { AREAS_ADMIN, podeVer } from '@/lib/permissoes';
+import { usePermissoesAdmin } from '@/hooks/usePermissoesAdmin';
 
 interface AdminSidebarProps {
   onSignOut: () => void;
+}
+
+// Os itens vêm de @/lib/permissoes (mesma fonte da tela de colaboradores). O ícone chega como
+// string pra aquele arquivo não precisar importar JSX; aqui resolvemos pro componente.
+function Icone({ nome, className }: { nome: string; className?: string }) {
+  const C = (Icons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[nome];
+  return C ? <C className={className} /> : <Icons.Circle className={className} />;
 }
 
 export function AdminSidebar({ onSignOut }: AdminSidebarProps) {
@@ -125,6 +36,7 @@ export function AdminSidebar({ onSignOut }: AdminSidebarProps) {
   const navigate = useNavigate();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
+  const { permissoes, carregando } = usePermissoesAdmin();
 
   // Rotas que são raiz de uma seção precisam bater exato, senão o startsWith deixa o item
   // "Visão Geral" aceso o tempo todo enquanto se navega pelos filhos dela.
@@ -134,6 +46,14 @@ export function AdminSidebar({ onSignOut }: AdminSidebarProps) {
     if (exatas.includes(url)) return location.pathname === url;
     return location.pathname.startsWith(url);
   };
+
+  // Enquanto as permissões carregam não mostramos menu nenhum: exibir tudo e depois esconder
+  // faria piscar áreas que o colaborador não pode ver.
+  const grupos = carregando
+    ? []
+    : AREAS_ADMIN
+        .map((g) => ({ ...g, itens: g.itens.filter((i) => podeVer(permissoes, i.url)) }))
+        .filter((g) => g.itens.length > 0);
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -154,120 +74,30 @@ export function AdminSidebar({ onSignOut }: AdminSidebarProps) {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            Principal
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton
-                    onClick={() => navigate(item.url)}
-                    isActive={isActive(item.url)}
-                    tooltip={item.title}
-                    className="transition-colors"
-                  >
-                    <item.icon className="w-4 h-4" />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            + que Vencedores
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {maisVencedoresItems.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton
-                    onClick={() => navigate(item.url)}
-                    isActive={isActive(item.url)}
-                    tooltip={item.title}
-                    className="transition-colors"
-                  >
-                    <item.icon className="w-4 h-4" />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            Prospecção Instagram
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {socialSellingItems.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton
-                    onClick={() => navigate(item.url)}
-                    isActive={isActive(item.url)}
-                    tooltip={item.title}
-                    className="transition-colors"
-                  >
-                    <item.icon className="w-4 h-4" />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            Marketing
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {marketingEmailItems.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton
-                    onClick={() => navigate(item.url)}
-                    isActive={isActive(item.url)}
-                    tooltip={item.title}
-                    className="transition-colors"
-                  >
-                    <item.icon className="w-4 h-4" />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            Em breve
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {secondaryItems.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton
-                    onClick={() => navigate(item.url)}
-                    isActive={isActive(item.url)}
-                    tooltip={item.title}
-                    className="transition-colors opacity-70"
-                  >
-                    <item.icon className="w-4 h-4" />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {grupos.map((grupo) => (
+          <SidebarGroup key={grupo.grupo}>
+            <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              {grupo.grupo}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {grupo.itens.map((item) => (
+                  <SidebarMenuItem key={item.url}>
+                    <SidebarMenuButton
+                      onClick={() => navigate(item.url)}
+                      isActive={isActive(item.url)}
+                      tooltip={item.title}
+                      className={grupo.grupo === 'Em breve' ? 'transition-colors opacity-70' : 'transition-colors'}
+                    >
+                      <Icone nome={item.icon} className="w-4 h-4" />
+                      <span>{item.title}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter className="p-0">
