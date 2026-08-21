@@ -54,6 +54,16 @@ export function useWavoipPairing(token: string | null, enabled: boolean) {
   const [busy, setBusy] = useState(false);
   const sockRef = useRef<Socket | null>(null);
   const cancelRef = useRef(false);
+  const rebootTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rebootCountRef = useRef(0);
+  const bootRef = useRef<((tk: string) => Promise<void>) | null>(null);
+  // Quando o QR chegou. O WaVoIP expira a sessao de pareamento em ~75s e
+  // derruba o device inteiro; a UI usa isso pra dizer que o codigo e' recente.
+  const [qrAt, setQrAt] = useState<number | null>(null);
+
+  const clearReboot = useCallback(() => {
+    if (rebootTimerRef.current) { clearTimeout(rebootTimerRef.current); rebootTimerRef.current = null; }
+  }, []);
 
   const closeSocket = useCallback(() => {
     if (sockRef.current) {
@@ -70,35 +80,69 @@ export function useWavoipPairing(token: string | null, enabled: boolean) {
       transports: ['websocket'],
       path: `/${tk}/websocket`,
       auth: { version: 'official', platform: 'squaad-crm' },
-      reconnectionAttempts: 3,
+      // Reconexao agressiva: o device reinicia sozinho o tempo todo enquanto
+      // ninguem escaneia, e cada volta traz um QR novo.
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1500,
     });
     sockRef.current = sock;
 
+    // O device morre sozinho ~75s depois de emitir o QR (sessao de pareamento
+    // expirada). Quando isso acontece o socket cai e a API volta a 503 — sem
+    // religar, a tela fica com um QR morto e ninguem consegue escanear.
+    const scheduleReboot = (delay: number) => {
+      if (cancelRef.current) return;
+      if (rebootCountRef.current >= 20) {
+        setError('O dispositivo não se mantém no ar. Tente novamente em alguns minutos.');
+        return;
+      }
+      rebootCountRef.current += 1;
+      clearReboot();
+      rebootTimerRef.current = setTimeout(() => {
+        if (!cancelRef.current) bootRef.current?.(tk);
+      }, delay);
+    };
+
     sock.on('connect_error', (e: any) => {
       console.warn('[WaVoIP pairing] connect_error:', e?.message || e);
-      setError('Não foi possível abrir a conexão com o dispositivo.');
+      scheduleReboot(3000);
+    });
+    sock.on('disconnect', (reason: string) => {
+      console.warn('[WaVoIP pairing] socket caiu:', reason);
+      if (reason === 'io client disconnect') return; // fechamos de proposito
+      scheduleReboot(3000);
     });
     sock.on('device:init', (st: string, _callType: string, ct: any, qr?: string) => {
       setStatus((st as WavoipPairingStatus) || 'connecting');
       setContact(ct ?? null);
       setQrCode(qr ?? null);
+      if (qr) { setQrAt(Date.now()); rebootCountRef.current = 0; }
       setError(null);
     });
     sock.on('device:connecting', (qr?: string) => {
       setStatus('connecting');
       setContact(null);
       setQrCode(qr ?? null);
+      if (qr) { setQrAt(Date.now()); rebootCountRef.current = 0; }
     });
     sock.on('device:open', (ct: any) => {
       setStatus('open');
       setContact(ct ?? null);
       setQrCode(null);
+      setQrAt(null);
+      clearReboot();
     });
-    sock.on('device:close', () => { setStatus('close'); setContact(null); setQrCode(null); });
+    sock.on('device:close', () => {
+      setStatus('close');
+      setContact(null);
+      setQrCode(null);
+      setQrAt(null);
+      scheduleReboot(2000);
+    });
     sock.on('device:restarting', () => setStatus('restarting'));
     sock.on('device:hibernating', () => setStatus('hibernating'));
     sock.on('device:building', () => setStatus('BUILDING'));
-  }, [closeSocket]);
+  }, [closeSocket, clearReboot]);
 
   // Acorda o device (se preciso) e abre o socket
   const boot = useCallback(async (tk: string) => {
@@ -135,9 +179,13 @@ export function useWavoipPairing(token: string | null, enabled: boolean) {
     setBusy(false);
   }, [openSocket]);
 
+  useEffect(() => { bootRef.current = boot; }, [boot]);
+
   useEffect(() => {
     cancelRef.current = false;
+    rebootCountRef.current = 0;
     if (!enabled || !token) {
+      clearReboot();
       closeSocket();
       setStatus('idle');
       setQrCode(null);
@@ -145,8 +193,8 @@ export function useWavoipPairing(token: string | null, enabled: boolean) {
       return;
     }
     boot(token);
-    return () => { cancelRef.current = true; closeSocket(); };
-  }, [enabled, token, boot, closeSocket]);
+    return () => { cancelRef.current = true; clearReboot(); closeSocket(); };
+  }, [enabled, token, boot, closeSocket, clearReboot]);
 
   /** Reinicia o dispositivo no servidor e reabre o socket */
   const restart = useCallback(async () => {
@@ -154,6 +202,8 @@ export function useWavoipPairing(token: string | null, enabled: boolean) {
     setBusy(true);
     setStatus('restarting');
     setQrCode(null);
+    rebootCountRef.current = 0;
+    clearReboot();
     closeSocket();
     try {
       await fetch(`${BASE}/${token}/device/restart`);
@@ -164,7 +214,7 @@ export function useWavoipPairing(token: string | null, enabled: boolean) {
     }
     await new Promise(r => setTimeout(r, 4000));
     await boot(token);
-  }, [token, boot, closeSocket]);
+  }, [token, boot, closeSocket, clearReboot]);
 
   /** Desvincula o número atual — o device volta pra "connecting" e emite QR novo */
   const logout = useCallback(async () => {
@@ -181,5 +231,5 @@ export function useWavoipPairing(token: string | null, enabled: boolean) {
     setBusy(false);
   }, [token]);
 
-  return { status, qrCode, contact, error, busy, restart, logout };
+  return { status, qrCode, qrAt, contact, error, busy, restart, logout };
 }

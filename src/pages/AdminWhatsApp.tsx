@@ -96,6 +96,7 @@ const AdminWhatsApp: React.FC = () => {
   // por REST, vem pelo socket do proprio device — ver useWavoipPairing.
   const [wavoipPairing, setWavoipPairing] = useState<any | null>(null);
   const [wavoipQrImg, setWavoipQrImg] = useState<string | null>(null);
+  const [wavoipQrAge, setWavoipQrAge] = useState(0);
   const {
     device: myWavoipDevice,
     deviceStatus: myWavoipStatus,
@@ -171,6 +172,17 @@ const AdminWhatsApp: React.FC = () => {
       .catch(e => { console.error('[WaVoIP] falha ao renderizar QR:', e); });
     return () => { cancelled = true; };
   }, [wavoipQr]);
+
+  // Idade do QR na tela. O WaVoIP expira a sessao de pareamento em ~75s e o
+  // hook busca um codigo novo sozinho — o contador existe pra dar confianca de
+  // que o codigo e' o atual, e nao um morto.
+  useEffect(() => {
+    if (!wavoipPairing || pairingIsMine || !pairing.qrAt) { setWavoipQrAge(0); return; }
+    const tick = () => setWavoipQrAge(Math.floor((Date.now() - (pairing.qrAt as number)) / 1000));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [wavoipPairing, pairingIsMine, pairing.qrAt]);
 
   const loadWavoipDevices = useCallback(async () => {
     const { data } = await supabase.from('wavoip_devices').select('*').eq('is_active', true).order('created_at', { ascending: false });
@@ -897,17 +909,23 @@ const AdminWhatsApp: React.FC = () => {
               <p className="text-[11px] text-black/60 text-center leading-tight">
                 WhatsApp → <strong>Aparelhos conectados</strong> → <strong>Conectar aparelho</strong>
               </p>
+              {!pairingIsMine && pairing.qrAt && (
+                <p className="text-[10px] text-black/45 text-center">
+                  Código gerado há {wavoipQrAge}s · expira em ~75s e é renovado sozinho
+                </p>
+              )}
             </div>
           ) : (
             <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 space-y-2">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-500" />
-                <span className="text-sm font-medium">Aguardando o QR Code</span>
+                <RefreshCw className="w-4 h-4 text-amber-500 animate-spin" />
+                <span className="text-sm font-medium">Gerando o QR Code...</span>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                O dispositivo precisa estar acordado e sem número vinculado pra emitir o QR.
-                Se demorar, clique em <strong>Reiniciar</strong>. Se já houver um número
-                vinculado e você quiser trocar, use <strong>Desvincular número</strong>.
+                O WaVoIP derruba o dispositivo quando o código expira (~75s) — a tela busca um
+                código novo sozinha, é só aguardar alguns segundos. Se passar de um minuto assim,
+                clique em <strong>Reiniciar</strong>. Se já houver um número vinculado e você
+                quiser trocar, use <strong>Desvincular número</strong>.
               </p>
             </div>
           )}
