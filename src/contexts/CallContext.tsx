@@ -74,6 +74,15 @@ interface CallContextType {
   setShowActiveCallModal: (v: boolean) => void;
   setShowCallEndedModal: (v: boolean) => void;
   refreshDevice: () => Promise<void>;
+  // Status cru do device WaVoIP (open / connecting / close / hibernating /
+  // restarting / error) e o QR que o proprio socket manda quando o device
+  // esta sem numero vinculado ("connecting").
+  deviceStatus: string;
+  deviceQrCode: string | null;
+  /** acorda o device (hibernating) e faz ele gerar QR de novo */
+  restartDevice: () => Promise<void>;
+  /** desvincula o numero atual — o device volta pra "connecting" e emite QR */
+  logoutDevice: () => Promise<void>;
   isTranscribing: boolean;
   transcriptions: TranscriptionSegment[];
   transcriptionError: string | null;
@@ -190,6 +199,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [device, setDevice] = useState<WavoipDevice | null>(null);
   const [deviceLoading, setDeviceLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
+  const [deviceStatus, setDeviceStatus] = useState<string>('disconnected');
+  const [deviceQrCode, setDeviceQrCode] = useState<string | null>(null);
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
   const [callEndedResult, setCallEndedResult] = useState<CallEndedResult | null>(null);
   const [incomingOffer, setIncomingOffer] = useState<IncomingOffer | null>(null);
@@ -476,6 +487,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!device?.token) {
       setIsConnected(false);
+      setDeviceStatus('disconnected');
+      setDeviceQrCode(null);
       return;
     }
 
@@ -574,13 +587,32 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         installWiretap(1);
 
         if (dev) {
+          // Estado inicial que o SDK ja' tem em maos (antes de qualquer evento)
+          if (dev.status) setDeviceStatus(dev.status);
+          if (dev.qrCode) setDeviceQrCode(dev.qrCode);
+
           if (typeof dev.onStatus === 'function') {
             dev.onStatus((status: string) => {
               if (destroyed) return;
               console.log('[WaVoIP] Device status:', status);
               const connected = status === 'open' || status === 'UP' || status === 'connected';
               setIsConnected(connected);
+              setDeviceStatus(status);
+              // "open" = numero vinculado, o QR antigo nao serve mais
+              if (connected) setDeviceQrCode(null);
               supabase.from('wavoip_devices').update({ status }).eq('id', device.id).then(() => {});
+            });
+          }
+
+          // QR do WaVoIP. O device entra em "connecting" quando nao tem numero
+          // vinculado e o PROPRIO socket manda o QR — nao existe endpoint REST
+          // pra isso. Sem escutar esse evento, a tela de admin nunca tinha o
+          // que mostrar e parecia que o WaVoIP nao suportava QR.
+          if (typeof dev.onQRCode === 'function') {
+            dev.onQRCode((qr: string | undefined) => {
+              if (destroyed) return;
+              console.log('[WaVoIP] QR code recebido:', qr ? `${qr.slice(0, 12)}... (${qr.length} chars)` : 'vazio');
+              setDeviceQrCode(qr || null);
             });
           }
 
@@ -1191,6 +1223,49 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // em PENDING (mesmo fluxo do botao novo).
   const initiateCall = requestCall;
 
+  // Pega o device vivo da instancia do SDK (o SDK expoe em .devices ou ._devices
+  // dependendo da versao).
+  const getLiveDevice = useCallback((): any | null => {
+    const inst: any = wavoipRef.current;
+    return inst?.devices?.[0] || inst?._devices?.[0] || null;
+  }, []);
+
+  // Reinicia o device no servidor do WaVoIP. Usado quando ele esta "hibernating"
+  // (dorme por inatividade) ou travado — ao voltar, se nao houver numero
+  // vinculado, ele emite QR.
+  const restartDevice = useCallback(async () => {
+    const dev = getLiveDevice();
+    if (!dev || typeof dev.restart !== 'function') {
+      toast.error('Dispositivo WaVoIP ainda não inicializou. Recarregue a página.');
+      return;
+    }
+    try {
+      await dev.restart();
+      toast.info('Reiniciando dispositivo WaVoIP...');
+    } catch (e: any) {
+      console.error('[WaVoIP] restart falhou:', e);
+      toast.error('Não foi possível reiniciar o dispositivo');
+    }
+  }, [getLiveDevice]);
+
+  // Desvincula o numero do device. Volta pra "connecting" e o socket manda um
+  // QR novo — e assim que se troca o numero que faz as ligacoes.
+  const logoutDevice = useCallback(async () => {
+    const dev = getLiveDevice();
+    if (!dev || typeof dev.logout !== 'function') {
+      toast.error('Dispositivo WaVoIP ainda não inicializou. Recarregue a página.');
+      return;
+    }
+    try {
+      await dev.logout();
+      setDeviceQrCode(null);
+      toast.info('Número desvinculado. Aguarde o QR Code...');
+    } catch (e: any) {
+      console.error('[WaVoIP] logout falhou:', e);
+      toast.error('Não foi possível desvincular o número');
+    }
+  }, [getLiveDevice]);
+
   return (
     <CallContext.Provider value={{
       device,
@@ -1213,6 +1288,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setShowActiveCallModal,
       setShowCallEndedModal,
       refreshDevice: loadDevice,
+      deviceStatus,
+      deviceQrCode,
+      restartDevice,
+      logoutDevice,
       isTranscribing,
       transcriptions,
       transcriptionError,
