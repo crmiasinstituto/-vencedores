@@ -22,6 +22,7 @@ import { ChatContactList, type ChatContact } from '@/components/whatsapp/ChatCon
 import { InlineChat } from '@/components/whatsapp/InlineChat';
 import { ChatLeadPanel } from '@/components/whatsapp/ChatLeadPanel';
 import { useCallContext } from '@/contexts/CallContext';
+import { useWavoipPairing } from '@/hooks/useWavoipPairing';
 import QRCode from 'qrcode';
 
 // Status que o socket do WaVoIP emite, em portugues. "connecting" e' o estado
@@ -36,6 +37,8 @@ const WAVOIP_STATUS_LABEL: Record<string, string> = {
   restarting: 'Reiniciando',
   BUILDING: 'Preparando dispositivo',
   error: 'Erro no dispositivo',
+  idle: 'Parado',
+  waking: 'Acordando dispositivo',
 };
 
 interface WhatsAppInstance {
@@ -89,16 +92,32 @@ const AdminWhatsApp: React.FC = () => {
   const [wavoipToken, setWavoipToken] = useState('');
   const [isSavingWavoip, setIsSavingWavoip] = useState(false);
   const [editingWavoipId, setEditingWavoipId] = useState<string | null>(null);
-  // Modal de conexao do WaVoIP (QR vem pelo socket do SDK, via CallContext)
-  const [wavoipConnectOpen, setWavoipConnectOpen] = useState(false);
+  // Pareamento WaVoIP: qual dispositivo esta com o modal aberto. O QR nao vem
+  // por REST, vem pelo socket do proprio device — ver useWavoipPairing.
+  const [wavoipPairing, setWavoipPairing] = useState<any | null>(null);
   const [wavoipQrImg, setWavoipQrImg] = useState<string | null>(null);
   const {
     device: myWavoipDevice,
-    deviceStatus: wavoipStatus,
-    deviceQrCode: wavoipQr,
-    restartDevice: restartWavoip,
-    logoutDevice: logoutWavoip,
+    deviceStatus: myWavoipStatus,
+    deviceQrCode: myWavoipQr,
+    restartDevice: restartMyWavoip,
+    logoutDevice: logoutMyWavoip,
   } = useCallContext();
+
+  // Se o device do modal for o do PROPRIO usuario, o CallContext ja mantem um
+  // socket vivo nele — abrir um segundo socket no mesmo token atrapalha o ack
+  // das ligacoes. Nesse caso o hook fica desligado e a gente reaproveita o
+  // CallContext. Ver [[wavoip-qr-pelo-socket]].
+  const pairingIsMine = !!wavoipPairing && myWavoipDevice?.id === wavoipPairing.id;
+  const pairing = useWavoipPairing(
+    wavoipPairing?.token || null,
+    !!wavoipPairing && !pairingIsMine,
+  );
+
+  const wavoipStatus = pairingIsMine ? myWavoipStatus : pairing.status;
+  const wavoipQr = pairingIsMine ? myWavoipQr : pairing.qrCode;
+  const restartWavoip = pairingIsMine ? restartMyWavoip : pairing.restart;
+  const logoutWavoip = pairingIsMine ? logoutMyWavoip : pairing.logout;
 
   // Connect modal
   const [connectModal, setConnectModal] = useState<WhatsAppInstance | null>(null);
@@ -718,14 +737,9 @@ const AdminWhatsApp: React.FC = () => {
                           <span className="font-medium text-xs">{dev.name}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          {/* So o device do usuario logado tem socket vivo (o
-                              CallContext instancia um por sessao), e o QR so
-                              existe dentro desse socket. */}
-                          {myWavoipDevice?.id === dev.id && (
-                            <Button size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={() => setWavoipConnectOpen(true)}>
-                              <QrCode className="w-3 h-3 mr-1" /> Conectar
-                            </Button>
-                          )}
+                          <Button size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={() => setWavoipPairing(dev)}>
+                            <QrCode className="w-3 h-3 mr-1" /> Conectar
+                          </Button>
                           <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setEditingWavoipId(dev.id); setWavoipName(dev.name || ''); setWavoipToken(dev.token); }}>
                             <Settings className="w-3 h-3" />
                           </Button>
@@ -747,7 +761,7 @@ const AdminWhatsApp: React.FC = () => {
                           // Pro device desta sessao, o status ao vivo do socket
                           // vale mais que a coluna do banco (que so e' escrita
                           // quando chega evento).
-                          const st = myWavoipDevice?.id === dev.id ? wavoipStatus : dev.status;
+                          const st = myWavoipDevice?.id === dev.id ? myWavoipStatus : dev.status;
                           const ok = st === 'open' || st === 'connected';
                           return (
                             <Badge variant={ok ? 'default' : 'secondary'} className="text-[10px]">
@@ -836,23 +850,36 @@ const AdminWhatsApp: React.FC = () => {
       </Dialog>
 
       {/* ===== WaVoIP Connect Modal =====
-          O QR do WaVoIP nao vem de endpoint REST: o proprio socket do device
-          emite quando ele esta em "connecting". Quem escuta e o CallContext. */}
-      <Dialog open={wavoipConnectOpen} onOpenChange={setWavoipConnectOpen}>
+          O QR do WaVoIP nao vem de endpoint REST: e' o socket do proprio device
+          que emite (device:init / device:connecting). E o device hiberna quando
+          fica sem uso — nesse estado a API responde 503 e o socket recusa
+          conexao, que era exatamente o motivo de nunca aparecer QR aqui.
+          O useWavoipPairing acorda o device antes de abrir o socket. */}
+      <Dialog open={!!wavoipPairing} onOpenChange={(open) => { if (!open) { setWavoipPairing(null); setWavoipQrImg(null); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Conectar WaVoIP</DialogTitle>
             <DialogDescription>
-              Vincule o WhatsApp que vai fazer e receber as ligações.
+              Vincule o WhatsApp que vai fazer e receber as ligações{wavoipPairing?.name ? ` em "${wavoipPairing.name}"` : ''}.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Badge variant={wavoipStatus === 'open' ? 'default' : 'secondary'} className="text-[10px]">
               {WAVOIP_STATUS_LABEL[wavoipStatus] || wavoipStatus}
             </Badge>
-            {myWavoipDevice?.name && <span className="text-xs text-muted-foreground">{myWavoipDevice.name}</span>}
+            {pairing.busy && !pairingIsMine && (
+              <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                <RefreshCw className="w-3 h-3 animate-spin" /> acordando o dispositivo...
+              </span>
+            )}
           </div>
+
+          {!pairingIsMine && pairing.error && (
+            <div className="rounded-lg border border-red-500/40 bg-red-500/5 p-3">
+              <p className="text-xs text-red-300">{pairing.error}</p>
+            </div>
+          )}
 
           {wavoipStatus === 'open' ? (
             <div className="rounded-lg border border-green-500/40 bg-green-500/5 p-4 space-y-2">
@@ -875,23 +902,30 @@ const AdminWhatsApp: React.FC = () => {
             <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 space-y-2">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-500" />
-                <span className="text-sm font-medium">Sem QR no momento</span>
+                <span className="text-sm font-medium">Aguardando o QR Code</span>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                O QR só é emitido quando o dispositivo está em <strong>Aguardando vincular número</strong>.
-                Se ele estiver hibernando ou travado, use <strong>Reiniciar</strong>. Se já tiver um número
+                O dispositivo precisa estar acordado e sem número vinculado pra emitir o QR.
+                Se demorar, clique em <strong>Reiniciar</strong>. Se já houver um número
                 vinculado e você quiser trocar, use <strong>Desvincular número</strong>.
               </p>
             </div>
           )}
 
+          {pairingIsMine && (
+            <p className="text-[10px] text-muted-foreground">
+              Este é o dispositivo da sua sessão — o QR vem pela conexão que o CRM já mantém.
+            </p>
+          )}
+
           <DialogFooter className="flex gap-2 sm:justify-between">
-            <Button variant="outline" size="sm" onClick={() => restartWavoip()}>
+            <Button variant="outline" size="sm" disabled={pairing.busy && !pairingIsMine} onClick={() => restartWavoip()}>
               <RefreshCw className="w-3.5 h-3.5 mr-1" /> Reiniciar
             </Button>
             <Button
               variant="destructive"
               size="sm"
+              disabled={pairing.busy && !pairingIsMine}
               onClick={() => {
                 if (confirm('Desvincular o número deste dispositivo? As ligações param até vincular outro pelo QR.')) {
                   logoutWavoip();
