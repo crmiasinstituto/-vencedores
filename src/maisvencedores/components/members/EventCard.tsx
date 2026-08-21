@@ -23,11 +23,29 @@ export function EventCard({ event }: EventCardProps) {
   const { faixa } = useMembership();
   // Evento é lista de convidados, não nível: estar numa faixa acima não te põe na sala.
   const hasAccess = event.faixasPermitidas.includes(faixa);
-  const isPast = new Date(event.date) < new Date();
   const abertoATodos = event.faixasPermitidas.length === FAIXAS.length;
 
-  const formattedDate = format(new Date(event.date), "d 'de' MMMM", { locale: ptBR });
-  const dayOfWeek = format(new Date(event.date), 'EEEE', { locale: ptBR });
+  const inicio = event.date;
+  const fim = event.endDate ?? null;
+  const multiDia = !!fim && fim.getTime() > inicio.getTime();
+
+  // Evento de vários dias só encerra depois do ÚLTIMO dia — senão um evento de 26 a 28
+  // apareceria como "encerrado" já no dia 27, com gente ainda participando.
+  const ultimoDia = fim ?? inicio;
+  const isPast = new Date(ultimoDia.getFullYear(), ultimoDia.getMonth(), ultimoDia.getDate() + 1) < new Date();
+
+  const dayOfWeek = format(inicio, 'EEEE', { locale: ptBR });
+  const formattedDate = multiDia
+    ? (inicio.getMonth() === fim!.getMonth()
+        ? `${format(inicio, 'd')} a ${format(fim!, "d 'de' MMMM", { locale: ptBR })}`
+        : `${format(inicio, "d 'de' MMM", { locale: ptBR })} a ${format(fim!, "d 'de' MMM", { locale: ptBR })}`)
+    : format(inicio, "d 'de' MMMM", { locale: ptBR });
+
+  // "Garantir Vaga" precisa levar a algum lugar: inscrição/pagamento primeiro, sala depois.
+  const destino = event.paymentUrl || event.meetingUrl || null;
+  const rotuloBotao = event.paymentUrl
+    ? 'Garantir Vaga'
+    : event.type === 'presencial' ? 'Garantir Vaga' : 'Participar';
 
   return (
     <div className={cn(
@@ -37,15 +55,27 @@ export function EventCard({ event }: EventCardProps) {
         : 'border-border/30',
       isPast && 'opacity-60'
     )}>
+      {event.imageUrl && (
+        <div className="relative h-36 w-full overflow-hidden">
+          <img
+            src={event.imageUrl}
+            alt=""
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+          />
+          {/* Degradê pra data e título continuarem legíveis sobre qualquer foto. */}
+          <div className="absolute inset-0 bg-gradient-to-t from-card/95 to-transparent" />
+        </div>
+      )}
       <div className="p-5">
         {/* Date Block */}
         <div className="flex gap-4">
           <div className="flex-shrink-0 w-16 h-16 rounded-lg flex flex-col items-center justify-center bg-muted text-foreground">
             <span className="text-2xl font-bold leading-none">
-              {format(new Date(event.date), 'd')}
+              {multiDia ? `${format(inicio, 'd')}-${format(fim!, 'd')}` : format(inicio, 'd')}
             </span>
             <span className="text-xs uppercase mt-1">
-              {format(new Date(event.date), 'MMM', { locale: ptBR })}
+              {format(inicio, 'MMM', { locale: ptBR })}
             </span>
           </div>
 
@@ -67,9 +97,13 @@ export function EventCard({ event }: EventCardProps) {
             </div>
 
             <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
-              {event.type === 'presencial' ? (
+              {/* O local vale pros dois tipos: evento online também tem "onde" (Zoom, YouTube,
+                  Meet), e escondê-lo deixava o card do online sem nenhuma pista de lugar. */}
+              {event.location ? (
                 <>
-                  <MapPin className="w-3.5 h-3.5" />
+                  {event.type === 'presencial'
+                    ? <MapPin className="w-3.5 h-3.5" />
+                    : <Video className="w-3.5 h-3.5" />}
                   <span className="truncate">{event.location}</span>
                 </>
               ) : (
@@ -117,10 +151,17 @@ export function EventCard({ event }: EventCardProps) {
           {isPast ? (
             <span className="text-xs text-muted-foreground">Evento encerrado</span>
           ) : hasAccess ? (
-            <Button variant="gold" size="sm">
-              {event.type === 'presencial' ? 'Garantir Vaga' : 'Participar'}
-              <ExternalLink className="w-3 h-3 ml-1" />
-            </Button>
+            // O botão não tinha link nenhum: era decorativo e o membro clicava sem sair do lugar.
+            destino ? (
+              <Button variant="gold" size="sm" asChild>
+                <a href={destino} target="_blank" rel="noopener noreferrer">
+                  {rotuloBotao}
+                  <ExternalLink className="w-3 h-3 ml-1" />
+                </a>
+              </Button>
+            ) : (
+              <span className="text-xs text-muted-foreground">Link em breve</span>
+            )
           ) : (
             <Button variant="outline" size="sm" disabled className="gap-1">
               <Lock className="w-3 h-3" />

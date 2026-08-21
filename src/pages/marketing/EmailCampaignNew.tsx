@@ -86,6 +86,7 @@ export default function EmailCampaignNew() {
     if (brevoSettings && !fromName && !fromEmail) {
       setFromName(brevoSettings.sender_name || '');
       setFromEmail(brevoSettings.sender_email || '');
+      if (!replyTo && brevoSettings.reply_to) setReplyTo(brevoSettings.reply_to);
     }
   }, [brevoSettings]);
 

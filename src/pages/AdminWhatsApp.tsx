@@ -76,7 +76,13 @@ const AdminWhatsApp: React.FC = () => {
 
   // Connect modal
   const [connectModal, setConnectModal] = useState<WhatsAppInstance | null>(null);
-  const [connectMode, setConnectMode] = useState<'qr' | 'pairing'>('qr');
+  // Pareamento é o padrão: o QR expira em ~20-60s e a tela não avisava, então o usuário
+  // ficava olhando "Aguardando..." com um código já morto. O código de pareamento dura mais
+  // e é digitado, não escaneado.
+  const [connectMode, setConnectMode] = useState<'qr' | 'pairing'>('pairing');
+  // Segundos de validade restantes do código atual. null = não há código no ar.
+  const [segundosRestantes, setSegundosRestantes] = useState<number | null>(null);
+  const [expirou, setExpirou] = useState(false);
   const [pairingPhone, setPairingPhone] = useState('');
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -258,6 +264,20 @@ const AdminWhatsApp: React.FC = () => {
     loadWavoipDevices();
   };
 
+  // Contador regressivo do código. A UAZAPI derruba por "Pair Code timeout"/"QR Code timeout"
+  // por volta de 2 minutos; mostramos isso em vez de deixar girando pra sempre.
+  useEffect(() => {
+    if (segundosRestantes === null) return;
+    if (segundosRestantes <= 0) {
+      setExpirou(true);
+      setSegundosRestantes(null);
+      setPollingId(null);
+      return;
+    }
+    const t = setTimeout(() => setSegundosRestantes((n) => (n === null ? null : n - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [segundosRestantes]);
+
   // Polling for QR code connection
   useEffect(() => {
     if (!pollingId) return;
@@ -274,7 +294,34 @@ const AdminWhatsApp: React.FC = () => {
           setPollingId(null);
           setConnectModal(null);
           setPairingCode(null);
+          setSegundosRestantes(null);
+          setExpirou(false);
+
+          // api_url em branco fazia o disparo falhar com "instance.api_url ausente (UAZAPI)"
+          // mesmo com o número conectado. Preenche na conexão pra não descobrir isso no envio.
+          await supabase
+            .from('whatsapp_instances')
+            .update({ status: 'connected', api_url: 'https://squaad.uazapi.com' })
+            .eq('id', pollingId)
+            .is('api_url', null);
+
+          // Puxa os grupos assim que conecta — é o passo que o usuário faria na mão logo depois.
+          try {
+            const r = await fetch('/.netlify/functions/sync-grupos-whatsapp', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ instance_id: pollingId }),
+            });
+            const j = await r.json();
+            if (j?.total > 0) toast.success(`${j.total} grupos sincronizados`);
+          } catch { /* não bloqueia a conexão */ }
+
           loadInstances();
+        } else if (currentStatus === 'disconnected' && segundosRestantes !== null) {
+          // A UAZAPI já derrubou o código. Sem este ramo a tela seguia "Aguardando..." pra sempre.
+          setExpirou(true);
+          setSegundosRestantes(null);
+          setPollingId(null);
         } else {
           const qr = instanceData?.qrcode || statusData?.qrcode || null;
           setInstances(prev => prev.map(i =>
@@ -304,7 +351,10 @@ const AdminWhatsApp: React.FC = () => {
     setIsConnecting(true);
     try {
       const body: any = { action: 'connect', instance_id: connectModal.id };
-      if (mode === 'pairing' && pairingPhone.trim()) body.phone = pairingPhone.trim();
+      // Se o admin não digitou, usa o número já cadastrado na instância — era retrabalho
+      // digitar de novo um número que o sistema já conhece.
+      const fone = pairingPhone.trim() || (connectModal.phone_number || '').replace(/\D/g, '');
+      if (mode === 'pairing' && fone) body.phone = fone;
       const res = await supabase.functions.invoke('uazapi-proxy', { body });
       if (res.data?.success) {
         const d = res.data.data;
@@ -316,6 +366,8 @@ const AdminWhatsApp: React.FC = () => {
           toast.info('Escaneie o QR Code');
         }
         setPollingId(connectModal.id);
+        setExpirou(false);
+        setSegundosRestantes(120);
       } else toast.error(res.data?.error || 'Erro');
     } catch (e: any) { toast.error(e.message); }
     setIsConnecting(false);
@@ -338,6 +390,22 @@ const AdminWhatsApp: React.FC = () => {
       loadInstances();
     } catch (e: any) { toast.error(e.message); }
   };
+
+  // Mostra quanto tempo o código ainda vale. Antes só havia um spinner com "Aguardando...",
+  // que continuava girando muito depois do código ter morrido.
+  const StatusDoCodigo = () => (
+    <div className="flex flex-col items-center gap-1">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <RefreshCw className="w-3 h-3 animate-spin" />
+        Aguardando você confirmar no celular…
+      </div>
+      {segundosRestantes !== null && (
+        <span className={segundosRestantes <= 30 ? 'text-xs font-medium text-amber-500' : 'text-xs text-muted-foreground'}>
+          expira em {Math.floor(segundosRestantes / 60)}:{String(segundosRestantes % 60).padStart(2, '0')}
+        </span>
+      )}
+    </div>
+  );
 
   const openWebhookModal = (instance: WhatsAppInstance) => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -713,7 +781,7 @@ const AdminWhatsApp: React.FC = () => {
       </Dialog>
 
       {/* ===== Connect Modal ===== */}
-      <Dialog open={!!connectModal} onOpenChange={(open) => { if (!open) { setConnectModal(null); setPairingCode(null); } }}>
+      <Dialog open={!!connectModal} onOpenChange={(open) => { if (!open) { setConnectModal(null); setPairingCode(null); setSegundosRestantes(null); setExpirou(false); setPollingId(null); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Conectar WhatsApp</DialogTitle>
@@ -739,20 +807,34 @@ const AdminWhatsApp: React.FC = () => {
                 src={currentConnectInstance.qr_code.startsWith('data:') ? currentConnectInstance.qr_code : `data:image/png;base64,${currentConnectInstance.qr_code}`}
                 alt="QR Code" className="w-56 h-56"
               />
-              <div className="flex items-center gap-2 text-sm text-gray-500"><RefreshCw className="w-3 h-3 animate-spin" /> Aguardando...</div>
+              <StatusDoCodigo />
             </div>
           )}
-          {pairingCode && (
+          {pairingCode && !expirou && (
             <div className="flex flex-col items-center gap-2 p-4 bg-muted rounded-lg">
               <p className="text-sm text-muted-foreground">Digite no WhatsApp:</p>
               <p className="text-3xl font-mono font-bold tracking-[.5em] text-foreground">{pairingCode}</p>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground"><RefreshCw className="w-3 h-3 animate-spin" /> Aguardando...</div>
+              <StatusDoCodigo />
             </div>
           )}
+          {expirou && (
+            <div className="flex flex-col items-center gap-2 p-4 rounded-lg border border-amber-500/40 bg-amber-500/5">
+              <AlertCircle className="w-5 h-5 text-amber-500" />
+              <p className="text-sm font-medium">O código expirou</p>
+              <p className="text-xs text-muted-foreground text-center">
+                O WhatsApp invalida o código em cerca de 2 minutos. Deixe o celular já aberto em
+                <strong> Aparelhos conectados → Conectar aparelho</strong> e gere outro.
+              </p>
+            </div>
+          )}
+          <div className="rounded-md bg-muted/50 p-3 text-[11px] text-muted-foreground leading-relaxed">
+            No celular: <strong>WhatsApp → Aparelhos conectados → Conectar aparelho</strong>
+            {connectMode === 'pairing' && <> → <strong>Conectar com número de telefone</strong></>}
+          </div>
           <DialogFooter>
             <Button onClick={() => handleConnect(connectMode)} disabled={isConnecting || (connectMode === 'pairing' && !pairingPhone.trim())}>
               {isConnecting && <RefreshCw className="w-4 h-4 animate-spin mr-2" />}
-              {connectMode === 'qr' ? 'Gerar QR Code' : 'Gerar Código'}
+              {expirou ? 'Gerar novo código' : connectMode === 'qr' ? 'Gerar QR Code' : 'Gerar Código'}
             </Button>
           </DialogFooter>
         </DialogContent>

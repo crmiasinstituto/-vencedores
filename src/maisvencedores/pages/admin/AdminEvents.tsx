@@ -34,6 +34,7 @@ import { toast } from 'sonner';
 import type { Faixa } from '@/maisvencedores/types/member';
 import { FAIXAS, FAIXA_INFO } from '@/maisvencedores/types/member';
 import { SeletorDeFaixas } from '@/maisvencedores/components/admin/SeletorDeFaixas';
+import UploadImagem from '@/maisvencedores/components/admin/UploadImagem';
 import { useTreinadores } from '@/maisvencedores/hooks/useCatalogo';
 
 interface Event {
@@ -42,9 +43,13 @@ interface Event {
   description: string | null;
   event_type: 'presencial' | 'online';
   event_date: string;
+  event_end_date: string | null;
+  image_url: string | null;
+  eduzz_produto_match: string | null;
   event_time: string | null;
   location: string | null;
   meeting_url: string | null;
+  payment_url: string | null;
   total_spots: number | null;
   spots_remaining: number | null;
   faixas_permitidas: Faixa[];
@@ -57,9 +62,13 @@ const emptyEvent = {
   description: '',
   event_type: 'online' as 'presencial' | 'online',
   event_date: '',
+  event_end_date: '',
+  image_url: '',
+  eduzz_produto_match: '',
   event_time: '',
   location: '',
   meeting_url: '',
+  payment_url: '',
   total_spots: '',
   // Por padrão o evento abre pra todo mundo; o admin restringe se quiser.
   faixas_permitidas: [...FAIXAS] as Faixa[],
@@ -104,9 +113,13 @@ export default function AdminEvents() {
       description: event.description || '',
       event_type: event.event_type,
       event_date: event.event_date.split('T')[0],
+      event_end_date: event.event_end_date?.split('T')[0] || '',
+      image_url: event.image_url || '',
+      eduzz_produto_match: event.eduzz_produto_match || '',
       event_time: event.event_time || '',
       location: event.location || '',
       meeting_url: event.meeting_url || '',
+      payment_url: event.payment_url || '',
       total_spots: event.total_spots?.toString() || '',
       faixas_permitidas: event.faixas_permitidas || [...FAIXAS],
       treinador_id: event.treinador_id || ''
@@ -124,9 +137,15 @@ export default function AdminEvents() {
         description: formData.description || null,
         event_type: formData.event_type,
         event_date: formData.event_date,
+        event_end_date: formData.event_end_date || null,
+        image_url: formData.image_url || null,
+        eduzz_produto_match: formData.eduzz_produto_match || null,
         event_time: formData.event_time || null,
-        location: formData.event_type === 'presencial' ? formData.location : null,
-        meeting_url: formData.event_type === 'online' ? formData.meeting_url : null,
+        // Local vale pros dois tipos: um evento online tem "onde" (Zoom, YouTube, Meet) e
+        // antes essa informação era descartada no save.
+        location: formData.location || null,
+        meeting_url: formData.meeting_url || null,
+        payment_url: formData.payment_url || null,
         total_spots: formData.total_spots ? parseInt(formData.total_spots) : null,
         spots_remaining: formData.total_spots ? parseInt(formData.total_spots) : null,
         faixas_permitidas: formData.faixas_permitidas,
@@ -267,15 +286,27 @@ export default function AdminEvents() {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Data *</Label>
+                  <Label>Data de início *</Label>
                   <Input
                     type="date"
                     value={formData.event_date}
                     onChange={(e) => setFormData({ ...formData, event_date: e.target.value })}
                     required
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>Data de término</Label>
+                  <Input
+                    type="date"
+                    value={formData.event_end_date}
+                    min={formData.event_date || undefined}
+                    onChange={(e) => setFormData({ ...formData, event_end_date: e.target.value })}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Vazio = 1 dia. Para o RPG10X de 26 e 27, ponha 27.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label>Horário</Label>
@@ -286,25 +317,68 @@ export default function AdminEvents() {
                   />
                 </div>
               </div>
-              {formData.event_type === 'presencial' ? (
-                <div className="space-y-2">
-                  <Label>Local</Label>
-                  <Input
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    placeholder="Endereço do evento"
-                  />
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label>Link da Reunião</Label>
-                  <Input
-                    value={formData.meeting_url}
-                    onChange={(e) => setFormData({ ...formData, meeting_url: e.target.value })}
-                    placeholder="https://meet.google.com/..."
-                  />
-                </div>
-              )}
+
+              <UploadImagem
+                label="Foto do evento"
+                value={formData.image_url}
+                onChange={(url) => setFormData({ ...formData, image_url: url })}
+                pasta="eventos"
+                ajuda="Aparece no topo do card. Proporção boa: 16:9 (ex: 1280x720)."
+              />
+
+              {/* Local aparece nos dois tipos: evento online também tem "onde" (Zoom, YouTube),
+                  e antes o campo sumia no online e o valor era descartado ao salvar. */}
+              <div className="space-y-2">
+                <Label>Local do evento</Label>
+                <Input
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  placeholder={formData.event_type === 'presencial'
+                    ? 'Auditório do CECBA, Costa Azul, Salvador-BA'
+                    : 'Ex: Zoom · YouTube ao vivo'}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  É o que aparece no card do evento, embaixo do título.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Link de inscrição / pagamento</Label>
+                <Input
+                  value={formData.payment_url}
+                  onChange={(e) => setFormData({ ...formData, payment_url: e.target.value })}
+                  placeholder="https://pay.kirvano.com/..."
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Destino do botão <strong>Garantir Vaga</strong> no card. Sem isso o botão fica
+                  como "Link em breve".
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Link da reunião</Label>
+                <Input
+                  value={formData.meeting_url}
+                  onChange={(e) => setFormData({ ...formData, meeting_url: e.target.value })}
+                  placeholder="https://meet.google.com/..."
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Sala do evento online. Usado no botão quando não há link de inscrição.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Baixa vaga automaticamente (produto na Eduzz)</Label>
+                <Input
+                  value={formData.eduzz_produto_match}
+                  onChange={(e) => setFormData({ ...formData, eduzz_produto_match: e.target.value })}
+                  placeholder="Ex: Reprograme-se 10X"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Toda venda da Eduzz cujo nome do produto contenha este texto desconta 1 vaga
+                  deste evento. Vazio = as vagas só mudam na mão.
+                </p>
+              </div>
+
               <div className="space-y-2">
                 <Label>Vagas (deixe vazio para ilimitado)</Label>
                 <Input

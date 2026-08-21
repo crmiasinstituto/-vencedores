@@ -318,12 +318,54 @@ Deno.serve(async (req: Request) => {
       .update({ total_leads: audience.length, total_recipients: audience.length })
       .eq("id", campaign_id);
 
+    // Tira da audiência quem JÁ tem envio registrado nesta campanha.
+    //
+    // Sem isto, campanha com `audience_filters` resolvia a lista pelos critérios (não pela fila
+    // de pendentes) e o lote "primeiros N" era sempre o MESMO grupo — em 03/08 isso mandou a
+    // mesma mensagem até 198 vezes pra mesma pessoa. Marcar o lead como enviado não resolvia,
+    // porque a resolução nem olhava esse status.
+    {
+      const jaEnviados = new Set<string>();
+      const PAGINA = 1000;
+      for (let inicio = 0; ; inicio += PAGINA) {
+        const { data: enviados } = await supabase
+          .from("email_sends")
+          .select("email")
+          .eq("campaign_id", campaign_id)
+          .range(inicio, inicio + PAGINA - 1);
+        if (!enviados || enviados.length === 0) break;
+        for (const e of enviados) if (e.email) jaEnviados.add(String(e.email).toLowerCase());
+        if (enviados.length < PAGINA) break;
+      }
+      if (jaEnviados.size > 0) {
+        const antes = audience.length;
+        audience = audience.filter((r: any) => !jaEnviados.has(String(r.email).toLowerCase()));
+        console.log(`Campanha ${campaign_id}: ${antes - audience.length} já haviam recebido, pulados`);
+      }
+    }
+
     const from = `${fromName} <${fromEmail}>`;
     let sent = 0;
     let failed = 0;
 
+    // Lote por invocação.
+    //
+    // Antes o laço percorria a audiência INTEIRA numa única execução, com pausa de 100ms por
+    // e-mail. A edge function morre no limite de ~150s de CPU, então numa campanha de 1.000
+    // ela enviava ~100 e era abatida no meio — sem erro registrado, sem marcar 'completed', e
+    // com sent_count parado em 0 porque o contador só era gravado no fim. Foi exatamente o que
+    // aconteceu em 03/08 (101 enviados às 21:02 e nada mais).
+    //
+    // Como a audiência sai de email_campaign_leads com status='pending', quem já recebeu fica
+    // de fora na próxima chamada — então basta processar um pedaço e deixar o cron chamar de
+    // novo até zerar a fila.
+    const LOTE = 200;
+    const daVez = audience.slice(0, LOTE);
+    const restam = audience.length - daVez.length;
+    const sentBase = campaign.sent_count || 0;
+
     const bgTask = (async () => {
-      for (const recipient of audience) {
+      for (const recipient of daVez) {
         try {
           const token = await getOrCreateUnsubscribeToken(supabase, recipient.email, recipient.lead_id);
           if (!token) {
@@ -365,7 +407,7 @@ Deno.serve(async (req: Request) => {
           html = injectComplianceFooter(html, unsubscribeUrl, config);
           const subject = substituteVariables(campaign.subject, variables);
 
-          const { data: sendRow } = await supabase
+          const { data: sendRow, error: sendErr } = await supabase
             .from("email_sends")
             .insert({
               campaign_id,
@@ -376,6 +418,19 @@ Deno.serve(async (req: Request) => {
             })
             .select("id")
             .single();
+
+          // O índice único (campaign_id, lower(email)) é a última linha de defesa contra
+          // reenvio. Antes o erro era ignorado e o Resend era chamado assim mesmo — ou seja,
+          // a trava do banco existiria e o e-mail sairia do mesmo jeito.
+          if (sendErr || !sendRow) {
+            console.log(`Pulando ${recipient.email}: já registrado nesta campanha (${sendErr?.message || "sem linha"})`);
+            await supabase
+              .from("email_campaign_leads")
+              .update({ status: "sent" })
+              .eq("campaign_id", campaign_id)
+              .eq("email", recipient.email);
+            continue;
+          }
 
           const res = await fetch("https://api.resend.com/emails", {
             method: "POST",
@@ -408,6 +463,14 @@ Deno.serve(async (req: Request) => {
               .eq("campaign_id", campaign_id)
               .eq("email", recipient.email);
             sent++;
+            // Grava o progresso a cada 10 envios: a tela mostrava 0 enviados durante toda a
+            // campanha porque o contador só era escrito no final.
+            if (sent % 10 === 0) {
+              await supabase
+                .from("email_campaigns")
+                .update({ sent_count: sentBase + sent, total_sent: sentBase + sent, updated_at: new Date().toISOString() })
+                .eq("id", campaign_id);
+            }
           } else {
             const errText = await res.text();
             await supabase
@@ -425,22 +488,23 @@ Deno.serve(async (req: Request) => {
           console.error(`Erro enviando pra ${recipient.email}:`, err);
           failed++;
         }
-        await new Promise((r) => setTimeout(r, 100));
+        await new Promise((r) => setTimeout(r, 130));
       }
 
+      // Sobrou fila? Mantém 'sending' pro cron voltar. Só fecha quando não resta ninguém.
+      const concluiu = restam === 0;
       await supabase
         .from("email_campaigns")
         .update({
-          status: "completed",
-          completed_at: new Date().toISOString(),
-          sent_at: new Date().toISOString(),
-          sent_count: sent,
-          failed_count: failed,
-          total_sent: sent,
+          status: concluiu ? "completed" : "sending",
+          ...(concluiu ? { completed_at: new Date().toISOString(), sent_at: new Date().toISOString() } : {}),
+          sent_count: sentBase + sent,
+          failed_count: (campaign.failed_count || 0) + failed,
+          total_sent: sentBase + sent,
           updated_at: new Date().toISOString(),
         })
         .eq("id", campaign_id);
-      console.log(`Campaign ${campaign_id} done: ${sent} sent, ${failed} failed`);
+      console.log(`Campaign ${campaign_id}: ${sent} enviados neste lote, ${failed} falhas, ${restam} na fila`);
     })();
 
     // @ts-ignore EdgeRuntime global

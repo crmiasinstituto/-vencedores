@@ -103,9 +103,19 @@ export function TrainingCard({ training }: TrainingCardProps) {
               <Progress value={training.progress} className="h-1.5" />
             </div>
           ) : (
-            <Button variant="outline" size="sm" className="w-full mt-2">
-              Começar Agora
-            </Button>
+            // Botão não tinha destino: o membro clicava e ficava parado. Vai direto pro
+            // video_url cadastrado no treinamento.
+            training.videoUrl ? (
+              <Button variant="outline" size="sm" className="w-full mt-2" asChild>
+                <a href={training.videoUrl} target="_blank" rel="noopener noreferrer">
+                  Começar Agora
+                </a>
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" className="w-full mt-2" disabled>
+                Link em breve
+              </Button>
+            )
           )
         ) : (
           // Faixa não se compra, se conquista — então aqui não cabe CTA de upgrade. O que

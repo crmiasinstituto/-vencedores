@@ -143,9 +143,12 @@ export interface EmailMetrics {
 }
 
 export interface BrevoSettings {
-  api_key: string;
+  /** Não usado no + que Vencedores: a chave do Resend fica só no servidor (email_config). */
+  api_key?: string;
   sender_name: string;
   sender_email: string;
+  /** Pra onde vão as respostas. Vem de email_config.reply_to. */
+  reply_to?: string;
 }
 
 // Status display configs

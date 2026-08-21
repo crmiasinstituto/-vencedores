@@ -49,7 +49,20 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     let body: any = {};
-    try { body = await req.json(); } catch { /* eduzz pode mandar vazio em teste */ }
+    let bodyBruto = "";
+    try {
+      bodyBruto = await req.text();
+      body = JSON.parse(bodyBruto);
+    } catch {
+      // Eduzz pode mandar vazio em teste — ou form-encoded, que o req.json() rejeitava
+      // silenciosamente. Aqui aproveitamos o texto já lido pra tentar o formato de formulário
+      // antes de desistir: era um caminho em que produto e valor sumiam sem deixar rastro.
+      if (bodyBruto.includes("=")) {
+        try {
+          body = Object.fromEntries(new URLSearchParams(bodyBruto));
+        } catch { /* segue com body vazio */ }
+      }
+    }
 
     // --- valida o segredo ---
     const secretRecebido =
@@ -68,19 +81,89 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "segredo inválido" }, 401);
     }
 
+    // Registra o que chegou, reconhecido ou não. Em 03/08 quatro vendas entraram com valor
+    // R$ 0 e produto "Compra Eduzz" (o fallback) e não havia como saber quais campos a Eduzz
+    // tinha mandado, porque nada guardava o corpo da requisição.
+    try {
+      await supabase.from("webhook_event_log").insert({
+        provider: "eduzz",
+        event_type: "recebido",
+        raw_payload: bodyBruto ? { texto: bodyBruto.slice(0, 8000), parsed: body } : { parsed: body },
+      });
+    } catch (e) { console.error("falha logando payload eduzz:", e); }
+
     // --- só processa venda PAGA ---
     const status = String(
       pick(body, ["event", "data.status", "trans_status", "status", "trans_paid"]) ?? "",
     ).toLowerCase();
     if (status && !PAGO.some((p) => status.includes(p))) {
-      return json({ ok: true, ignorado: `status '${status}' não é venda paga` });
+      // Não é venda — mas é intenção de compra, que é o lead mais quente que existe: a pessoa
+      // já decidiu e travou no pagamento. Antes esses eventos eram descartados sem deixar
+      // rastro; agora viram lead marcado com o estágio, pra alimentar recuperação.
+      //
+      // Nunca vira sales_events: faturamento só conta pagamento confirmado.
+      const evento = String(pick(body, ["event"]) ?? "").toLowerCase();
+      const metodo = String(pick(body, [
+        "data.invoice.payment.method", "data.payment.method", "payment.method",
+      ]) ?? "").toLowerCase();
+      const motivo = pick(body, [
+        "data.invoice.failReasonMessage", "data.invoice.failReason",
+      ]);
+
+      // Nos eventos não pagos a Eduzz manda `data.customer`; no pago manda `data.buyer`.
+      const cEmail = pick(body, ["data.customer.email", "customer.email", "data.buyer.email", "buyer.email"]);
+      const cNome = pick(body, ["data.customer.name", "customer.name", "data.buyer.name", "buyer.name"]);
+      const cTel = pick(body, [
+        "data.customer.cellphone", "customer.cellphone", "data.buyer.cellphone", "buyer.cellphone",
+        "data.customer.phone", "customer.phone",
+      ]);
+
+      let tag = "checkout-abandonado";
+      if (evento.includes("card_attempted") || metodo.includes("card")) tag = "cartao-recusado";
+      else if (metodo.includes("boleto") || metodo.includes("ticket")) tag = "boleto-gerado";
+      else if (metodo.includes("pix")) tag = "pix-gerado";
+
+      if (!cEmail && !cTel) {
+        return json({ ok: true, ignorado: `evento '${status}' sem e-mail nem telefone` });
+      }
+
+      try {
+        const { data: leadId, error: leadErr } = await supabase.rpc("eduzz_registrar_intencao", {
+          p_email: cEmail ? String(cEmail) : null,
+          p_telefone: cTel ? String(cTel) : null,
+          p_nome: cNome ? String(cNome) : null,
+          p_tag: tag,
+          p_motivo: motivo ? String(motivo) : null,
+        });
+        if (leadErr) console.error("eduzz_registrar_intencao falhou:", leadErr);
+        return json({ ok: true, intencao: tag, lead_id: leadId ?? null, motivo: motivo ?? null });
+      } catch (e) {
+        console.error("erro registrando intenção:", e);
+        return json({ ok: true, ignorado: `status '${status}' não é venda paga` });
+      }
     }
 
     // --- extrai os campos, tentando os nomes comuns da Eduzz ---
     const email = pick(body, ["data.buyer.email", "buyer.email", "cliente_email", "customer.email", "email"]);
     const telefone = pick(body, ["data.buyer.cellphone", "buyer.phone", "cliente_cel", "customer.phone_number", "phone"]);
-    const produto = pick(body, ["data.product.name", "product.name", "produto_nome", "item_name", "product"]) ?? "Compra Eduzz";
-    const valorRaw = pick(body, ["data.amount", "amount", "trans_value", "trans_valor", "value", "price"]);
+    // Caminhos confirmados no payload real (myeduzz.invoice_paid, capturado em 03/08/2026):
+    //   produto -> data.items[0].name          (NÃO existe data.product.name)
+    //   valor   -> data.price.value            (NÃO existe data.amount nem trans_value)
+    // Os nomes antigos ficam no fim da lista como reserva, mas nunca casaram — por isso as
+    // vendas entravam com produto "Compra Eduzz" e valor R$ 0,00.
+    const produto = pick(body, [
+      "data.items.0.name", "items.0.name",
+      "data.product.name", "product.name", "produto_nome", "item_name", "product",
+    ]) ?? "Compra Eduzz";
+
+    // data.price.value é o preço da oferta (97). data.price.paid.value inclui os juros do
+    // parcelamento (120,36) — o que a Eduzz cobrou, não o que a venda vale. Para faturamento
+    // o número certo é o da oferta.
+    const valorRaw = pick(body, [
+      "data.price.value", "price.value",
+      "data.items.0.price.value",
+      "data.amount", "amount", "trans_value", "trans_valor", "value", "price",
+    ]);
     const valor = Number(String(valorRaw ?? "0").replace(",", ".")) || 0;
     const transId = String(pick(body, ["data.id", "trans_cod", "transaction_id", "invoice_id", "id"]) ?? "");
     // O código de indicação volta no parâmetro de rastreio que colocamos no checkout.

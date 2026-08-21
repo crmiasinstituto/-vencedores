@@ -8,6 +8,7 @@ import { GlowCard } from '@/components/ui/spotlight-card';
 import { EventCard } from '@/maisvencedores/components/members/EventCard';
 import { TrainingCard } from '@/maisvencedores/components/members/TrainingCard';
 import { FaixaBadge } from '@/maisvencedores/components/members/FaixaBadge';
+import { AnnualRanking } from '@/maisvencedores/components/members/AnnualRanking';
 import { FAIXAS, FAIXA_INFO, nivelDaFaixa } from '@/maisvencedores/types/member';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Users, GraduationCap, Calendar, TrendingUp, Sparkles, Gift, Trophy, Ticket, Video, MapPin, Copy, Check } from 'lucide-react';
@@ -228,45 +229,16 @@ export default function MembersDashboard() {
           </div>
         </div>
 
-        {/* New Members */}
+        {/* Ranking — fica alto na página de propósito: é o que muda toda semana e o que faz
+            o membro voltar. Eventos e treinamentos mudam de mês em mês. */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-display font-bold text-foreground">Novos Membros</h2>
+            <h2 className="text-xl font-display font-bold text-foreground">Ranking de Generosidade</h2>
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/maisvencedores/membros/portfolio">Ver Todos <ArrowRight className="w-4 h-4 ml-1" /></Link>
+              <Link to="/maisvencedores/membros/indicacoes">Ver ranking completo <ArrowRight className="w-4 h-4 ml-1" /></Link>
             </Button>
           </div>
-          {carregandoMembros ? (
-            <p className="text-sm text-muted-foreground">Carregando…</p>
-          ) : novosMembros.length === 0 ? (
-            // Dizer que não há é honesto; encher com dado falso, não.
-            <p className="text-sm text-muted-foreground">
-              Nenhum membro novo por enquanto.
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {novosMembros.map((member) => (
-                // useMembers devolve Member (a linha do banco); o MemberCard pede MemberProfile.
-                // Os dois descrevem a mesma pessoa e divergem só no que o card nao usa
-                // (joinedAt/onboardingCompleted), entao completa aqui em vez de arrastar dois
-                // tipos quase iguais pelo app inteiro.
-                //
-                // GlowCard: borda spotlight (azul da marca) que acende seguindo o cursor.
-                // customSize + !block + !p-0 = usa só como moldura de borda, sem mexer no card.
-                // !touch-auto restaura a rolagem por toque (o componente vem com touch-action:none).
-                <GlowCard
-                  key={member.id}
-                  glowColor="blue"
-                  customSize
-                  className="!block w-full !gap-0 !p-0 !rounded-xl !shadow-none !backdrop-blur-none !touch-auto"
-                >
-                  <MemberCard
-                    member={{ ...member, photo: member.photoUrl, joinedAt: member.createdAt, onboardingCompleted: true }}
-                  />
-                </GlowCard>
-              ))}
-            </div>
-          )}
+          <AnnualRanking currentProfileId={profile?.id} />
         </section>
 
         {/* Upcoming Events */}
@@ -314,6 +286,47 @@ export default function MembersDashboard() {
             </div>
           )}
         </section>
+        {/* New Members */}
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-display font-bold text-foreground">Novos Membros</h2>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/maisvencedores/membros/portfolio">Ver Todos <ArrowRight className="w-4 h-4 ml-1" /></Link>
+            </Button>
+          </div>
+          {carregandoMembros ? (
+            <p className="text-sm text-muted-foreground">Carregando…</p>
+          ) : novosMembros.length === 0 ? (
+            // Dizer que não há é honesto; encher com dado falso, não.
+            <p className="text-sm text-muted-foreground">
+              Nenhum membro novo por enquanto.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {novosMembros.map((member) => (
+                // useMembers devolve Member (a linha do banco); o MemberCard pede MemberProfile.
+                // Os dois descrevem a mesma pessoa e divergem só no que o card nao usa
+                // (joinedAt/onboardingCompleted), entao completa aqui em vez de arrastar dois
+                // tipos quase iguais pelo app inteiro.
+                //
+                // GlowCard: borda spotlight (azul da marca) que acende seguindo o cursor.
+                // customSize + !block + !p-0 = usa só como moldura de borda, sem mexer no card.
+                // !touch-auto restaura a rolagem por toque (o componente vem com touch-action:none).
+                <GlowCard
+                  key={member.id}
+                  glowColor="blue"
+                  customSize
+                  className="!block w-full !gap-0 !p-0 !rounded-xl !shadow-none !backdrop-blur-none !touch-auto"
+                >
+                  <MemberCard
+                    member={{ ...member, photo: member.photoUrl, joinedAt: member.createdAt, onboardingCompleted: true }}
+                  />
+                </GlowCard>
+              ))}
+            </div>
+          )}
+        </section>
+
       </div>
     </div>
   );

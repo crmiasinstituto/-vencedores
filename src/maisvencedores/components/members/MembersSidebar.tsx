@@ -33,7 +33,8 @@ const menuItems: { icon: typeof LayoutDashboard; label: string; path: string; fa
   { icon: Sprout, label: 'Generosidade', path: '/maisvencedores/membros/indicacoes' },
   { icon: GraduationCap, label: 'Treinamentos', path: '/maisvencedores/membros/treinamentos' },
   { icon: Calendar, label: 'Eventos', path: '/maisvencedores/membros/eventos' },
-  { icon: Megaphone, label: 'Publicidade', path: '/maisvencedores/membros/publicidade', faixaMinima: 'verde' },
+  // 'Publicidade' saiu do menu em 03/08/2026 a pedido do Carlos. A rota segue de pé em
+  // MaisVencedoresRoutes pra não quebrar link já compartilhado — só não é mais oferecida aqui.
   { icon: User, label: 'Meu Perfil', path: '/maisvencedores/membros/perfil' },
   { icon: Settings, label: 'Configurações', path: '/maisvencedores/membros/configuracoes' },
 ];

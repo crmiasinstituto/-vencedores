@@ -18,13 +18,31 @@ import type {
 // BREVO/EMAIL SENDER SETTINGS (legado: hook chamado Brevo mas usa Resend)
 // ────────────────────────────────────────────
 
-// + que Vencedores usa Resend (não Brevo). Tabela 'integration_settings' não existe neste CRM.
-// Hook stub mantido pra compat com componentes do pacote original que ainda referenciam.
+// + que Vencedores usa Resend (não Brevo), e o remetente real mora em `email_config`
+// (id='singleton') — a mesma linha que os triggers do banco usam pra disparar.
+//
+// Este hook era um stub que devolvia null e nem fazia request. Consequência: os campos
+// "Nome do remetente" e "Email do remetente" da criação de campanha nasciam VAZIOS e tinham
+// que ser digitados na mão toda vez, mesmo com o Resend já configurado. Agora ele lê a
+// configuração de verdade. O nome antigo foi mantido porque outros componentes do pacote
+// importam por ele.
 export const useBrevoSettings = () => {
   return useQuery({
-    queryKey: ['brevo-settings'],
-    enabled: false, // não dispara request → não polui console com 404
-    queryFn: async () => null as BrevoSettings | null,
+    queryKey: ['email-config-remetente'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<BrevoSettings | null> => {
+      const { data, error } = await supabase
+        .from('email_config')
+        .select('from_name, from_email, reply_to')
+        .eq('is_active', true)
+        .maybeSingle();
+      if (error || !data) return null;
+      return {
+        sender_name: data.from_name || '',
+        sender_email: data.from_email || '',
+        reply_to: data.reply_to || '',
+      } as BrevoSettings;
+    },
   });
 };
 

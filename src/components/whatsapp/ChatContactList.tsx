@@ -3,6 +3,7 @@ import { Search, MessageSquare, User, Users, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { formatInstancePhone, shortInstanceName, getInstanceTag, describeInstance, InstanceIdentity } from '@/lib/whatsappInstance';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -18,6 +19,12 @@ export interface ChatContact {
   boardId: string | null;
   isGroup?: boolean;
   lastSenderName?: string | null;
+  /** instancia (numero) por onde a ultima mensagem dessa conversa passou */
+  lastInstanceId?: string | null;
+}
+
+interface InstanceInfo extends InstanceIdentity {
+  id: string;
 }
 
 interface ChatContactListProps {
@@ -52,13 +59,15 @@ export const ChatContactList: React.FC<ChatContactListProps> = ({ selectedContac
   const [isLoading, setIsLoading] = useState(true);
   const [crmResults, setCrmResults] = useState<ChatContact[]>([]);
   const [msgMatchPhones, setMsgMatchPhones] = useState<Set<string>>(new Set());
+  // id -> instancia, pra mostrar por qual numero cada conversa entrou
+  const [instanceMap, setInstanceMap] = useState<Record<string, InstanceInfo>>({});
   const contactsRef = useRef<ChatContact[]>([]);
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadContacts = useCallback(async () => {
     const { data: messages } = await supabase
       .from('whatsapp_messages')
-      .select('remote_phone, lead_id, board_id, content, created_at, direction, is_read, message_type, metadata')
+      .select('remote_phone, lead_id, board_id, content, created_at, direction, is_read, message_type, metadata, instance_id')
       .order('created_at', { ascending: false });
 
     if (!messages) { setIsLoading(false); return; }
@@ -84,6 +93,7 @@ export const ChatContactList: React.FC<ChatContactListProps> = ({ selectedContac
           phone, leadId: msg.lead_id, boardId: msg.board_id,
           lastMessage: preview, lastMessageAt: msg.created_at, unreadCount: 0,
           contactName, senderName, groupName, chatPic, isGroup, lastSenderName: lastSender,
+          lastInstanceId: msg.instance_id || null,
         });
       }
 
@@ -91,6 +101,8 @@ export const ChatContactList: React.FC<ChatContactListProps> = ({ selectedContac
       if (!existing.contactName && meta?.contact_name) existing.contactName = meta.contact_name;
       if (!existing.senderName && msg.direction === 'inbound' && meta?.senderName) existing.senderName = meta.senderName;
       if (!existing.chatPic) existing.chatPic = meta?.chat_details_pic || meta?.chat_imagePreview || meta?.chat_image || null;
+      // msg mais recente pode ser antiga sem instance_id — cai pra proxima que tiver
+      if (!existing.lastInstanceId && msg.instance_id) existing.lastInstanceId = msg.instance_id;
       if (!msg.is_read && msg.direction === 'inbound') existing.unreadCount++;
     }
 
@@ -166,6 +178,7 @@ export const ChatContactList: React.FC<ChatContactListProps> = ({ selectedContac
         profilePic: pic, lastMessage: data.lastMessage, lastMessageAt: data.lastMessageAt,
         unreadCount: data.unreadCount, boardId: lead?.board_id || data.boardId,
         isGroup: data.isGroup, lastSenderName: data.lastSenderName,
+        lastInstanceId: data.lastInstanceId || null,
       });
     }
 
@@ -181,6 +194,20 @@ export const ChatContactList: React.FC<ChatContactListProps> = ({ selectedContac
   }, []);
 
   useEffect(() => { loadContacts(); }, [loadContacts]);
+
+  // Instancias: nome + numero + tipo (OFICIAL / COEX / NAO OFICIAL) de cada
+  // conexao, pra etiquetar a conversa na lista.
+  useEffect(() => {
+    supabase
+      .from('whatsapp_instances')
+      .select('id, instance_name, phone_number, provider, purpose, notes')
+      .then(({ data }) => {
+        if (!data) return;
+        const map: Record<string, InstanceInfo> = {};
+        (data as InstanceInfo[]).forEach(i => { map[i.id] = i; });
+        setInstanceMap(map);
+      });
+  }, []);
 
   // Incremental realtime
   useEffect(() => {
@@ -202,6 +229,7 @@ export const ChatContactList: React.FC<ChatContactListProps> = ({ selectedContac
               ...existing, lastMessage: preview, lastMessageAt: newMsg.created_at,
               unreadCount: newMsg.direction === 'inbound' && !newMsg.is_read ? existing.unreadCount + 1 : existing.unreadCount,
               lastSenderName: isGroup ? (meta?.senderName || existing.lastSenderName) : null,
+              lastInstanceId: newMsg.instance_id || existing.lastInstanceId || null,
             };
             if (!existing.leadId && meta?.contact_name && existing.name === formatPhoneDisplay(phone)) {
               updated.name = meta.contact_name;
@@ -217,6 +245,7 @@ export const ChatContactList: React.FC<ChatContactListProps> = ({ selectedContac
               profilePic: meta?.chat_details_pic || null, lastMessage: preview,
               lastMessageAt: newMsg.created_at, unreadCount: newMsg.direction === 'inbound' ? 1 : 0,
               boardId: newMsg.board_id, isGroup, lastSenderName: isGroup ? meta?.senderName : null,
+              lastInstanceId: newMsg.instance_id || null,
             };
             return [newContact, ...prev];
           }
@@ -440,10 +469,25 @@ export const ChatContactList: React.FC<ChatContactListProps> = ({ selectedContac
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <span className={`font-medium text-sm truncate ${contact.unreadCount > 0 ? 'text-foreground font-semibold' : 'text-foreground'}`}>
                         {contact.name}
                       </span>
+                      {/* Por qual dos nossos numeros essa conversa corre. Sem isso
+                          nao da pra saber de onde ligar/responder pro lead. */}
+                      {(() => {
+                        const inst = contact.lastInstanceId ? instanceMap[contact.lastInstanceId] : null;
+                        if (!inst) return null;
+                        const tag = getInstanceTag(inst);
+                        return (
+                          <span
+                            className={`text-[8px] px-1 py-px rounded font-semibold uppercase tracking-wide flex-shrink-0 ml-auto ${tag.className}`}
+                            title={describeInstance(inst)}
+                          >
+                            {tag.label}
+                          </span>
+                        );
+                      })()}
                       {contact.lastMessageAt && (
                         <span className={`text-[10px] flex-shrink-0 ml-2 ${contact.unreadCount > 0 ? 'text-green-400 font-medium' : 'text-muted-foreground'}`}>
                           {formatDistanceToNow(new Date(contact.lastMessageAt), { addSuffix: false, locale: ptBR })}
@@ -459,6 +503,16 @@ export const ChatContactList: React.FC<ChatContactListProps> = ({ selectedContac
                             : (contact.lastMessage || 'Sem mensagens')
                         }
                       </p>
+                      {(() => {
+                        const inst = contact.lastInstanceId ? instanceMap[contact.lastInstanceId] : null;
+                        const phone = formatInstancePhone(inst?.phone_number);
+                        if (!inst || !phone) return null;
+                        return (
+                          <span className="text-[9px] text-muted-foreground/70 flex-shrink-0 ml-2 font-mono" title={describeInstance(inst)}>
+                            {phone}
+                          </span>
+                        );
+                      })()}
                       {contact.unreadCount > 0 && (
                         <Badge className="bg-green-500 text-white text-[10px] px-1.5 py-0 min-w-[18px] text-center flex-shrink-0 ml-2 animate-pulse">
                           {contact.unreadCount}

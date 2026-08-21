@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
+import { formatInstancePhone, shortInstanceName, getInstanceTag, describeInstance } from '@/lib/whatsappInstance';
 import { normalizePhoneBR } from '@/lib/phone';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -77,12 +78,15 @@ interface WhatsAppMessage {
 interface WhatsAppInstance {
   id: string;
   instance_name: string;
+  phone_number: string | null;
   channel: string | null;
   status: string;
   provider: string | null;
   api_url: string | null;
   api_key: string | null;
   instance_token: string | null;
+  purpose: string | null;
+  notes: string | null;
 }
 
 interface InlineChatProps {
@@ -199,6 +203,9 @@ export const InlineChat: React.FC<InlineChatProps> = ({ contact, onOpenContact }
   const [forwardResults, setForwardResults] = useState<{ id: string; name: string; whatsapp: string | null }[]>([]);
   const [infoMsg, setInfoMsg] = useState<WhatsAppMessage | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Guarda o contato em que o operador escolheu a instancia na mao — enquanto
+  // for o mesmo contato, o auto-switch nao sobrescreve a escolha dele.
+  const manualPickRef = useRef<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -215,14 +222,41 @@ export const InlineChat: React.FC<InlineChatProps> = ({ contact, onOpenContact }
 
   // Instance map for channel badges
   const instanceMap = useMemo(() => {
-    const map: Record<string, { channel: string | null; name: string; provider: string | null }> = {};
-    instances.forEach(inst => {
-      map[inst.id] = { channel: inst.channel, name: inst.instance_name, provider: inst.provider };
-    });
+    const map: Record<string, WhatsAppInstance> = {};
+    instances.forEach(inst => { map[inst.id] = inst; });
     return map;
   }, [instances]);
 
   const activeProvider = instanceId ? (instanceMap[instanceId]?.provider || 'uazapi') : 'uazapi';
+
+  // De qual numero essa conversa vem: a instancia da ultima mensagem que tem
+  // instance_id. Serve pra avisar quando o operador esta prestes a responder
+  // por um numero diferente do que o lead conhece.
+  const conversationInstanceId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].instance_id) return messages[i].instance_id;
+    }
+    return null;
+  }, [messages]);
+
+  // Ao abrir a conversa, seleciona sozinho a instancia por onde ela vinha — o
+  // lead precisa receber resposta do MESMO numero que ele conhece. Nao grava no
+  // localStorage: aquilo e so o default de quando a conversa nao tem historico.
+  // Se o operador trocar na mao (manualPickRef), respeita a escolha dele ate
+  // trocar de contato.
+  useEffect(() => {
+    if (isLoading) return;
+    if (!conversationInstanceId) return;
+    if (manualPickRef.current === contact.id) return;
+    if (!instances.some(i => i.id === conversationInstanceId)) return;
+    if (conversationInstanceId === selectedInstanceId) return;
+    setSelectedInstanceId(conversationInstanceId);
+  }, [isLoading, conversationInstanceId, contact.id, instances, selectedInstanceId]);
+
+  // Trocou de contato: zera a escolha manual pra o auto-switch valer de novo
+  useEffect(() => {
+    if (manualPickRef.current !== contact.id) manualPickRef.current = null;
+  }, [contact.id]);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
@@ -245,7 +279,7 @@ export const InlineChat: React.FC<InlineChatProps> = ({ contact, onOpenContact }
     const loadInstances = async () => {
       const { data } = await supabase
         .from('whatsapp_instances')
-        .select('id, instance_name, channel, status, provider, api_url, api_key, instance_token')
+        .select('id, instance_name, phone_number, channel, status, provider, api_url, api_key, instance_token, purpose, notes')
         .eq('status', 'connected');
       if (data && data.length > 0) {
         const usable = (data as WhatsAppInstance[]).filter(i =>
@@ -265,6 +299,7 @@ export const InlineChat: React.FC<InlineChatProps> = ({ contact, onOpenContact }
 
   // Persist selected instance
   const handleSelectInstance = (id: string) => {
+    manualPickRef.current = contact.id;
     setSelectedInstanceId(id);
     localStorage.setItem('whatsapp_selected_instance', id);
   };
@@ -1388,30 +1423,26 @@ export const InlineChat: React.FC<InlineChatProps> = ({ contact, onOpenContact }
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Channel + instance badge (mostra UAZAPI vs Cloud API + nome da instancia
-  // pra identificar de qual canal a mensagem saiu / chegou)
+  // Identificacao real de por onde a mensagem passou: NOME + NUMERO + tipo
+  // (OFICIAL / COEX / NAO OFICIAL). O channel sozinho ("Comercial") se repete
+  // nas 3 instancias e confunde na hora de ligar pro lead.
   const renderChannelBadge = useCallback((msg: WhatsAppMessage) => {
     if (!msg.instance_id) return null;
     const inst = instanceMap[msg.instance_id];
     if (!inst) return null;
     const style = getChannelStyle(inst.channel);
-    const isCloud = inst.provider === 'cloud_api';
+    const tag = getInstanceTag(inst);
+    const phone = formatInstancePhone(inst.phone_number);
     return (
-      <div className="flex items-center gap-1 mb-0.5 flex-wrap">
+      <div
+        className="flex items-center gap-1 mb-0.5 flex-wrap"
+        title={`${describeInstance(inst)} · canal ${style.label}`}
+      >
         <div className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
-        <span className={`text-[10px] font-medium ${style.color}`}>{style.label}</span>
-        <span
-          className={`text-[9px] px-1 py-px rounded font-semibold uppercase tracking-wide ${
-            isCloud
-              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-          }`}
-          title={isCloud ? `API Oficial Meta · ${inst.name}` : `UAZAPI · ${inst.name}`}
-        >
-          {isCloud ? '✓ API OFICIAL' : '📱 UAZAPI'}
-        </span>
-        <span className="text-[9px] text-muted-foreground/80 truncate max-w-[120px]" title={inst.name}>
-          · {inst.name}
+        <span className={`text-[10px] font-semibold ${style.color}`}>{shortInstanceName(inst.instance_name)}</span>
+        {phone && <span className="text-[10px] font-mono text-muted-foreground">{phone}</span>}
+        <span className={`text-[9px] px-1 py-px rounded font-semibold uppercase tracking-wide ${tag.className}`}>
+          {tag.label}
         </span>
       </div>
     );
@@ -1810,6 +1841,35 @@ export const InlineChat: React.FC<InlineChatProps> = ({ contact, onOpenContact }
         )}
       </div>
 
+      {/* Aviso de numero divergente: a conversa veio por um numero e o envio
+          esta apontado pra outro. Sem isso o lead recebe resposta de um numero
+          que ele nao reconhece — e quem liga depois nao sabe por onde falou. */}
+      {conversationInstanceId && instanceId && conversationInstanceId !== instanceId && (() => {
+        const from = instanceMap[conversationInstanceId];
+        const to = instanceMap[instanceId];
+        if (!from || !to) return null;
+        return (
+          <div className="px-3 py-1.5 bg-amber-500/10 border-b border-amber-500/30 flex items-center justify-between gap-2 flex-shrink-0 flex-wrap">
+            <span className="text-[11px] text-amber-200/90">
+              Esta conversa é do <b>{shortInstanceName(from.instance_name)}</b>{' '}
+              <span className="font-mono">{formatInstancePhone(from.phone_number)}</span>{' '}
+              <span className={getInstanceTag(from).textClass}>({getInstanceTag(from).label})</span>, mas você vai responder pelo{' '}
+              <b>{shortInstanceName(to.instance_name)}</b>{' '}
+              <span className="font-mono">{formatInstancePhone(to.phone_number)}</span>{' '}
+              <span className={getInstanceTag(to).textClass}>({getInstanceTag(to).label})</span>.
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 text-[10px] px-2 border-amber-500/40 text-amber-200 hover:text-amber-100"
+              onClick={() => handleSelectInstance(conversationInstanceId)}
+            >
+              Responder pelo número da conversa
+            </Button>
+          </div>
+        );
+      })()}
+
       {/* Faixa de live location ativa — mostra abaixo do header com
           tempo restante e botao "Parar". WhatsApp original mostra coisa
           parecida quando voce ta compartilhando ao vivo. */}
@@ -1911,35 +1971,214 @@ export const InlineChat: React.FC<InlineChatProps> = ({ contact, onOpenContact }
         onChange={(e) => handleFileSelect(e.target.files)}
       />
 
-      {/* Channel selector (only shows when multiple instances connected).
-          Quando duas instancias tem o mesmo channel (ex: 2 "Comercial"), diferencia
-          pelo provider (API Oficial vs UAZAPI) + nome curto da instancia. */}
+      {/* Seletor de instancia. Todas as instancias sao "Comercial", entao o que
+          identifica cada uma e NOME + NUMERO + tipo (OFICIAL / COEX / NAO OFICIAL).
+          O numero e o que o lead ve e pra onde ele responde. */}
       {instances.length > 1 && (
         <div className="px-3 py-1.5 border-t border-border/50 bg-[#1a252c] flex items-center gap-1.5 flex-shrink-0 flex-wrap">
-          <span className="text-[10px] text-muted-foreground mr-1">Enviando como:</span>
+          <span className="text-[10px] text-muted-foreground mr-1">Enviando por:</span>
           {instances.map(inst => {
             const style = getChannelStyle(inst.channel);
             const isSelected = inst.id === instanceId;
-            const isCloud = inst.provider === 'cloud_api';
-            const providerLabel = isCloud ? 'API Oficial' : 'UAZAPI';
-            // Nome curto: pega primeira palavra ou primeiros 14 chars
-            const shortName = (inst.instance_name || '').split(' ')[0].slice(0, 14) || providerLabel;
+            const tag = getInstanceTag(inst);
+            const phone = formatInstancePhone(inst.phone_number);
             return (
               <button
                 key={inst.id}
                 onClick={() => handleSelectInstance(inst.id)}
-                title={`${style.label} · ${providerLabel} · ${inst.instance_name}`}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-medium transition-all ${
+                title={`${describeInstance(inst)} · canal ${style.label}`}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] transition-all ${
                   isSelected
                     ? `${style.bg} ${style.color} border-current shadow-sm`
                     : 'border-border/30 text-muted-foreground hover:border-border hover:text-foreground'
                 }`}
               >
                 <div className={`w-1.5 h-1.5 rounded-full ${isSelected ? style.dot : 'bg-muted-foreground/50'}`} />
-                <span>{style.label}</span>
-                <span className="opacity-50">·</span>
-                <span className={isCloud ? 'text-blue-300' : 'text-amber-300'}>
-                  {isCloud ? '✓ API Oficial' : `📱 ${shortName}`}
+                <span className="font-semibold">{shortInstanceName(inst.instance_name)}</span>
+                {phone && <span className="font-mono opacity-80">{phone}</span>}
+                <span className={`text-[9px] px-1 rounded font-semibold ${tag.className}`}>{tag.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Instancia unica — mesmo assim mostra nome + numero + tipo */}
+      {instances.length === 1 && (
+        <div className="px-3 py-1 border-t border-border/50 bg-[#1a252c] flex items-center gap-1.5 flex-shrink-0">
+          {(() => {
+            const inst = instances[0];
+            const style = getChannelStyle(inst.channel);
+            const tag = getInstanceTag(inst);
+            const phone = formatInstancePhone(inst.phone_number);
+            return (
+              <>
+                <div className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
+                <span className="text-[10px] text-muted-foreground">Enviando por:</span>
+                <span className={`text-[10px] font-semibold ${style.color}`}>{shortInstanceName(inst.instance_name)}</span>
+                {phone && <span className="text-[10px] font-mono text-muted-foreground">{phone}</span>}
+                <span className={`text-[9px] px-1 rounded font-semibold ${tag.className}`}>{tag.label}</span>
+              </>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* Aviso de numero divergente: a conversa veio por um numero e o envio
+          esta apontado pra outro. Sem isso o lead recebe resposta de um numero
+          que ele nao reconhece — e quem liga depois nao sabe por onde falou. */}
+      {conversationInstanceId && instanceId && conversationInstanceId !== instanceId && (() => {
+        const from = instanceMap[conversationInstanceId];
+        const to = instanceMap[instanceId];
+        if (!from || !to) return null;
+        return (
+          <div className="px-3 py-1.5 bg-amber-500/10 border-b border-amber-500/30 flex items-center justify-between gap-2 flex-shrink-0 flex-wrap">
+            <span className="text-[11px] text-amber-200/90">
+              Esta conversa é do <b>{shortInstanceName(from.name)}</b>{' '}
+              <span className="font-mono">{formatInstancePhone(from.phone)}</span>, mas você vai responder pelo{' '}
+              <b>{shortInstanceName(to.name)}</b> <span className="font-mono">{formatInstancePhone(to.phone)}</span>.
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 text-[10px] px-2 border-amber-500/40 text-amber-200 hover:text-amber-100"
+              onClick={() => handleSelectInstance(conversationInstanceId)}
+            >
+              Responder pelo número da conversa
+            </Button>
+          </div>
+        );
+      })()}
+
+      {/* Faixa de live location ativa — mostra abaixo do header com
+          tempo restante e botao "Parar". WhatsApp original mostra coisa
+          parecida quando voce ta compartilhando ao vivo. */}
+      {liveLocationActive && (
+        <div className="px-3 py-1.5 bg-red-500/15 border-b border-red-500/30 flex items-center justify-between gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="relative flex items-center justify-center w-3 h-3 flex-shrink-0">
+              <span className="absolute inline-flex w-full h-full rounded-full bg-red-500 animate-ping opacity-75" />
+              <span className="relative inline-flex w-2 h-2 rounded-full bg-red-500" />
+            </div>
+            <span className="text-xs text-red-300 font-medium truncate">
+              Compartilhando localização ao vivo
+            </span>
+            <span className="text-xs font-mono text-red-200">
+              {Math.floor(liveLocationRemaining / 60)}:{(liveLocationRemaining % 60).toString().padStart(2, '0')}
+            </span>
+          </div>
+          <button
+            onClick={() => stopLiveLocation(false)}
+            className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-500/30 hover:bg-red-500/50 text-white transition-colors flex-shrink-0"
+          >
+            Parar
+          </button>
+        </div>
+      )}
+
+      {/* Messages area with drag-drop */}
+      <div
+        ref={chatAreaRef}
+        className={`flex-1 overflow-y-auto p-3 space-y-1 transition-colors ${isDragging ? 'bg-green-900/20 ring-2 ring-green-500/50 ring-inset' : ''}`}
+        style={{ backgroundColor: isDragging ? undefined : '#0b141a' }}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {isDragging && (
+          <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+            <div className="bg-green-600/90 rounded-2xl px-8 py-6 text-white flex flex-col items-center gap-2 shadow-2xl">
+              <Upload className="w-10 h-10" />
+              <span className="font-semibold">Solte o arquivo aqui</span>
+            </div>
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-10 h-10 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm text-muted-foreground">Carregando mensagens...</span>
+            </div>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+            <MessageSquare className="w-12 h-12 mb-3 opacity-30" />
+            <p className="text-sm">Nenhuma mensagem ainda</p>
+          </div>
+        ) : (
+          <>
+            {renderedMessages}
+            <div ref={messagesEndRef} />
+          </>
+        )}
+      </div>
+
+      {/* File upload preview */}
+      {uploadingFile && (
+        <div className="p-3 border-t border-border bg-[#1a252c] flex items-center gap-3 flex-shrink-0">
+          {uploadingFile.preview ? (
+            <img src={uploadingFile.preview} alt="" className="w-16 h-16 rounded-lg object-cover" />
+          ) : (
+            <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center">
+              <File className="w-6 h-6 text-muted-foreground" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-foreground truncate">{uploadingFile.file.name}</p>
+            <p className="text-xs text-muted-foreground">{(uploadingFile.file.size / 1024).toFixed(0)} KB • {uploadingFile.type}</p>
+            {uploadProgress > 0 && (
+              <div className="mt-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-green-500 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+              </div>
+            )}
+          </div>
+          <Button size="icon" variant="ghost" onClick={() => { setUploadingFile(null); setUploadProgress(0); }} className="h-8 w-8 text-muted-foreground hover:text-destructive">
+            <X className="w-4 h-4" />
+          </Button>
+          <Button size="icon" onClick={handleUploadAndSend} disabled={isSending} className="bg-green-600 hover:bg-green-700 h-9 w-9">
+            {isSending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          </Button>
+        </div>
+      )}
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
+        className="hidden"
+        onChange={(e) => handleFileSelect(e.target.files)}
+      />
+
+      {/* Seletor de instancia. Todas as instancias sao "Comercial", entao o que
+          identifica cada uma e NOME + NUMERO — e o numero que o lead ve e pra
+          onde ele responde. O provider vira so um selo secundario. */}
+      {instances.length > 1 && (
+        <div className="px-3 py-1.5 border-t border-border/50 bg-[#1a252c] flex items-center gap-1.5 flex-shrink-0 flex-wrap">
+          <span className="text-[10px] text-muted-foreground mr-1">Enviando por:</span>
+          {instances.map(inst => {
+            const style = getChannelStyle(inst.channel);
+            const isSelected = inst.id === instanceId;
+            const isCloud = inst.provider === 'cloud_api';
+            const providerLabel = isCloud ? 'API Oficial (Meta)' : 'UAZAPI';
+            const phone = formatInstancePhone(inst.phone_number);
+            return (
+              <button
+                key={inst.id}
+                onClick={() => handleSelectInstance(inst.id)}
+                title={`${inst.instance_name}${phone ? ` · ${phone}` : ''} · ${providerLabel} · canal ${style.label}`}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] transition-all ${
+                  isSelected
+                    ? `${style.bg} ${style.color} border-current shadow-sm`
+                    : 'border-border/30 text-muted-foreground hover:border-border hover:text-foreground'
+                }`}
+              >
+                <div className={`w-1.5 h-1.5 rounded-full ${isSelected ? style.dot : 'bg-muted-foreground/50'}`} />
+                <span className="font-semibold">{shortInstanceName(inst.instance_name)}</span>
+                {phone && <span className="font-mono opacity-80">{phone}</span>}
+                <span className={`text-[9px] px-1 rounded ${isCloud ? 'bg-blue-500/20 text-blue-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                  {isCloud ? '✓ OFICIAL' : '📱 UAZAPI'}
                 </span>
               </button>
             );
@@ -1947,15 +2186,23 @@ export const InlineChat: React.FC<InlineChatProps> = ({ contact, onOpenContact }
         </div>
       )}
 
-      {/* Single instance indicator */}
+      {/* Instancia unica — mesmo assim mostra nome + numero */}
       {instances.length === 1 && (
         <div className="px-3 py-1 border-t border-border/50 bg-[#1a252c] flex items-center gap-1.5 flex-shrink-0">
           {(() => {
-            const style = getChannelStyle(instances[0].channel);
+            const inst = instances[0];
+            const style = getChannelStyle(inst.channel);
+            const isCloud = inst.provider === 'cloud_api';
+            const phone = formatInstancePhone(inst.phone_number);
             return (
               <>
                 <div className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
-                <span className={`text-[10px] font-medium ${style.color}`}>Enviando como {style.label}</span>
+                <span className="text-[10px] text-muted-foreground">Enviando por:</span>
+                <span className={`text-[10px] font-semibold ${style.color}`}>{shortInstanceName(inst.instance_name)}</span>
+                {phone && <span className="text-[10px] font-mono text-muted-foreground">{phone}</span>}
+                <span className={`text-[9px] px-1 rounded ${isCloud ? 'bg-blue-500/20 text-blue-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                  {isCloud ? '✓ OFICIAL' : '📱 UAZAPI'}
+                </span>
               </>
             );
           })()}

@@ -3,6 +3,7 @@ import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { MembersSidebar } from './MembersSidebar';
 import { Logo } from '@/maisvencedores/components/shared/Logo';
 import { PhotoReminderBanner } from './PhotoReminderBanner';
+import { AvisoPopup } from './AvisoPopup';
 import { MembershipProvider } from '@/maisvencedores/contexts/MembershipContext';
 import { useAuth } from '@/maisvencedores/contexts/AuthContext';
 import { useNotificacaoIndicacao } from '@/maisvencedores/hooks/useNotificacaoIndicacao';
@@ -70,6 +71,7 @@ export function MembersLayout() {
           </header>
 
           <PhotoReminderBanner />
+          <AvisoPopup />
           <Outlet />
         </main>
       </div>

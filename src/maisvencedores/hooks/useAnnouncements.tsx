@@ -17,11 +17,10 @@ export function useAnnouncements() {
   const fetchAnnouncements = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('announcements')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
+      // Usa a mesma RPC do popup: ela aplica janela de datas, faixa-alvo e limite de
+      // exibições. Lendo a tabela direto (o que era feito aqui) um aviso vencido continuava
+      // listado, porque só `is_active` era conferido.
+      const { data, error } = await supabase.rpc('avisos_para_mim');
 
       if (error) throw error;
 

@@ -150,10 +150,16 @@ export interface Event {
   title: string;
   description: string;
   date: Date;
+  /** Último dia, quando o evento dura mais de um. Null/ausente = evento de um dia. */
+  endDate?: Date | null;
   time: string;
   type: 'presencial' | 'online';
   location?: string;
   meetingUrl?: string;
+  /** Destino do botão "Garantir Vaga" (inscrição/pagamento). */
+  paymentUrl?: string;
+  /** Banner exibido no topo do card. */
+  imageUrl?: string;
   spots?: number;
   spotsRemaining?: number;
   /** Múltiplas: um evento pode abrir pra verde E roxo sem abrir pra todo mundo. */
