@@ -3,7 +3,7 @@ import {
   MessageSquare, Plus, RefreshCw, Smartphone, QrCode, Trash2, Settings,
   DollarSign, Headphones, Heart, Building, User, Image, Globe, Eye,
   Link2, ChevronDown, ChevronUp, Phone, Bot, PhoneCall, Save, Wifi, WifiOff,
-  AlertTriangle, ExternalLink,
+  AlertTriangle, ExternalLink, Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
@@ -91,6 +92,9 @@ const AdminWhatsApp: React.FC = () => {
   const [wavoipName, setWavoipName] = useState('');
   const [wavoipToken, setWavoipToken] = useState('');
   const [isSavingWavoip, setIsSavingWavoip] = useState(false);
+  // Novo device ja nasce compartilhado: quase sempre e' o numero comercial da
+  // equipe, e quando nao era, o botao de ligar so aparecia pro dono do cadastro.
+  const [wavoipShared, setWavoipShared] = useState(true);
   const [editingWavoipId, setEditingWavoipId] = useState<string | null>(null);
   // Pareamento WaVoIP: qual dispositivo esta com o modal aberto. O QR nao vem
   // por REST, vem pelo socket do proprio device — ver useWavoipPairing.
@@ -119,6 +123,19 @@ const AdminWhatsApp: React.FC = () => {
   const wavoipQr = pairingIsMine ? myWavoipQr : pairing.qrCode;
   const restartWavoip = pairingIsMine ? restartMyWavoip : pairing.restart;
   const logoutWavoip = pairingIsMine ? logoutMyWavoip : pairing.logout;
+
+  // No device da propria sessao quem cuida do socket e' o CallContext — e ele
+  // desiste depois de 3 reconexoes. Como o WaVoIP derruba o device a cada ~75s
+  // enquanto ninguem escaneia, chegar aqui com o socket morto e' o caso comum:
+  // dispara o restart (que religa) assim que o modal abre, uma vez por device.
+  const autoRevivedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!wavoipPairing || !pairingIsMine) { autoRevivedRef.current = null; return; }
+    if (myWavoipStatus === 'open' || myWavoipStatus === 'connecting') return;
+    if (autoRevivedRef.current === wavoipPairing.id) return;
+    autoRevivedRef.current = wavoipPairing.id;
+    restartMyWavoip();
+  }, [wavoipPairing, pairingIsMine, myWavoipStatus, restartMyWavoip]);
 
   // Connect modal
   const [connectModal, setConnectModal] = useState<WhatsAppInstance | null>(null);
@@ -293,10 +310,14 @@ const AdminWhatsApp: React.FC = () => {
         await supabase.from('wavoip_devices').update({ name: wavoipName.trim(), token: tokenTrimmed }).eq('id', editingWavoipId);
         toast.success('Dispositivo atualizado!');
       } else {
-        await supabase.from('wavoip_devices').insert({ user_id: userId, name: wavoipName.trim(), token: tokenTrimmed });
+        if (wavoipShared) {
+          const others = wavoipDevices.filter(d => d.is_shared).map(d => d.id);
+          if (others.length) await supabase.from('wavoip_devices').update({ is_shared: false }).in('id', others);
+        }
+        await supabase.from('wavoip_devices').insert({ user_id: userId, name: wavoipName.trim(), token: tokenTrimmed, is_shared: wavoipShared });
         toast.success('Dispositivo adicionado!');
       }
-      setWavoipName(''); setWavoipToken(''); setEditingWavoipId(null);
+      setWavoipName(''); setWavoipToken(''); setEditingWavoipId(null); setWavoipShared(true);
       loadWavoipDevices();
     } catch (e: any) { toast.error(e.message); }
     setIsSavingWavoip(false);
@@ -309,6 +330,27 @@ const AdminWhatsApp: React.FC = () => {
     for (const d of wavoipDevices) counts.set(d.token, (counts.get(d.token) || 0) + 1);
     return new Set([...counts.entries()].filter(([_, n]) => n > 1).map(([t]) => t));
   }, [wavoipDevices]);
+
+  // Linha compartilhada: quem nao tem device proprio liga por ela. Uma so por
+  // vez — marcar uma desmarca as outras, senao o fallback do CallContext teria
+  // que escolher sozinho e cada colaborador poderia cair numa linha diferente.
+  const handleToggleWavoipShared = async (dev: any, next: boolean) => {
+    if (next) {
+      const others = wavoipDevices.filter(d => d.is_shared && d.id !== dev.id).map(d => d.id);
+      if (others.length) {
+        await supabase.from('wavoip_devices').update({ is_shared: false }).in('id', others);
+      }
+    }
+    const { error } = await supabase
+      .from('wavoip_devices')
+      .update({ is_shared: next, updated_at: new Date().toISOString() })
+      .eq('id', dev.id);
+    if (error) { toast.error('Não foi possível alterar: ' + error.message); return; }
+    toast.success(next
+      ? `"${dev.name}" agora é a linha da equipe — todo mundo sem linha própria liga por ela.`
+      : `"${dev.name}" voltou a ser exclusiva do dono.`);
+    loadWavoipDevices();
+  };
 
   const handleDeleteWavoipDevice = async (id: string) => {
     if (!confirm('Remover este dispositivo WaVoIP?')) return;
@@ -725,6 +767,14 @@ const AdminWhatsApp: React.FC = () => {
                       <Label className="text-xs">Token WaVoIP</Label>
                       <Input placeholder="Token da API WaVoIP" value={wavoipToken} onChange={(e) => setWavoipToken(e.target.value)} className="mt-1 h-8 text-xs font-mono" />
                     </div>
+                    {!editingWavoipId && (
+                      <label className="flex items-start gap-2 text-[10px] text-muted-foreground cursor-pointer">
+                        <Checkbox checked={wavoipShared} onCheckedChange={(v) => setWavoipShared(v === true)} className="mt-0.5" />
+                        <span>
+                          <strong className="text-foreground">Compartilhar com a equipe.</strong> Todo colaborador sem linha própria liga por este número. Desmarque só se a linha for pessoal.
+                        </span>
+                      </label>
+                    )}
                     <Button size="sm" className="w-full h-8 text-xs" onClick={handleSaveWavoipDevice} disabled={isSavingWavoip}>
                       {isSavingWavoip ? <RefreshCw className="w-3 h-3 animate-spin mr-1" /> : <Save className="w-3 h-3 mr-1" />}
                       {editingWavoipId ? 'Atualizar' : 'Adicionar Dispositivo'}
@@ -782,6 +832,19 @@ const AdminWhatsApp: React.FC = () => {
                           );
                         })()}
                         {dev.phone_number && <span className="text-[10px] text-muted-foreground">📱 {dev.phone_number}</span>}
+                        {dev.is_shared && <Badge variant="outline" className="text-[10px]"><Users className="w-3 h-3 mr-1" /> Linha da equipe</Badge>}
+                      </div>
+                      <div className="flex items-start justify-between gap-2 rounded border border-border/60 px-2 py-1.5">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-medium">Compartilhar com a equipe</p>
+                          <p className="text-[10px] text-muted-foreground leading-tight">
+                            Sem isso, só o dono do cadastro consegue ligar. Uma chamada por vez — quem tentar durante uma ligação vê "linha ocupada".
+                          </p>
+                        </div>
+                        <Switch
+                          checked={!!dev.is_shared}
+                          onCheckedChange={(v) => handleToggleWavoipShared(dev, v)}
+                        />
                       </div>
                       <p className="text-[10px] text-muted-foreground font-mono truncate">Token: {dev.token.slice(0, 12)}...{dev.token.slice(-4)}</p>
                     </CardContent>

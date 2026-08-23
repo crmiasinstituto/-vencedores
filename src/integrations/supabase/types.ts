@@ -9863,6 +9863,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_active: boolean | null
+          is_shared: boolean
           metadata: Json | null
           name: string | null
           phone_number: string | null
@@ -9875,6 +9876,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          is_shared?: boolean
           metadata?: Json | null
           name?: string | null
           phone_number?: string | null
@@ -9887,6 +9889,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          is_shared?: boolean
           metadata?: Json | null
           name?: string | null
           phone_number?: string | null

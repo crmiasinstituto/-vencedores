@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import type { WavoipDevice } from '@/hooks/useWavoip';
+import { fetchWavoipDeviceFor, type WavoipDevice } from '@/hooks/useWavoip';
 import { useCallTranscription, type TranscriptionSegment } from '@/hooks/useCallTranscription';
 import { wavoipRemoteCapture } from '@/lib/wavoip-init';
 
@@ -89,6 +89,23 @@ interface CallContextType {
 }
 
 const CallContext = createContext<CallContextType | null>(null);
+
+// A linha compartilhada tem num_channels = 1 no WaVoIP: uma ligacao por vez.
+// Sem checar antes de discar, o segundo a tentar fica preso em "Chamando" ate
+// estourar o timeout do socket, sem nenhuma pista do motivo.
+const WAVOIP_BASE = 'https://devices.wavoip.com';
+async function isWavoipLineBusy(token: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${WAVOIP_BASE}/${token}/whatsapp/all_info`);
+    // 503 = device hibernando. Nao e' "ocupado" — deixa o fluxo normal cuidar.
+    if (!res.ok) return false;
+    const body = await res.json();
+    const calls = body?.result?.calls;
+    return Array.isArray(calls) && calls.length > 0;
+  } catch {
+    return false;
+  }
+}
 
 export function useCallContext() {
   const ctx = useContext(CallContext);
@@ -221,6 +238,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [showIncomingModal]);
 
   const wavoipRef = useRef<any>(null);
+  // Espelho do `device` pro listener de realtime (que e' montado uma vez e
+  // ficaria com a closure velha).
+  const deviceRef = useRef<WavoipDevice | null>(null);
   const activeCallObjRef = useRef<any>(null);
   const callStartTimeRef = useRef<Date | null>(null);
   const callHistoryIdRef = useRef<string | null>(null);
@@ -256,21 +276,24 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Load device
+  // Linha propria do usuario; se nao tiver, a linha compartilhada da equipe.
+  // Antes o filtro era so `user_id`, entao o numero comercial ficava preso na
+  // conta de quem cadastrou o token e o resto da equipe via o botao de ligar
+  // cinza ("Configure o WaVoIP") mesmo com o numero pareado e online.
   const loadDevice = useCallback(async () => {
     if (!userId) { setDeviceLoading(false); return; }
     setDeviceLoading(true);
-    const { data } = await supabase
-      .from('wavoip_devices')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .limit(1)
-      .maybeSingle();
-    setDevice(data as WavoipDevice | null);
+    try {
+      setDevice(await fetchWavoipDeviceFor(userId));
+    } catch (e) {
+      console.error('[WaVoIP] falha ao carregar device:', e);
+      setDevice(null);
+    }
     setDeviceLoading(false);
   }, [userId]);
 
   useEffect(() => { loadDevice(); }, [loadDevice]);
+  useEffect(() => { deviceRef.current = device; }, [device]);
 
   // Realtime: refaz loadDevice quando alguem adiciona/remove/atualiza device
   // do user. Sem isso, ao re-cadastrar dispositivo WaVoIP em AdminWhatsApp, o
@@ -283,17 +306,29 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .channel(`wavoip-devices-${userId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'wavoip_devices', filter: `user_id=eq.${userId}` },
+        // Sem filtro por user_id: a linha compartilhada pertence a OUTRO dono,
+        // e com filtro o cliente nunca sabia que ela mudou (token novo, linha
+        // desativada, deixou de ser compartilhada).
+        { event: '*', schema: 'public', table: 'wavoip_devices' },
         (payload) => {
-          // Ignora updates triggered pelo proprio onStatus (so refaz quando
-          // muda token, is_active ou quando vem insert/delete). Senao entra
-          // em loop: onStatus -> update DB -> realtime -> loadDevice -> ...
-          if (payload.eventType === 'UPDATE') {
-            const oldRow: any = payload.old || {};
-            const newRow: any = payload.new || {};
+          const row: any = payload.new || payload.old || {};
+          // So interessa o que pode virar (ou deixar de ser) a MINHA linha.
+          const relevant =
+            row.id === deviceRef.current?.id ||
+            row.user_id === userId ||
+            row.is_shared === true;
+          if (!relevant) return;
+          // Ignora o update disparado pelo proprio onStatus (senao entra em
+          // loop: onStatus -> update DB -> realtime -> loadDevice -> ...).
+          // Comparar com payload.old nao funciona: a tabela esta em REPLICA
+          // IDENTITY default, entao `old` so traz a PK. Comparamos com o
+          // device que ja esta carregado.
+          if (payload.eventType === 'UPDATE' && row.id === deviceRef.current?.id) {
+            const cur = deviceRef.current!;
             if (
-              oldRow.token === newRow.token &&
-              oldRow.is_active === newRow.is_active
+              row.token === cur.token &&
+              row.is_active === cur.is_active &&
+              row.is_shared === cur.is_shared
             ) return;
           }
           console.log('[WaVoIP] Device change detected, reloading:', payload.eventType);
@@ -790,6 +825,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast.error('Já existe uma chamada ativa');
       return;
     }
+    // Linha compartilhada: alguem da equipe pode estar falando agora. O device
+    // aceita uma chamada por vez.
+    if (device?.is_shared && device.token && await isWavoipLineBusy(device.token)) {
+      toast.error(`A linha ${device.phone_number || device.name || 'compartilhada'} está em uso por outra pessoa. Tente em instantes.`);
+      return;
+    }
 
     let peerName: string | undefined;
     let profilePicture: string | null = null;
@@ -817,7 +858,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       leadId,
     });
     setShowActiveCallModal(true);
-  }, [isConnected, activeCall]);
+  }, [isConnected, activeCall, device]);
 
   // ===================== CONFIRM PENDING CALL =====================
   // Pega o activeCall em PENDING e dispara o wavoip startCall de verdade.
@@ -1230,41 +1271,66 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return inst?.devices?.[0] || inst?._devices?.[0] || null;
   }, []);
 
-  // Reinicia o device no servidor do WaVoIP. Usado quando ele esta "hibernating"
-  // (dorme por inatividade) ou travado — ao voltar, se nao houver numero
-  // vinculado, ele emite QR.
+  // Reinicia o device no servidor do WaVoIP e RELIGA o socket.
+  //
+  // Dois detalhes que quebravam isso antes:
+  //  - o device hiberna sozinho (a API responde 503 device_not_running) e nesse
+  //    estado o socket nem conecta, entao nao basta mandar reiniciar: tem que
+  //    esperar ele subir;
+  //  - o socket do SDK desiste depois de 3 tentativas (reconnect(u === 3) para).
+  //    Como o device cai a cada ~75s enquanto ninguem escaneia o QR, essas 3
+  //    tentativas acabam rapido e o socket fica morto ate recarregar a pagina.
+  //
+  // Por isso aqui vai por REST direto (o WaVoIP libera CORS pra nossa origem),
+  // sem depender do SDK estar vivo. Ver [[wavoip-qr-pelo-socket]].
   const restartDevice = useCallback(async () => {
-    const dev = getLiveDevice();
-    if (!dev || typeof dev.restart !== 'function') {
-      toast.error('Dispositivo WaVoIP ainda não inicializou. Recarregue a página.');
-      return;
-    }
+    const token = device?.token;
+    if (!token) return;
+    const base = `https://devices.wavoip.com/${token}`;
+    setDeviceStatus('restarting');
+    setDeviceQrCode(null);
     try {
-      await dev.restart();
+      await fetch(`${base}/device/restart`);
       toast.info('Reiniciando dispositivo WaVoIP...');
-    } catch (e: any) {
+    } catch (e) {
       console.error('[WaVoIP] restart falhou:', e);
       toast.error('Não foi possível reiniciar o dispositivo');
+      return;
     }
-  }, [getLiveDevice]);
+
+    // Espera o device voltar a responder (all_info deixa de dar 503)
+    for (let i = 0; i < 15; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        const res = await fetch(`${base}/whatsapp/all_info`);
+        if (res.ok) break;
+      } catch { /* segue tentando */ }
+    }
+
+    // Religa o socket do SDK na mao, ja' que ele pode ter desistido
+    for (let i = 0; i < 5; i++) {
+      const sock: any = getLiveDevice()?.socket;
+      if (sock?.connected) break;
+      try { sock?.connect(); } catch { /* noop */ }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  }, [device?.token, getLiveDevice]);
 
   // Desvincula o numero do device. Volta pra "connecting" e o socket manda um
   // QR novo — e assim que se troca o numero que faz as ligacoes.
   const logoutDevice = useCallback(async () => {
-    const dev = getLiveDevice();
-    if (!dev || typeof dev.logout !== 'function') {
-      toast.error('Dispositivo WaVoIP ainda não inicializou. Recarregue a página.');
-      return;
-    }
+    const token = device?.token;
+    if (!token) return;
     try {
-      await dev.logout();
+      await fetch(`https://devices.wavoip.com/${token}/whatsapp/logout`);
       setDeviceQrCode(null);
+      setDeviceStatus('connecting');
       toast.info('Número desvinculado. Aguarde o QR Code...');
-    } catch (e: any) {
+    } catch (e) {
       console.error('[WaVoIP] logout falhou:', e);
       toast.error('Não foi possível desvincular o número');
     }
-  }, [getLiveDevice]);
+  }, [device?.token]);
 
   return (
     <CallContext.Provider value={{

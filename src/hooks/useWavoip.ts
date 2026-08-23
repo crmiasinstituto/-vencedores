@@ -9,6 +9,8 @@ export interface WavoipDevice {
   phone_number: string | null;
   status: string;
   is_active: boolean;
+  /** Linha compartilhada: quem nao tem device proprio liga por esta. */
+  is_shared: boolean;
   metadata: any;
   created_at: string;
   updated_at: string;
@@ -38,20 +40,40 @@ export interface CallRecord {
   lead?: { name: string; whatsapp: string; instagram_profile_pic_url: string | null } | null;
 }
 
+/**
+ * Device WaVoIP do usuario. Se ele nao tem linha propria, cai na linha
+ * compartilhada da equipe (is_shared) — sem esse fallback so o colaborador que
+ * cadastrou o token conseguia ligar. Ver [[wavoip-linha-compartilhada]].
+ */
+export async function fetchWavoipDeviceFor(userId: string): Promise<WavoipDevice | null> {
+  const { data: own, error: ownError } = await supabase
+    .from('wavoip_devices')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle();
+  if (ownError) throw ownError;
+  if (own) return own as WavoipDevice;
+
+  const { data: shared, error: sharedError } = await supabase
+    .from('wavoip_devices')
+    .select('*')
+    .eq('is_shared', true)
+    .eq('is_active', true)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (sharedError) throw sharedError;
+  return (shared as WavoipDevice) || null;
+}
+
 export function useWavoipDevice(userId: string | undefined) {
   return useQuery({
     queryKey: ['wavoip-device', userId],
     queryFn: async () => {
       if (!userId) return null;
-      const { data, error } = await supabase
-        .from('wavoip_devices')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('is_active', true)
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      return data as WavoipDevice | null;
+      return fetchWavoipDeviceFor(userId);
     },
     enabled: !!userId,
   });
