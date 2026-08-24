@@ -156,6 +156,24 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
         return { done: false, nextNodeId: next?.id, nextAt: new Date() };
       }
 
+      // Se este no ja mandou e-mail pra este run, nao manda de novo.
+      //
+      // Cenario: o tick morre depois do fetch do send-email-campaign e antes de
+      // gravar o proximo no. Na retentativa o no roda inteiro outra vez e cria
+      // uma campanha temporaria NOVA — o indice unico nao ve duplicata porque o
+      // campaign_id e outro, e o lead recebe o mesmo e-mail duas vezes.
+      const { data: jaMandou } = await supabase
+        .from("email_campaigns")
+        .select("id")
+        .eq("source_type", "automation")
+        .contains("audience_filters", { automation_run_id: run.id, node_id: node.id })
+        .limit(1);
+      if (jaMandou && jaMandou.length > 0) {
+        console.log(`[run ${run.id}] no ${node.id} ja enviou e-mail antes, pulando reenvio`);
+        const next = getNextNode(run.flow, node.id);
+        return { done: false, nextNodeId: next?.id, nextAt: new Date() };
+      }
+
       const html = template.html_content || renderJsonToHtml(template.content_json);
       const { data: tempCampaign, error: campErr } = await supabase
         .from("email_campaigns")
@@ -167,7 +185,8 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
           status: "draft",
           source_type: "automation",
           automation_id: run.automation_id,
-          audience_filters: { lead_ids: [leadId], automation_run_id: run.id },
+          // node_id entra aqui pra permitir o guard de reenvio acima.
+          audience_filters: { lead_ids: [leadId], automation_run_id: run.id, node_id: node.id },
         })
         .select("id")
         .single();
@@ -520,6 +539,33 @@ Deno.serve(async (req: Request) => {
           .eq("id", run.id);
         continue;
       }
+      // RESERVA ATOMICA DO RUN.
+      //
+      // O SELECT acima nao travava nada: dois ticks sobrepostos (cron a cada
+      // minuto + um tick lento, ou um disparo manual junto) pegavam o MESMO run
+      // e executavam o mesmo no de e-mail — o lead recebia duas vezes. O indice
+      // unico de email_sends nao pega isso porque cada execucao cria a sua
+      // propria campanha temporaria.
+      //
+      // Aqui empurramos `scheduled_next_at` pra frente condicionando em
+      // (status, no atual, vencimento). Quem chegar depois nao casa mais com o
+      // `lte(agora)` e desiste. O UPDATE do Postgres reavalia o WHERE depois de
+      // pegar o lock da linha, entao so um dos dois ganha.
+      const agoraIso = new Date().toISOString();
+      const reservaAte = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+      const { data: reservado } = await supabase
+        .from("email_automation_runs")
+        .update({ scheduled_next_at: reservaAte })
+        .eq("id", run.id)
+        .eq("status", "active")
+        .eq("current_node_id", run.current_node_id)
+        .lte("scheduled_next_at", agoraIso)
+        .select("id");
+      if (!reservado || reservado.length === 0) {
+        console.log(`[run ${run.id}] outro tick ja pegou este run, pulando`);
+        continue;
+      }
+
       const nodes: FlowNode[] = flow.nodes || [];
       const node = nodes.find((n) => n.id === run.current_node_id);
       if (!node) {

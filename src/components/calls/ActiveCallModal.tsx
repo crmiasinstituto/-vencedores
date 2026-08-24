@@ -8,8 +8,34 @@ import { CoachPanel } from '@/components/calls/CoachPanel';
 import { PlaybookSelector } from '@/components/calls/PlaybookSelector';
 import { useSalesCoach, type Playbook } from '@/hooks/useSalesCoach';
 
+/**
+ * Barra de nivel de audio de um sentido da chamada. Verde pulsando = som
+ * passando. Vermelho = ninguem esta falando OU o audio nao esta passando —
+ * `silentSec` diferencia pausa de conversa (2-3s) de problema real (10s+).
+ */
+const AudioMeter: React.FC<{ label: string; level: number; silentSec: number; muted?: boolean; warnAfter: number }> = ({ label, level, silentSec, muted, warnAfter }) => {
+  // level < 0 = a SDK desta versao nao expoe como medir esse sentido.
+  const indisponivel = level < 0;
+  const pct = indisponivel ? 0 : Math.min(100, Math.round(Math.sqrt(Math.max(0, level)) * 140));
+  const problema = !indisponivel && !muted && silentSec >= warnAfter;
+  return (
+    <div className="flex items-center gap-2 py-0.5">
+      <span className={`text-[10px] w-[74px] shrink-0 ${problema ? 'text-red-400' : 'text-white/50'}`}>{label}</span>
+      <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-150 ${problema ? 'bg-red-500' : 'bg-green-400'}`}
+          style={{ width: `${muted ? 0 : pct}%` }}
+        />
+      </div>
+      <span className={`text-[10px] w-[86px] text-right shrink-0 ${problema ? 'text-red-400' : 'text-white/40'}`}>
+        {indisponivel ? 'sem medição' : muted ? 'mudo' : problema ? `sem som ${silentSec}s` : pct > 3 ? 'ok' : '—'}
+      </span>
+    </div>
+  );
+};
+
 export const ActiveCallModal: React.FC = () => {
-  const { activeCall, showActiveCallModal, setShowActiveCallModal, endCall, toggleMute, isTranscribing, transcriptions, confirmPendingCall } = useCallContext();
+  const { activeCall, showActiveCallModal, setShowActiveCallModal, endCall, toggleMute, isTranscribing, transcriptions, confirmPendingCall, audioDiag } = useCallContext();
   const scrollRef = useRef<HTMLDivElement>(null);
   const coach = useSalesCoach();
   const [coachEnabled, setCoachEnabled] = useState(true);
@@ -226,6 +252,34 @@ export const ActiveCallModal: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* Medidor de audio nos dois sentidos — responde na hora
+                "o lead esta me ouvindo?" e "estou ouvindo o lead?" */}
+            {!isPreActive && (
+              <div className="border-t border-white/10 pt-3 mt-1 px-1">
+                <AudioMeter
+                  label="Você → lead"
+                  level={audioDiag?.micLevel ?? 0}
+                  silentSec={audioDiag?.micSilentSec ?? 0}
+                  muted={activeCall.isMuted}
+                  warnAfter={10}
+                />
+                <AudioMeter
+                  label="Lead → você"
+                  level={audioDiag?.peerLevel ?? 0}
+                  silentSec={audioDiag?.peerSilentSec ?? 0}
+                  muted={activeCall.isPeerMuted}
+                  warnAfter={12}
+                />
+                {audioDiag && (
+                  <p className="text-[10px] text-white/35 mt-1">
+                    {audioDiag.transport === 'sem-fluxo'
+                      ? 'sem tráfego de áudio — conexão caiu'
+                      : `rtt ${audioDiag.rttMs}ms · perda ↑${audioDiag.lossTx} ↓${audioDiag.lossRx}`}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Transcription Panel */}
             {!isPreActive && (

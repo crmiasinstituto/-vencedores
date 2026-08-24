@@ -1,0 +1,137 @@
+<!doctype html><meta charset="utf-8"><title>Teste de audio da ligacao WaVoIP</title>
+<pre id="out" style="font:12px ui-monospace;white-space:pre-wrap"></pre>
+<script src="./.bundle.js"></script>
+<script>
+const R = { log: [], done: false, verdict: {}, samples: [] };
+window.__R = R;
+const P = (...a) => { R.log.push(a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); document.getElementById('out').textContent = R.log.join('\n'); console.log(...a); };
+
+const params = new URLSearchParams(location.search);
+const TOKEN = params.get('token');
+const TO = params.get('to');
+const SECS = +(params.get('secs') || 25);
+
+function rms(an) {
+  if (!an) return 0;
+  const b = new Uint8Array(an.fftSize); an.getByteTimeDomainData(b);
+  let s = 0; for (let i = 0; i < b.length; i++) { const v = (b[i]-128)/128; s += v*v; }
+  return Math.sqrt(s/b.length);
+}
+
+(async () => {
+  try {
+    window.patchWavoip();
+    const wa = new window.Wavoip({ tokens: [TOKEN], platform: 'squaad-crm' });
+    P('SDK criada. aguardando device ficar "open"...');
+
+    const dev = wa.devices[0];
+    // diagnostico do socket (mesmo caminho que o CallContext usa pra dump)
+    try {
+      const inner = (wa._devices || [])[0];
+      const sock = inner?.wss;
+      if (sock) {
+        P('socket io: connected =', !!sock.connected, '| path =', sock.io?.opts?.path);
+        sock.on('connect', () => P('  socket CONNECT', sock.id));
+        sock.on('connect_error', (e) => P('  socket CONNECT_ERROR:', e && (e.message || String(e))));
+        sock.on('error', (e) => P('  socket ERROR:', String(e)));
+        sock.on('disconnect', (r) => P('  socket DISCONNECT:', r));
+      } else { P('!! nao achei o socket interno'); }
+    } catch (e) { P('diag socket falhou:', String(e)); }
+    // `wa.devices` devolve WRAPPERS novos a cada chamada — o objeto guardado numa
+    // variavel congela o status. Le sempre do transporte interno (_devices[0]),
+    // que tem getter vivo.
+    const liveStatus = () => {
+      const inner = (wa._devices || [])[0];
+      return inner?.status || inner?.device?.status || dev.status;
+    };
+    const livePhone = () => {
+      const inner = (wa._devices || [])[0];
+      return inner?.contact?.phone || inner?.device?.contact?.phone || null;
+    };
+    await new Promise((res) => {
+      const t = setInterval(() => {
+        P('  device.status =', liveStatus());
+        if (liveStatus() === 'open') { clearInterval(t); res(); }
+      }, 1000);
+      setTimeout(() => { clearInterval(t); res(); }, 25000);
+    });
+    R.deviceStatus = liveStatus(); R.devicePhone = livePhone();
+    P('device:', R.deviceStatus, 'numero:', R.devicePhone);
+    if (R.deviceStatus !== 'open') throw new Error('device nao ficou open: ' + R.deviceStatus);
+
+    if (params.get('probe') === '1') { P('modo probe: nao vou discar.'); R.verdict = { probe: true, deviceStatus: R.deviceStatus, numero: R.devicePhone }; return; }
+    P('discando para', TO, '...');
+    const t0 = Date.now();
+    const { call: outgoing, err } = await wa.startCall({ to: TO, fromTokens: [TOKEN] });
+    if (err) throw new Error('startCall: ' + JSON.stringify(err));
+    P('call:start aceito pelo servidor em', Date.now()-t0, 'ms — o telefone deve estar tocando');
+    R.ringingMs = Date.now() - t0;
+
+    const active = await new Promise((res, rej) => {
+      outgoing.on('peerAccept', c => res(c));
+      outgoing.on('peerReject', () => rej(new Error('REJEITADA pelo destino')));
+      outgoing.on('unanswered', () => rej(new Error('NAO ATENDIDA')));
+      outgoing.on('ended', () => rej(new Error('ENCERRADA antes de atender')));
+      setTimeout(() => rej(new Error('TIMEOUT: ninguem atendeu em 45s')), 45000);
+    });
+    R.answeredAfterMs = Date.now() - t0;
+    if (typeof active.on === 'function') active.on('stats', (st) => { window.__lastStats = st; });
+    P('>>> ATENDEU depois de', R.answeredAfterMs, 'ms. medindo audio por', SECS, 's');
+
+    const anIn = await (active.audioAnalyserIn || active.audio_analyser);
+    let anOut = active.audioAnalyserOut ? await active.audioAnalyserOut : null;
+    const ctx = anIn.context;
+    if (!anOut) {
+      // SDK 2.3.6: sem analyser de saida. Monta um em cima do mic da propria SDK.
+      const micStream = wa.mediaManager?.stream || wa._mediaManager?.stream;
+      P('sem audioAnalyserOut (SDK antiga). mic da SDK acessivel?', !!micStream);
+      if (micStream) { const src = ctx.createMediaStreamSource(micStream); anOut = ctx.createAnalyser(); anOut.fftSize = 256; src.connect(anOut); }
+    }
+    P('AudioContext da SDK:', ctx.state, '| sampleRate', ctx.sampleRate);
+    R.audioContextState = ctx.state;
+
+    // grava o que CHEGA do telefone, pra poder ouvir depois
+    const dest = ctx.createMediaStreamDestination();
+    anIn.connect(dest);
+    const rec = new MediaRecorder(dest.stream);
+    const chunks = []; rec.ondataavailable = e => chunks.push(e.data); rec.start();
+
+    let micPeak = 0, peerPeak = 0, micSilent = 0, peerSilent = 0;
+    for (let sec = 0; sec < SECS; sec++) {
+      let mp = 0, pp = 0;
+      for (let i = 0; i < 20; i++) { mp = Math.max(mp, rms(anOut)); pp = Math.max(pp, rms(anIn)); await new Promise(r => setTimeout(r, 50)); }
+      micPeak = Math.max(micPeak, mp); peerPeak = Math.max(peerPeak, pp);
+      if (mp < 0.01) micSilent++; if (pp < 0.01) peerSilent++;
+      const st = typeof active.getStats === 'function' ? await active.getStats() : (window.__lastStats || null);
+      const txB = st?.tx?.total_bytes ?? 0, rxB = st?.rx?.total_bytes ?? 0, rtt = Math.round(st?.rtt?.avg ?? 0);
+      R.samples.push({ s: sec+1, mic: +mp.toFixed(3), lead: +pp.toFixed(3), txB, rxB, rtt, lossTx: st?.tx?.loss ?? 0, lossRx: st?.rx?.loss ?? 0 });
+      P(`t=${sec+1}s  mic(saindo)=${mp.toFixed(3)}  lead(entrando)=${pp.toFixed(3)}  tx=${txB}B rx=${rxB}B rtt=${rtt}ms`);
+    }
+
+    rec.stop();
+    await new Promise(r => rec.onstop = r);
+    const blob = new Blob(chunks);
+    R.recordedBase64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(',')[1]); fr.readAsDataURL(blob); });
+    R.recordedType = blob.type; R.recordedBytes = blob.size;
+
+    const first = R.samples[0], last = R.samples[R.samples.length-1];
+    R.verdict = {
+      atendeu: true,
+      seuAudioSaiu: micPeak > 0.01,
+      picoDoSeuMic: +micPeak.toFixed(3),
+      chegouAudioDoTelefone: peerPeak > 0.01,
+      picoDoAudioRecebido: +peerPeak.toFixed(3),
+      segundosDeSilencioSaindo: micSilent,
+      segundosDeSilencioEntrando: peerSilent,
+      bytesEnviados: last.txB - first.txB,
+      bytesRecebidos: last.rxB - first.rxB,
+      rttMedioMs: Math.round(R.samples.reduce((a,b)=>a+b.rtt,0)/R.samples.length),
+    };
+    P('VEREDITO:', JSON.stringify(R.verdict, null, 1));
+    await active.end();
+  } catch (e) {
+    R.error = String(e && (e.message || e));
+    P('ERRO:', R.error);
+  } finally { R.done = true; }
+})();
+</script>

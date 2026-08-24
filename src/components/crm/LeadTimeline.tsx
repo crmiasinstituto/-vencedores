@@ -170,11 +170,14 @@ export const LeadTimeline: React.FC<LeadTimelineProps> = ({ leadId, leadCreatedA
 
       if (callsRes.data) {
         for (const call of callsRes.data) {
+          const isOutgoing = String(call.direction || '').toUpperCase() === 'OUTGOING';
           timelineEvents.push({
             id: call.id,
             type: 'call',
-            title: call.direction === 'outgoing' ? 'Ligação Realizada' : 'Ligação Recebida',
-            description: `${call.direction === 'outgoing' ? 'Ligação para' : 'Ligação de'} ${call.peer_name || call.peer_phone} — ${formatDuration(call.duration_seconds)}`,
+            // O banco grava 'OUTGOING'/'INCOMING' em MAIUSCULA — comparar com
+            // 'outgoing' fazia TODA ligacao feita pelo CRM aparecer como recebida.
+            title: isOutgoing ? 'Ligação Realizada' : 'Ligação Recebida',
+            description: `${isOutgoing ? 'Ligação para' : 'Ligação de'} ${call.peer_name || call.peer_phone} — ${formatDuration(call.duration_seconds)}`,
             timestamp: call.created_at || '',
             callData: {
               direction: call.direction,
@@ -759,7 +762,10 @@ export const LeadTimeline: React.FC<LeadTimelineProps> = ({ leadId, leadCreatedA
                         <div className="mt-3 pt-3 border-t border-current/10 space-y-3">
                           <div className="flex flex-wrap gap-2">
                             <Badge variant="outline" className="text-[10px] bg-background/30">
-                              {event.callData.direction === 'outgoing' ? 'Saída' : event.callData.direction === 'meeting' ? 'Reunião' : 'Entrada'}
+                              {(() => {
+                                const d = String(event.callData.direction || '').toLowerCase();
+                                return d === 'outgoing' ? 'Saída' : d === 'meeting' ? 'Reunião' : 'Entrada';
+                              })()}
                             </Badge>
                             <Badge variant="outline" className="text-[10px] bg-background/30">
                               {formatDuration(event.callData.duration_seconds)}

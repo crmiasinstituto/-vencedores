@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import EmailPreviewModal from './EmailPreviewModal';
 import EmailAttachmentUploader from './EmailAttachmentUploader';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
   templateId?: string;
@@ -66,6 +67,11 @@ export default function EmailTemplateEditorWrapper({ templateId, onBack }: Props
   const [initialJson, setInitialJson] = useState<any>(null);
   const [legacyHtml, setLegacyHtml] = useState<string | null>(null);
   const [showAIGen, setShowAIGen] = useState(false);
+  // Upload de imagem direto no editor (antes o botao inseria um placeholder do
+  // via.placeholder.com, que saiu do ar — dava "Error loading image" e obrigava
+  // a ir na aba Anexos copiar URL na mao).
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [aiGeneratedHtml, setAiGeneratedHtml] = useState<string | null>(null);
   const hydratedRef = useRef(false);
 
@@ -127,6 +133,50 @@ export default function EmailTemplateEditorWrapper({ templateId, onBack }: Props
   }, []);
 
   const getCurrentJson = () => editorRef.current?.getJSON?.() || initialJson || DEFAULT_CONTENT;
+
+  // Sobe a imagem pro bucket email-assets (mesmo do EmailAttachmentUploader) e
+  // insere ja com a URL publica final. E a URL que o Resend vai servir no email,
+  // entao precisa ser publica e absoluta — data URL nao serve (cliente de email
+  // bloqueia e o tamanho estoura).
+  const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+  const handleImageFile = async (fileList: FileList | null) => {
+    const file = fileList?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Isso não é uma imagem', description: 'Escolha um arquivo JPG, PNG, GIF ou WEBP.', variant: 'destructive' });
+      return;
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      toast({ title: 'Imagem muito pesada', description: 'Máximo 5MB — acima disso o email cai em spam ou nem carrega.', variant: 'destructive' });
+      return;
+    }
+    const editor = editorRef.current;
+    if (!editor) {
+      toast({ title: 'Editor não está pronto', variant: 'destructive' });
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 60);
+      const path = `inline/${crypto.randomUUID()}-${safe}`;
+      const { error } = await supabase.storage
+        .from('email-assets')
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (error) throw error;
+      const { data } = supabase.storage.from('email-assets').getPublicUrl(path);
+      if (!data?.publicUrl) throw new Error('storage não devolveu URL pública');
+      editor.chain().focus().insertContent({
+        type: 'image',
+        attrs: { src: data.publicUrl, alt: file.name, width: '100%' },
+      }).run();
+      toast({ title: 'Imagem inserida', description: 'Já está hospedada — o lead vai ver ela no email.' });
+    } catch (err: any) {
+      toast({ title: 'Não consegui subir a imagem', description: err?.message || 'Erro no storage', variant: 'destructive' });
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = '';
+    }
+  };
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -418,18 +468,21 @@ export default function EmailTemplateEditorWrapper({ templateId, onBack }: Props
                     size="sm"
                     variant="outline"
                     className="w-full justify-start gap-2 h-9 border-[#BAA05E]/30 hover:bg-[#BAA05E]/10"
-                    onClick={() => {
-                      const editor = editorRef.current;
-                      if (!editor) return;
-                      try {
-                        editor.chain().focus().insertContent({ type: 'image', attrs: { src: 'https://via.placeholder.com/600x200/0a0a0a/3B82F6?text=Sua+Imagem', alt: 'Imagem', width: '100%' } }).run();
-                        toast({ title: 'Bloco de imagem inserido', description: 'Clica nela e troca a URL pelo upload em Anexos.' });
-                      } catch {}
-                    }}
+                    disabled={uploadingImage}
+                    onClick={() => imageInputRef.current?.click()}
                   >
-                    <span className="text-[#BAA05E]">🖼</span>
-                    <span className="font-medium">Inserir Imagem</span>
+                    {uploadingImage
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[#BAA05E]" />
+                      : <span className="text-[#BAA05E]">🖼</span>}
+                    <span className="font-medium">{uploadingImage ? 'Enviando imagem…' : 'Inserir Imagem'}</span>
                   </Button>
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif,image/webp"
+                    className="hidden"
+                    onChange={(e) => handleImageFile(e.target.files)}
+                  />
                   <Button
                     size="sm"
                     variant="outline"

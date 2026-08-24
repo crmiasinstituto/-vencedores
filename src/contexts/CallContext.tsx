@@ -40,6 +40,29 @@ interface CallEndedResult {
   leadId?: string;
 }
 
+/**
+ * Medicao ao vivo dos DOIS sentidos do audio, tirada do getStats() da SDK.
+ * `micLevel` = quanto do SEU microfone esta saindo pro lead.
+ * `peerLevel` = quanto esta chegando do lead no seu alto-falante.
+ * Sem isso, "nao escutei nada" e' impossivel de diagnosticar depois.
+ */
+export interface AudioDiag {
+  micLevel: number;
+  peerLevel: number;
+  txBytes: number;
+  rxBytes: number;
+  txFlowing: boolean;
+  rxFlowing: boolean;
+  rttMs: number;
+  lossTx: number;
+  lossRx: number;
+  /** segundos seguidos com o microfone em silencio (nivel ~0) */
+  micSilentSec: number;
+  /** segundos seguidos sem voz do lead */
+  peerSilentSec: number;
+  transport: 'ok' | 'sem-fluxo';
+}
+
 interface IncomingOffer {
   // Note: o CallOffer real fica em currentOfferRef (fora do React). Aqui so
   // metadados serializaveis. React poderia perder os methods/proxies internos
@@ -86,6 +109,8 @@ interface CallContextType {
   isTranscribing: boolean;
   transcriptions: TranscriptionSegment[];
   transcriptionError: string | null;
+  /** medicao ao vivo dos dois sentidos do audio (null fora de chamada ativa) */
+  audioDiag: AudioDiag | null;
 }
 
 const CallContext = createContext<CallContextType | null>(null);
@@ -253,6 +278,16 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // CallOffer REAL do WaVoIP fica aqui (fora do React state). Salvar dentro
   // do state quebra os methods (accept/reject) pq React perde proxies internos.
   const currentOfferRef = useRef<any>(null);
+  // INSERT do call_history roda em paralelo ao startCall pra nao atrasar o toque.
+  // Guardamos a promessa: se a chamada falhar ANTES do insert voltar, o update de
+  // status precisa esperar por ela — senao a linha fica presa em CALLING pra
+  // sempre (foi o que aconteceu com todas as ligacoes de 24/08).
+  const callHistoryInsertRef = useRef<Promise<string | null> | null>(null);
+  // Diagnostico de audio bidirecional (getStats da SDK a cada 1s)
+  const [audioDiag, setAudioDiag] = useState<AudioDiag | null>(null);
+  const audioDiagRef = useRef<AudioDiag | null>(null);
+  const audioStatsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioWarnedRef = useRef<{ mic: boolean; peer: boolean; link: boolean }>({ mic: false, peer: false, link: false });
 
   const {
     isTranscribing,
@@ -357,13 +392,190 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Handle call failed/ended before active
-  const handleCallFailed = useCallback((status: string) => {
-    stopDurationTimer();
-    stopTranscription();
-    if (callHistoryIdRef.current) {
-      supabase.from('call_history').update({ status, ended_at: new Date().toISOString() }).eq('id', callHistoryIdRef.current);
+  /**
+   * Atualiza a linha do call_history de forma confiavel.
+   *
+   * Dois cuidados que faltavam e deixavam ligacao presa em "CALLING":
+   *  1. supabase-js so dispara a requisicao quando alguem da `await`/`.then()`
+   *     no builder. Varias chamadas aqui eram `supabase.from(...).update(...)`
+   *     soltas — nunca saiam do navegador.
+   *  2. Se a chamada falha antes do INSERT paralelo voltar, `callHistoryIdRef`
+   *     ainda esta vazio; esperamos o insert em vez de desistir do update.
+   */
+  const updateCallHistory = useCallback(async (patch: Record<string, any>) => {
+    let id = callHistoryIdRef.current;
+    if (!id && callHistoryInsertRef.current) {
+      try { id = await callHistoryInsertRef.current; } catch { id = null; }
     }
+    if (!id) {
+      console.warn('[WaVoIP] sem id de call_history pra atualizar:', patch);
+      return;
+    }
+    const { error } = await supabase.from('call_history').update(patch as any).eq('id', id);
+    if (error) console.error('[WaVoIP] update do call_history falhou:', error);
+  }, []);
+
+  // ===================== DIAGNOSTICO DE AUDIO (2 SENTIDOS) =====================
+  // A SDK expoe getStats() com tx/rx (bytes, perda, audio_level). E a unica
+  // forma objetiva de responder "o lead esta me ouvindo?" / "estou ouvindo o
+  // lead?" sem depender de alguem relatar. Roda 1x por segundo enquanto ACTIVE.
+  const stopAudioDiag = useCallback(() => {
+    if (audioStatsIntervalRef.current) {
+      clearInterval(audioStatsIntervalRef.current);
+      audioStatsIntervalRef.current = null;
+    }
+    setAudioDiag(null);
+    audioDiagRef.current = null;
+    audioWarnedRef.current = { mic: false, peer: false, link: false };
+  }, []);
+
+  const startAudioDiag = useCallback((callObj: any) => {
+    if (audioStatsIntervalRef.current) clearInterval(audioStatsIntervalRef.current);
+    audioWarnedRef.current = { mic: false, peer: false, link: false };
+
+    // De onde saem os niveis, por versao de SDK:
+    //   2.6.3  -> audioAnalyserIn (lead) + audioAnalyserOut (seu mic) + getStats()
+    //   2.3.6  -> so audio_analyser (lead). Nao tem analyser de saida nem
+    //             getStats(); o mic sai de um analyser nosso montado em cima do
+    //             stream que a SDK ja abriu, e as metricas vem do evento 'stats'.
+    // Producao roda a 2.3.6 (package-lock), o dev local esta com a 2.6.3 — por
+    // isso os dois caminhos precisam existir.
+    let anIn: AnalyserNode | null = null;
+    let anOut: AnalyserNode | null = null;
+    let micIndisponivel = false;
+    Promise.resolve(callObj?.audioAnalyserIn || callObj?.audio_analyser)
+      .then((a: AnalyserNode) => { anIn = a || null; })
+      .catch(() => {});
+    Promise.resolve(callObj?.audioAnalyserOut)
+      .then(async (a: AnalyserNode) => {
+        if (a) { anOut = a; return; }
+        // SDK antiga: monta o analyser do mic a partir do stream da propria SDK.
+        const mm = (wavoipRef.current as any)?.mediaManager;
+        const micStream: MediaStream | undefined = mm?.stream;
+        const ctx: AudioContext | undefined = mm?.audioContext;
+        if (micStream && ctx) {
+          const src = ctx.createMediaStreamSource(micStream);
+          const an = ctx.createAnalyser();
+          an.fftSize = 256;
+          src.connect(an);
+          anOut = an;
+          console.log('[WaVoIP][audio] analyser do mic montado na mao (SDK sem audioAnalyserOut)');
+        } else {
+          micIndisponivel = true;
+          console.warn('[WaVoIP][audio] sem como medir o mic nesta SDK — medidor de saida fica indisponivel');
+        }
+      })
+      .catch(() => { micIndisponivel = true; });
+
+    // SDK 2.3.6 nao tem getStats(): as metricas chegam pelo evento 'stats'.
+    let pushedStats: any = null;
+    if (typeof callObj?.on === 'function') {
+      try { callObj.on('stats', (st: any) => { pushedStats = st; }); } catch { /* evento inexistente */ }
+    } else if (typeof callObj?.onStats === 'function') {
+      try { callObj.onStats((st: any) => { pushedStats = st; }); } catch { /* idem */ }
+    }
+
+    const rms = (an: AnalyserNode | null): number => {
+      if (!an) return 0;
+      const buf = new Uint8Array(an.fftSize);
+      an.getByteTimeDomainData(buf);
+      let sum = 0;
+      for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+      return Math.sqrt(sum / buf.length);
+    };
+
+    // Voz humana normal fica bem acima disso; ruido de fundo/silencio digital fica abaixo.
+    const SILENCE = 0.01;
+    const hasGetStats = typeof callObj?.getStats === 'function';
+    let prevTx = -1, prevRx = -1;
+    let micSilent = 0, peerSilent = 0, ticks = 0;
+    let micPeak = 0, peerPeak = 0;
+    let micShown = 0, peerShown = 0;
+    let lastStats: any = null;
+    let slot = 0;
+
+    // 100ms pro medidor acompanhar a fala; getStats so 1x por segundo.
+    audioStatsIntervalRef.current = setInterval(async () => {
+      const micNow = rms(anOut);
+      const peerNow = rms(anIn);
+      micPeak = Math.max(micPeak, micNow);
+      peerPeak = Math.max(peerPeak, peerNow);
+      micShown = Math.max(micNow, micShown * 0.75);
+      peerShown = Math.max(peerNow, peerShown * 0.75);
+      slot += 1;
+
+      const fecharJanela = slot >= 10;
+      if (fecharJanela) {
+        if (hasGetStats) {
+          try { lastStats = await callObj.getStats(); } catch (e) { console.warn('[WaVoIP][audio] getStats falhou:', e); }
+        } else if (pushedStats) {
+          lastStats = pushedStats;
+        }
+      }
+
+      const txBytes = lastStats?.tx?.total_bytes ?? 0;
+      const rxBytes = lastStats?.rx?.total_bytes ?? 0;
+      let txFlowing = true, rxFlowing = true;
+      if (fecharJanela && lastStats) {
+        txFlowing = prevTx < 0 ? true : txBytes > prevTx;
+        rxFlowing = prevRx < 0 ? true : rxBytes > prevRx;
+        prevTx = txBytes; prevRx = rxBytes;
+      }
+
+      if (fecharJanela) {
+        ticks += 1;
+        micSilent = micPeak > SILENCE ? 0 : micSilent + 1;
+        peerSilent = peerPeak > SILENCE ? 0 : peerSilent + 1;
+        micPeak = 0; peerPeak = 0;
+        slot = 0;
+      }
+
+      const diag: AudioDiag = {
+        micLevel: micIndisponivel ? -1 : micShown,
+        peerLevel: peerShown,
+        txBytes, rxBytes, txFlowing, rxFlowing,
+        rttMs: Math.round(lastStats?.rtt?.avg ?? 0),
+        lossTx: lastStats?.tx?.loss ?? 0,
+        lossRx: lastStats?.rx?.loss ?? 0,
+        micSilentSec: micSilent,
+        peerSilentSec: peerSilent,
+        transport: (!lastStats || txFlowing || rxFlowing) ? 'ok' : 'sem-fluxo',
+      };
+      audioDiagRef.current = diag;
+      setAudioDiag(diag);
+
+      if (!fecharJanela) return;
+
+      // Avisos, uma vez por chamada. 10s e' muito mais que pausa de conversa —
+      // aqui ja e' problema tecnico de verdade.
+      if (ticks > 10 && lastStats && !txFlowing && !rxFlowing && !audioWarnedRef.current.link) {
+        audioWarnedRef.current.link = true;
+        toast.error('A conexão de áudio caiu — ninguém está ouvindo ninguém. Desligue e ligue de novo.', { duration: 9000 });
+        return;
+      }
+      if (micSilent === 10 && !micIndisponivel && !audioWarnedRef.current.mic) {
+        audioWarnedRef.current.mic = true;
+        toast.warning('Nenhum som saindo do seu microfone há 10s — o lead não está te ouvindo. Confira o microfone e o mudo.', { duration: 9000 });
+      }
+      if (peerSilent === 12 && !audioWarnedRef.current.peer) {
+        audioWarnedRef.current.peer = true;
+        toast.warning('Não está chegando áudio do lead há 12s. Confira o volume e a saída de som.', { duration: 9000 });
+      }
+    }, 100);
+  }, []);
+
+  // Handle call failed/ended before active
+  // `reason` fica gravado na linha: sem isso, "a ligacao caiu" nunca vira
+  // diagnostico — a falha some junto com o toast.
+  const handleCallFailed = useCallback((status: string, reason?: string) => {
+    stopDurationTimer();
+    stopAudioDiag();
+    stopTranscription();
+    updateCallHistory({
+      status,
+      ended_at: new Date().toISOString(),
+      ...(reason ? { metadata: { fail_reason: reason } } : {}),
+    });
     toast.info(status === 'NOT_ANSWERED' ? 'Chamada não atendida' : status === 'REJECTED' ? 'Chamada rejeitada' : 'Chamada encerrada');
     setActiveCall(null);
     activeCallObjRef.current = null;
@@ -372,7 +584,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     callHistoryIdRef.current = null;
     // Libera o guard de outgoing pro proximo onOffer real funcionar
     outgoingInProgressRef.current = false;
-  }, [stopDurationTimer, stopTranscription]);
+  }, [stopDurationTimer, stopAudioDiag, stopTranscription, updateCallHistory]);
 
   // Setup active call listeners + start transcription
   const setupActiveCall = useCallback((callObj: any, direction: 'INCOMING' | 'OUTGOING', peerPhone: string, peerName?: string, leadId?: string, profilePicture?: string | null) => {
@@ -380,36 +592,57 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     peerNameRef.current = peerName;
     activeCallObjRef.current = callObj;
 
-    // Ensure remote audio plays through speakers. Em OUTGOING o SDK as vezes
-    // expoe callObj.pc, mas em INCOMING quase nunca expoe — sem isso o user
-    // atende mas nao ouve nada ("atendi e nao funcionou"). Fallback: usa o
-    // stream que o wavoip-init capturou via Proxy no RTCPeerConnection.
+    // ---- AUDIO DO LEAD (quem reproduz e a SDK, nao nos) ----
+    // A SDK 2.6.3 ja toca o audio remoto sozinha nos dois transportes:
+    //   WebRTC  -> handleRemoteTrack: MediaStreamSource -> analyser -> ctx.destination
+    //   socket  -> playbackNode      -> analyser -> ctx.destination
+    // `CallActive` NAO expoe mais `.pc` (conferido no index.d.ts de 2.6.3), entao
+    // o caminho antigo caia sempre no fallback do Proxy e criava um <audio> com o
+    // MESMO stream que a SDK ja estava tocando: a voz do lead saia DUAS vezes,
+    // fora de sincronia (eco / voz metalica). Medido em simulacao: 2 saidas.
+    // Agora o <audio> nasce MUDO (so keep-alive do stream, igual a SDK faz) e so
+    // e desmutado se o AudioContext da SDK nao subir — ai sim ninguem tocaria nada.
     try {
-      let remoteStream: MediaStream | null = null;
-      if (callObj?.pc) {
-        const pc = callObj.pc as RTCPeerConnection;
-        const audioTrack = pc.getReceivers().find((r: RTCRtpReceiver) => r.track?.kind === 'audio')?.track;
-        if (audioTrack) {
-          remoteStream = new MediaStream([audioTrack]);
-          console.log('[WaVoIP] Remote audio via callObj.pc');
-        }
+      const fallbackStream = wavoipRemoteCapture.incomingStream;
+      const audioEl = document.createElement('audio');
+      audioEl.autoplay = true;
+      audioEl.muted = true;
+      if (fallbackStream) {
+        audioEl.srcObject = fallbackStream;
+        audioEl.play().catch(() => {});
       }
-      if (!remoteStream && wavoipRemoteCapture.incomingStream) {
-        remoteStream = wavoipRemoteCapture.incomingStream;
-        console.log('[WaVoIP] Remote audio via wavoipRemoteCapture.incomingStream (fallback INCOMING)');
-      }
-      if (remoteStream) {
-        const audioEl = document.createElement('audio');
-        audioEl.srcObject = remoteStream;
-        audioEl.autoplay = true;
+      (activeCallObjRef.current as any).__remoteAudioEl = audioEl;
+
+      const analyserPromise: Promise<AnalyserNode> | undefined =
+        callObj?.audioAnalyserIn || callObj?.audio_analyser;
+      if (analyserPromise && typeof (analyserPromise as any).then === 'function') {
+        analyserPromise
+          .then(async (analyser) => {
+            const ctx = analyser.context as AudioContext;
+            // Chrome suspende AudioContext criado sem gesto do usuario.
+            try { if (ctx.state === 'suspended') await ctx.resume(); } catch (e) {
+              console.warn('[WaVoIP] resume do AudioContext da SDK falhou:', e);
+            }
+            console.log('[WaVoIP] AudioContext da SDK:', ctx.state);
+            if (ctx.state !== 'running' && fallbackStream) {
+              audioEl.muted = false;
+              audioEl.play().catch((e) => console.warn('[WaVoIP] fallback play falhou:', e));
+              console.warn('[WaVoIP] SDK nao vai tocar (ctx ' + ctx.state + ') — usando <audio> de fallback');
+            }
+          })
+          .catch((e) => {
+            console.warn('[WaVoIP] audioAnalyserIn falhou, desmutando fallback:', e);
+            if (fallbackStream) { audioEl.muted = false; audioEl.play().catch(() => {}); }
+          });
+      } else if (fallbackStream) {
+        // SDK antiga sem analyser exposto: volta ao comportamento anterior.
+        audioEl.muted = false;
         audioEl.play().catch((e) => console.warn('[WaVoIP] audio.play() failed:', e));
-        // Guarda referencia no callObjRef pra remover quando a chamada terminar
-        (activeCallObjRef.current as any).__remoteAudioEl = audioEl;
       } else {
         console.warn('[WaVoIP] Nenhum remote audio stream disponivel pra tocar');
       }
     } catch (e) {
-      console.warn('[WaVoIP] Remote audio fallback failed:', e);
+      console.warn('[WaVoIP] Remote audio setup failed:', e);
     }
 
     setActiveCall({
@@ -427,14 +660,19 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       leadId,
     });
 
-    if (callHistoryIdRef.current) {
-      supabase.from('call_history').update({ status: 'ACTIVE', wavoip_call_id: callObj.id || null }).eq('id', callHistoryIdRef.current);
-    }
+    updateCallHistory({ status: 'ACTIVE', wavoip_call_id: callObj.id || null });
 
     startDurationTimer();
+    startAudioDiag(callObj);
 
     // Start transcription
-    startTranscription(callObj, peerName).catch(err => {
+    // Reusa o MESMO MediaStream que a SDK ja abriu pro mic. Abrir um segundo
+    // getUserMedia no mesmo device deixa um dos dois streams mudo no macOS —
+    // e quando o mudo e' o da SDK, o lead para de te ouvir. Mesmo problema que
+    // o MeetRoom ja tinha resolvido reusando a track do LiveKit.
+    const sdkMicStream: MediaStream | undefined = (wavoipRef.current as any)?.mediaManager?.stream;
+    if (sdkMicStream) console.log('[Transcription] reusando mic da SDK (sem 2o getUserMedia)');
+    startTranscription(callObj, peerName, sdkMicStream).catch(err => {
       console.error('[Transcription] Failed to start:', err);
     });
 
@@ -471,7 +709,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Capture callHistoryId before any state changes
         const savedCallHistoryId = callHistoryIdRef.current;
 
+        const lastAudioDiag = audioDiagRef.current;
         stopDurationTimer();
+        stopAudioDiag();
         stopTranscription();
 
         if (savedCallHistoryId) {
@@ -481,6 +721,24 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
             status: 'ENDED',
             duration_seconds: durationSeconds,
             ended_at: new Date().toISOString(),
+            // Fica gravado se o audio correu nos dois sentidos. Sem isso,
+            // "a ligacao nao teve som" so existe como relato.
+            metadata: {
+              audio_diag: lastAudioDiag
+                ? {
+                    mic_level: lastAudioDiag.micLevel,
+                    peer_level: lastAudioDiag.peerLevel,
+                    tx_bytes: lastAudioDiag.txBytes,
+                    rx_bytes: lastAudioDiag.rxBytes,
+                    mic_silent_sec: lastAudioDiag.micSilentSec,
+                    peer_silent_sec: lastAudioDiag.peerSilentSec,
+                    rtt_ms: lastAudioDiag.rttMs,
+                    loss_tx: lastAudioDiag.lossTx,
+                    loss_rx: lastAudioDiag.lossRx,
+                    transport: lastAudioDiag.transport,
+                  }
+                : null,
+            },
           }).eq('id', savedCallHistoryId);
 
           const finals = getFinalTranscriptions();
@@ -516,7 +774,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         callHistoryIdRef.current = null;
       });
     }
-  }, [startDurationTimer, stopDurationTimer, startTranscription, stopTranscription, saveTranscriptions, getFinalTranscriptions]);
+  }, [startDurationTimer, stopDurationTimer, startAudioDiag, stopAudioDiag, startTranscription, stopTranscription, saveTranscriptions, getFinalTranscriptions, updateCallHistory]);
 
   // ===================== INIT WAVOIP =====================
   useEffect(() => {
@@ -916,12 +1174,17 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       peer_name: peerName || null,
     }).select('id').single();
 
-    insertPromise.then(({ data: callRecord }) => {
+    // Fica acessivel pro updateCallHistory: se a ligacao falhar antes do insert
+    // voltar, ele espera aqui em vez de largar a linha presa em CALLING.
+    callHistoryInsertRef.current = Promise.resolve(insertPromise).then(({ data: callRecord }) => {
       if (callRecord?.id) {
         callHistoryIdRef.current = callRecord.id;
         setActiveCall(prev => prev && !prev.id ? { ...prev, id: callRecord.id } : prev);
+        return callRecord.id as string;
       }
+      return null;
     });
+    callHistoryInsertRef.current.catch(() => {});
 
     setActiveCall({
       id: '',
@@ -1037,7 +1300,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         outgoingInProgressRef.current = false;
-        handleCallFailed('FAILED');
+        handleCallFailed('FAILED', reason || errStr);
         return;
       }
 
@@ -1203,13 +1466,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // callOffer.reject() returns { err: string | null }
       await offer.reject();
     } catch (e) { console.warn('[WaVoIP] reject error:', e); }
-    if (callHistoryIdRef.current) {
-      supabase.from('call_history').update({ status: 'REJECTED', ended_at: new Date().toISOString() }).eq('id', callHistoryIdRef.current);
-      callHistoryIdRef.current = null;
-    }
+    await updateCallHistory({ status: 'REJECTED', ended_at: new Date().toISOString() });
+    callHistoryIdRef.current = null;
     setIncomingOffer(null);
     currentOfferRef.current = null;
-  }, []);
+  }, [updateCallHistory]);
 
   // ===================== END ACTIVE CALL =====================
   const endCall = useCallback(async () => {
@@ -1361,6 +1622,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isTranscribing,
       transcriptions,
       transcriptionError,
+      audioDiag,
     }}>
       {children}
     </CallContext.Provider>
