@@ -16,13 +16,30 @@ create table if not exists public.system_automation_secrets (
 alter table public.system_automation_secrets enable row level security;
 -- sem policy: ninguem le via PostgREST. So security definer alcanca.
 
-insert into public.system_automation_secrets (name, value)
-select 'anon_key', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5bWx3c2F3cm1naGhiYXdpYXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5NjI5NjUsImV4cCI6MjA5OTUzODk2NX0.mmnCM6HjBlADVpARI3S-2rSUWdZYpEMbf8hTO5fhwoM'
-on conflict (name) do nothing;
+-- As chaves NAO ficam neste arquivo: o repositorio e publico e uma service_role em
+-- texto puro da acesso total ao banco (foi o que aconteceu com a migration de 03/08).
+-- Elas sao extraidas dos proprios comandos de cron, que e onde estavam ate agora.
+do $seed$
+declare v_anon text; v_service text;
+begin
+  select (regexp_match(string_agg(command, ' '), 'Bearer (ey[A-Za-z0-9_.-]+ImFub24i[A-Za-z0-9_.-]+)'))[1]
+    into v_anon from cron.job;
+  select (regexp_match(string_agg(command, ' '), 'Bearer (ey[A-Za-z0-9_.-]+InNlcnZpY2Vfcm9sZSI[A-Za-z0-9_.-]+)'))[1]
+    into v_service from cron.job;
 
-insert into public.system_automation_secrets (name, value)
-select 'service_key', '***SERVICE_ROLE_REMOVIDA***'
-on conflict (name) do nothing;
+  if v_anon is not null then
+    insert into public.system_automation_secrets (name, value) values ('anon_key', v_anon)
+    on conflict (name) do nothing;
+  end if;
+  if v_service is not null then
+    insert into public.system_automation_secrets (name, value) values ('service_key', v_service)
+    on conflict (name) do nothing;
+  end if;
+
+  if not exists (select 1 from public.system_automation_secrets where name = 'service_key') then
+    raise warning 'system_automation_secrets vazia: preencha anon_key e service_key a mao antes de reescrever os jobs';
+  end if;
+end $seed$;
 
 -- Chamada de edge function a partir do cron, com telemetria.
 create or replace function public.cron_edge_call(

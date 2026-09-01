@@ -6,6 +6,10 @@
 --
 -- A função é verify_jwt=true, então o header Authorization é obrigatório (o mesmo esquecimento
 -- que deixou o email-automation-tick tomando 401 por semanas).
+--
+-- A chave SAIU deste arquivo: ela estava aqui em texto puro e o repositorio e publico.
+-- Agora e lida de public.system_automation_secrets (tabela com RLS e sem policy de leitura).
+-- A chave que vazou por este arquivo precisa ser rotacionada no painel do Supabase.
 SELECT cron.schedule(
   'email-campaign-continua',
   '* * * * *',
@@ -25,7 +29,7 @@ SELECT cron.schedule(
         url := 'https://iymlwsawrmghhbawiavz.supabase.co/functions/v1/send-email-campaign',
         headers := jsonb_build_object(
           'Content-Type', 'application/json',
-          'Authorization', 'Bearer ***SERVICE_ROLE_REMOVIDA***'
+          'Authorization', 'Bearer ' || (select value from public.system_automation_secrets where name = 'service_key')
         ),
         body := jsonb_build_object('campaign_id', c.id),
         timeout_milliseconds := 150000
