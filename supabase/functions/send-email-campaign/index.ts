@@ -46,6 +46,15 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
+// ─── Parâmetros do motor de disparo ───────────────────────────────────────
+// A edge function é abatida no teto de CPU perto dos 150s. Paramos de abrir
+// lote novo aos 100s e deixamos o cron `email-campanha-retomar` chamar de novo:
+// a fila é a fonte da verdade, então recomeçar é sempre seguro.
+const LIMITE_MS = 100_000;
+const LOTE = 100;              // teto do endpoint /emails/batch do Resend
+const PAUSA_ENTRE_LOTES_MS = 600;
+const MAX_429_SEGUIDOS = 5;
+
 interface AudienceCriteria {
   board_ids?: string[];
   column_ids?: string[];
@@ -64,98 +73,12 @@ interface SendBody {
   audience_override?: AudienceCriteria;
 }
 
-interface Recipient {
+interface Reservado {
+  send_id: string;
   lead_id: string | null;
   email: string;
-  name: string | null;
-  first_name: string | null;
-  whatsapp: string | null;
-  company_name: string | null;
-  assigned_to: string | null;
-}
-
-async function resolveAudienceByCriteria(supabase: any, criteria: AudienceCriteria): Promise<Recipient[]> {
-  if (!criteria) return [];
-
-  let q = supabase
-    .from("crm_leads")
-    .select("id, name, email, whatsapp, company_name, assigned_to, board_id, column_id, source, tags, email_opted_out, onboarding_completed_at")
-    .not("email", "is", null)
-    .neq("email", "");
-
-  if (criteria.lead_ids?.length) {
-    q = q.in("id", criteria.lead_ids);
-  } else {
-    if (criteria.board_ids?.length) q = q.in("board_id", criteria.board_ids);
-    if (criteria.column_ids?.length) q = q.in("column_id", criteria.column_ids);
-    if (criteria.sources?.length) q = q.in("source", criteria.sources);
-    if (criteria.assigned_to_any?.length) q = q.in("assigned_to", criteria.assigned_to_any);
-    if (criteria.tags_any?.length) q = q.overlaps("tags", criteria.tags_any);
-    if (criteria.onboarding_status === "completed") q = q.not("onboarding_completed_at", "is", null);
-    else if (criteria.onboarding_status === "pending") q = q.is("onboarding_completed_at", null);
-  }
-
-  const { data: leads, error } = await q.limit(10000);
-  if (error) throw error;
-
-  const filtered = (leads || []).filter((l: any) => !l.email_opted_out);
-  const emails = filtered.map((l: any) => l.email).filter(Boolean);
-  if (emails.length === 0) return [];
-
-  const { data: unsubs } = await supabase
-    .from("email_subscribers")
-    .select("email")
-    .in("email", emails)
-    .in("status", ["unsubscribed", "bounced", "complained"]);
-  const unsubSet = new Set((unsubs || []).map((u: any) => u.email));
-
-  const { data: hardUnsubs } = await supabase
-    .from("email_unsubscribes")
-    .select("email")
-    .in("email", emails);
-  (hardUnsubs || []).forEach((u: any) => unsubSet.add(u.email));
-
-  return filtered
-    .filter((l: any) => !unsubSet.has(l.email))
-    .map((l: any) => ({
-      lead_id: l.id,
-      email: l.email,
-      name: l.name,
-      first_name: l.name ? l.name.split(" ")[0] : null,
-      whatsapp: l.whatsapp || null,
-      company_name: l.company_name || null,
-      assigned_to: l.assigned_to || null,
-    }));
-}
-
-async function getOrCreateUnsubscribeToken(supabase: any, email: string, leadId: string | null): Promise<string | null> {
-  try {
-    const { data: existing } = await supabase
-      .from("email_subscribers")
-      .select("unsubscribe_token, status")
-      .eq("email", email)
-      .maybeSingle();
-    if (existing?.unsubscribe_token) {
-      return existing.status === "unsubscribed" || existing.status === "complained"
-        ? null
-        : existing.unsubscribe_token;
-    }
-    const { data: created } = await supabase
-      .from("email_subscribers")
-      .insert({
-        email,
-        lead_id: leadId,
-        status: "subscribed",
-        consent_source: "campaign_send",
-        consent_at: new Date().toISOString(),
-      })
-      .select("unsubscribe_token")
-      .single();
-    return created?.unsubscribe_token || null;
-  } catch (e) {
-    console.error("Erro ao gerar unsubscribe token:", e);
-    return null;
-  }
+  nome: string | null;
+  token: string | null;
 }
 
 function injectComplianceFooter(html: string, unsubscribeUrl: string, config: EmailConfig): string {
@@ -182,6 +105,19 @@ function substituteVariables(text: string, vars: Record<string, string>): string
   return text.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key) => vars[key] ?? "");
 }
 
+const dorme = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function enviarTeste(cfg: EmailConfig, para: string, html: string, assunto: string, replyTo?: string) {
+  const fEmail = (cfg.from_email || "").trim();
+  const fName = (cfg.from_name || "CRM").trim();
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${cfg.resend_api_key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: `${fName} <${fEmail}>`, to: [para], subject: assunto, html, reply_to: replyTo }),
+  });
+  if (!res.ok) throw new Error(`Resend: ${await res.text()}`);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -190,11 +126,9 @@ Deno.serve(async (req: Request) => {
     const body: SendBody = await req.json();
     const { campaign_id, test_email, audience_override } = body;
 
-    // === MODO TESTE (sem campaign_id) ===
+    // ═══ MODO TESTE (sem campaign_id) ═══
     if (!campaign_id && test_email && body.html) {
       const cfg = requireActiveConfig(await getEmailConfig(supabase));
-      const fEmail = (cfg.from_email || "").trim();
-      const fName = (cfg.from_name || "CRM").trim();
       const appUrlT = cfg.app_url || "https://squaadcrm.com";
       const variables: Record<string, string> = {
         nome: "Teste",
@@ -206,20 +140,13 @@ Deno.serve(async (req: Request) => {
         unsubscribe_url: `${appUrlT}/unsubscribe?token=teste`,
         link_descadastro: `${appUrlT}/unsubscribe?token=teste`,
       };
-      const html = substituteVariables(body.html, variables);
-      const subject = `[TESTE] ${substituteVariables(body.subject || "Teste de template", variables)}`;
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${cfg.resend_api_key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from: `${fName} <${fEmail}>`,
-          to: [test_email],
-          subject,
-          html,
-          reply_to: cfg.reply_to || undefined,
-        }),
-      });
-      if (!res.ok) throw new Error(`Resend: ${await res.text()}`);
+      await enviarTeste(
+        cfg,
+        test_email,
+        substituteVariables(body.html, variables),
+        `[TESTE] ${substituteVariables(body.subject || "Teste de template", variables)}`,
+        cfg.reply_to || undefined,
+      );
       return new Response(JSON.stringify({ success: true, test: true, sent_to: test_email }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -250,268 +177,267 @@ Deno.serve(async (req: Request) => {
         vendedor: "Vendedor de Teste",
         unsubscribe_url: `${appUrl}/unsubscribe?token=teste`,
       };
-      const baseHtml = body.html || `<p>${campaign.subject}</p>`;
-      const html = substituteVariables(baseHtml, variables);
-      const subject = `[TESTE] ${substituteVariables(campaign.subject, variables)}`;
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${config.resend_api_key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from: `${fromName} <${fromEmail}>`,
-          to: [test_email],
-          subject,
-          html,
-          reply_to: replyTo,
-        }),
-      });
-      if (!res.ok) throw new Error(`Resend: ${await res.text()}`);
+      const baseHtml = body.html || (campaign as any).html_content || `<p>${campaign.subject}</p>`;
+      await enviarTeste(
+        { ...config, from_email: fromEmail, from_name: fromName } as EmailConfig,
+        test_email,
+        substituteVariables(baseHtml, variables),
+        `[TESTE] ${substituteVariables(campaign.subject, variables)}`,
+        replyTo,
+      );
       return new Response(JSON.stringify({ success: true, test: true, sent_to: test_email }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Bloqueia reprocessamento total de campanha completed/cancelled.
-    // EXCETO se vier audience_override (= retry intencional de leads especificos,
-    // ex: "Corrigir e reenviar" no painel da campanha pra leads failed).
-    if ((campaign.status === "completed" || campaign.status === "cancelled") && !audience_override) {
+    // "Corrigir e reenviar": reabre os que falharam (apaga a linha failed de
+    // email_sends, senão a trava anti-duplicação barra a retentativa).
+    if (audience_override?.lead_ids?.length) {
+      const { data: reabertos } = await supabase.rpc("email_campanha_reabrir_falhas", {
+        p_campaign_id: campaign_id,
+        p_lead_ids: audience_override.lead_ids,
+      });
+      console.log(`Campanha ${campaign_id}: ${reabertos ?? 0} falhas reabertas pra retentativa`);
+    } else if (campaign.status === "completed" || campaign.status === "cancelled") {
       return new Response(
         JSON.stringify({ error: `Campanha já está ${campaign.status}. Pra reenviar pra leads específicos, passe audience_override.` }),
         { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Só seta 'sending' se ainda não foi processada (retries de completed mantém status)
-    if (campaign.status !== "completed" && campaign.status !== "cancelled") {
+    // A fila (email_campaign_leads) é a fonte da verdade da audiência.
+    //
+    // Antes a audiência era resolvida por query em crm_leads a partir de
+    // audience_filters. Com filtro vazio isso virava "todos os leads com
+    // e-mail", e o PostgREST corta a resposta em 1000 linhas — a campanha de
+    // 25/08 mostrava "110/1000" tendo 17.212 na fila, e os outros 16 mil nunca
+    // entrariam no alcance por mais que a função rodasse de novo.
+    const { data: prog0 } = await supabase.rpc("email_campanha_progresso", { p_campaign_id: campaign_id });
+    const inicial = (Array.isArray(prog0) ? prog0[0] : prog0) || {};
+    const naFila = Number(inicial.pendentes || 0) + Number(inicial.processando || 0);
+    if (naFila === 0) {
       await supabase
         .from("email_campaigns")
-        .update({ status: "sending", started_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          sent_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", campaign_id);
-    }
-
-    let audience: Recipient[] = [];
-    if (audience_override) {
-      audience = await resolveAudienceByCriteria(supabase, audience_override);
-    } else {
-      const filters = (campaign as any).audience_filters || {};
-      audience = await resolveAudienceByCriteria(supabase, filters);
-      if (audience.length === 0) {
-        const { data: ecls } = await supabase
-          .from("email_campaign_leads")
-          .select("lead_id, email")
-          .eq("campaign_id", campaign_id)
-          .eq("status", "pending");
-        const leadIds = (ecls || []).map((r: any) => r.lead_id).filter(Boolean);
-        if (leadIds.length) audience = await resolveAudienceByCriteria(supabase, { lead_ids: leadIds });
-      }
-    }
-
-    if (audience.length === 0) {
-      await supabase
-        .from("email_campaigns")
-        .update({ status: "cancelled", updated_at: new Date().toISOString() })
-        .eq("id", campaign_id);
-      throw new Error("Nenhum destinatário encontrado");
+      return new Response(JSON.stringify({ success: true, message: "Fila vazia, campanha concluída" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     await supabase
       .from("email_campaigns")
-      .update({ total_leads: audience.length, total_recipients: audience.length })
+      .update({
+        status: "sending",
+        started_at: campaign.started_at || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", campaign_id);
 
-    // Tira da audiência quem JÁ tem envio registrado nesta campanha.
-    //
-    // Sem isto, campanha com `audience_filters` resolvia a lista pelos critérios (não pela fila
-    // de pendentes) e o lote "primeiros N" era sempre o MESMO grupo — em 03/08 isso mandou a
-    // mesma mensagem até 198 vezes pra mesma pessoa. Marcar o lead como enviado não resolvia,
-    // porque a resolução nem olhava esse status.
-    {
-      const jaEnviados = new Set<string>();
-      const PAGINA = 1000;
-      for (let inicio = 0; ; inicio += PAGINA) {
-        const { data: enviados } = await supabase
-          .from("email_sends")
-          .select("email")
-          .eq("campaign_id", campaign_id)
-          .range(inicio, inicio + PAGINA - 1);
-        if (!enviados || enviados.length === 0) break;
-        for (const e of enviados) if (e.email) jaEnviados.add(String(e.email).toLowerCase());
-        if (enviados.length < PAGINA) break;
-      }
-      if (jaEnviados.size > 0) {
-        const antes = audience.length;
-        audience = audience.filter((r: any) => !jaEnviados.has(String(r.email).toLowerCase()));
-        console.log(`Campanha ${campaign_id}: ${antes - audience.length} já haviam recebido, pulados`);
-      }
-    }
-
     const from = `${fromName} <${fromEmail}>`;
-    let sent = 0;
-    let failed = 0;
-
-    // Lote por invocação.
-    //
-    // Antes o laço percorria a audiência INTEIRA numa única execução, com pausa de 100ms por
-    // e-mail. A edge function morre no limite de ~150s de CPU, então numa campanha de 1.000
-    // ela enviava ~100 e era abatida no meio — sem erro registrado, sem marcar 'completed', e
-    // com sent_count parado em 0 porque o contador só era gravado no fim. Foi exatamente o que
-    // aconteceu em 03/08 (101 enviados às 21:02 e nada mais).
-    //
-    // Como a audiência sai de email_campaign_leads com status='pending', quem já recebeu fica
-    // de fora na próxima chamada — então basta processar um pedaço e deixar o cron chamar de
-    // novo até zerar a fila.
-    const LOTE = 200;
-    const daVez = audience.slice(0, LOTE);
-    const restam = audience.length - daVez.length;
-    const sentBase = campaign.sent_count || 0;
+    const htmlBase = body.html || (campaign as any).html_content || `<p>${campaign.subject}</p>`;
+    const inicio = Date.now();
 
     const bgTask = (async () => {
-      for (const recipient of daVez) {
-        try {
-          const token = await getOrCreateUnsubscribeToken(supabase, recipient.email, recipient.lead_id);
-          if (!token) {
-            console.log(`Skip ${recipient.email} (unsubscribed/complained)`);
-            continue;
-          }
-          const unsubscribeUrl = `${appUrl}/unsubscribe?token=${token}`;
+      let enviadosAqui = 0;
+      let falhasAqui = 0;
+      let seguidos429 = 0;
+      let motivoParada = "fila vazia";
 
-          // Onboarding URL único por lead (Masterclass IA wizard).
-          // Garante token + monta /m/<token>. Se RPC falhar, link cai pro home.
-          let onboardingUrl = `${appUrl}/`;
-          try {
-            if (recipient.lead_id) {
-              const { data: onbToken } = await supabase
-                .rpc("onboarding_ensure_token", { p_lead_id: recipient.lead_id });
-              if (onbToken) onboardingUrl = `${appUrl}/m/${onbToken}`;
-            }
-          } catch (e) {
-            console.warn(`onboarding_ensure_token falhou pra lead=${recipient.lead_id}:`, e);
-          }
+      while (true) {
+        if (Date.now() - inicio > LIMITE_MS) {
+          motivoParada = "limite de tempo (o cron retoma)";
+          break;
+        }
 
+        // Reserva atômica: quem sai daqui já tem linha em email_sends e
+        // portanto está travado contra segundo envio.
+        const { data: reservados, error: errReserva } = await supabase.rpc("email_campanha_reservar_lote", {
+          p_campaign_id: campaign_id,
+          p_limite: LOTE,
+        });
+        if (errReserva) {
+          console.error("Erro reservando lote:", errReserva);
+          motivoParada = `erro na reserva: ${errReserva.message}`;
+          break;
+        }
+        const lote: Reservado[] = reservados || [];
+        if (lote.length === 0) break;
+
+        const itens = lote.map((r) => {
+          const unsubscribeUrl = `${appUrl}/unsubscribe?token=${r.token || ""}`;
+          const primeiroNome = r.nome ? r.nome.split(" ")[0] : "";
           const variables: Record<string, string> = {
-            nome: recipient.name || "",
-            primeiro_nome: recipient.first_name || "",
-            email: recipient.email,
-            empresa: recipient.company_name || config.company_name || "",
-            whatsapp: recipient.whatsapp || "",
-            vendedor: recipient.assigned_to || "",
+            nome: r.nome || "",
+            primeiro_nome: primeiroNome,
+            email: r.email,
+            empresa: config.company_name || "",
             unsubscribe_url: unsubscribeUrl,
             link_descadastro: unsubscribeUrl,
-            // Onboarding único pro wizard pós-compra Masterclass
-            onboarding_url: onboardingUrl,
-            link_onboarding: onboardingUrl,
-            link_plataforma: onboardingUrl,
-            acessar_plataforma: onboardingUrl,
           };
-          const baseHtml = body.html || (campaign as any).html_content || `<p>${campaign.subject}</p>`;
-          let html = substituteVariables(baseHtml, variables);
-          html = injectComplianceFooter(html, unsubscribeUrl, config);
-          const subject = substituteVariables(campaign.subject, variables);
+          return {
+            from,
+            to: [r.email],
+            subject: substituteVariables(campaign.subject, variables),
+            html: injectComplianceFooter(substituteVariables(htmlBase, variables), unsubscribeUrl, config),
+            reply_to: replyTo,
+            headers: {
+              "X-Campaign-ID": campaign_id,
+              "X-Send-ID": r.send_id,
+              "List-Unsubscribe": `<${unsubscribeUrl}>`,
+              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            },
+          };
+        });
 
-          const { data: sendRow, error: sendErr } = await supabase
-            .from("email_sends")
-            .insert({
-              campaign_id,
-              lead_id: recipient.lead_id,
-              email: recipient.email,
-              status: "pending",
-              html,
+        const sendIds = lote.map((r) => r.send_id);
+        let resposta: Response | null = null;
+        try {
+          resposta = await fetch("https://api.resend.com/emails/batch", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${config.resend_api_key}`, "Content-Type": "application/json" },
+            body: JSON.stringify(itens),
+          });
+        } catch (e) {
+          // Resposta desconhecida: pode ter saído ou não. Marca falha e NÃO
+          // devolve pra fila — perder um e-mail é preferível a mandar dois.
+          const msg = `sem resposta do Resend: ${e}`;
+          console.error(msg);
+          await supabase.rpc("email_campanha_falhar", { p_send_ids: sendIds, p_erro: msg });
+          falhasAqui += sendIds.length;
+          motivoParada = msg;
+          break;
+        }
+
+        if (resposta.ok) {
+          seguidos429 = 0;
+          const dados = await resposta.json();
+          const ids: any[] = Array.isArray(dados?.data) ? dados.data : [];
+          const confirmacoes = lote.map((r, i) => ({ send_id: r.send_id, resend_id: ids[i]?.id || null }));
+          await supabase.rpc("email_campanha_confirmar", { p_itens: confirmacoes });
+          enviadosAqui += lote.length;
+
+          const { data: prog } = await supabase.rpc("email_campanha_progresso", { p_campaign_id: campaign_id });
+          const p = (Array.isArray(prog) ? prog[0] : prog) || {};
+          await supabase
+            .from("email_campaigns")
+            .update({
+              sent_count: Number(p.enviados || 0),
+              total_sent: Number(p.enviados || 0),
+              failed_count: Number(p.falhas || 0),
+              updated_at: new Date().toISOString(),
             })
-            .select("id")
-            .single();
+            .eq("id", campaign_id);
+        } else {
+          const erro = await resposta.text();
 
-          // O índice único (campaign_id, lower(email)) é a última linha de defesa contra
-          // reenvio. Antes o erro era ignorado e o Resend era chamado assim mesmo — ou seja,
-          // a trava do banco existiria e o e-mail sairia do mesmo jeito.
-          if (sendErr || !sendRow) {
-            console.log(`Pulando ${recipient.email}: já registrado nesta campanha (${sendErr?.message || "sem linha"})`);
-            await supabase
-              .from("email_campaign_leads")
-              .update({ status: "sent" })
-              .eq("campaign_id", campaign_id)
-              .eq("email", recipient.email);
+          if (resposta.status === 429) {
+            // Nada saiu: devolve o lote pra fila e espera.
+            await supabase.rpc("email_campanha_devolver", { p_send_ids: sendIds });
+            seguidos429++;
+            if (seguidos429 >= MAX_429_SEGUIDOS) {
+              motivoParada = "rate limit do Resend insistente";
+              break;
+            }
+            await dorme(2000 * seguidos429);
             continue;
           }
 
-          const res = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: { "Authorization": `Bearer ${config.resend_api_key}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              from,
-              to: [recipient.email],
-              subject,
-              html,
-              reply_to: replyTo,
-              headers: {
-                "X-Campaign-ID": campaign_id,
-                "X-Send-ID": sendRow?.id || "",
-                "List-Unsubscribe": `<${unsubscribeUrl}>`,
-                "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-              },
-            }),
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            const nowIso = new Date().toISOString();
-            await supabase
-              .from("email_sends")
-              .update({ status: "sent", sent_at: nowIso, resend_id: data.id })
-              .eq("id", sendRow!.id);
-            await supabase
-              .from("email_campaign_leads")
-              .update({ status: "sent", sent_at: nowIso, resend_id: data.id })
-              .eq("campaign_id", campaign_id)
-              .eq("email", recipient.email);
-            sent++;
-            // Grava o progresso a cada 10 envios: a tela mostrava 0 enviados durante toda a
-            // campanha porque o contador só era escrito no final.
-            if (sent % 10 === 0) {
-              await supabase
-                .from("email_campaigns")
-                .update({ sent_count: sentBase + sent, total_sent: sentBase + sent, updated_at: new Date().toISOString() })
-                .eq("id", campaign_id);
+          if (resposta.status >= 400 && resposta.status < 500) {
+            // O /emails/batch é tudo-ou-nada: UM endereço recusado derruba os
+            // 100 (ex.: 422 "email address contains non-ASCII characters"). Se
+            // devolvêssemos o lote e parássemos, a invocação seguinte pegaria o
+            // mesmo endereço ruim e a fila travava pra sempre — foi o que
+            // segurou a campanha em 812/17212 em 27/08. Aqui isolamos o culpado
+            // reenviando item a item: os bons saem, o ruim fica marcado.
+            console.error(`Lote recusado (${resposta.status}), isolando item a item: ${erro.slice(0, 200)}`);
+            seguidos429 = 0;
+            for (let i = 0; i < lote.length; i++) {
+              const alvo = lote[i];
+              try {
+                const uma = await fetch("https://api.resend.com/emails", {
+                  method: "POST",
+                  headers: {
+                    "Authorization": `Bearer ${config.resend_api_key}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify(itens[i]),
+                });
+                if (uma.ok) {
+                  const d = await uma.json();
+                  await supabase.rpc("email_campanha_confirmar", {
+                    p_itens: [{ send_id: alvo.send_id, resend_id: d?.id || null }],
+                  });
+                  enviadosAqui++;
+                } else {
+                  const txt = await uma.text();
+                  await supabase.rpc("email_campanha_falhar", {
+                    p_send_ids: [alvo.send_id],
+                    p_erro: `Resend ${uma.status}: ${txt.slice(0, 300)}`,
+                  });
+                  falhasAqui++;
+                }
+              } catch (e) {
+                await supabase.rpc("email_campanha_falhar", {
+                  p_send_ids: [alvo.send_id],
+                  p_erro: `sem resposta do Resend: ${e}`,
+                });
+                falhasAqui++;
+              }
+              await dorme(120); // teto de 10 req/s do Resend
             }
-          } else {
-            const errText = await res.text();
-            await supabase
-              .from("email_sends")
-              .update({ status: "failed", error_message: errText.slice(0, 500) })
-              .eq("id", sendRow!.id);
-            await supabase
-              .from("email_campaign_leads")
-              .update({ status: "failed", error_message: errText.slice(0, 500) })
-              .eq("campaign_id", campaign_id)
-              .eq("email", recipient.email);
-            failed++;
+            await dorme(PAUSA_ENTRE_LOTES_MS);
+            continue;
           }
-        } catch (err) {
-          console.error(`Erro enviando pra ${recipient.email}:`, err);
-          failed++;
+
+          // 5xx: problema do lado do Resend. Devolve o lote e para; o cron volta.
+          await supabase.rpc("email_campanha_devolver", { p_send_ids: sendIds });
+          console.error(`Resend indisponível (${resposta.status}): ${erro.slice(0, 300)}`);
+          motivoParada = `Resend ${resposta.status}: ${erro.slice(0, 200)}`;
+          break;
         }
-        await new Promise((r) => setTimeout(r, 130));
+
+        await dorme(PAUSA_ENTRE_LOTES_MS);
       }
 
-      // Sobrou fila? Mantém 'sending' pro cron voltar. Só fecha quando não resta ninguém.
+      // Fecha só quando não resta ninguém na fila.
+      const { data: progF } = await supabase.rpc("email_campanha_progresso", { p_campaign_id: campaign_id });
+      const pf = (Array.isArray(progF) ? progF[0] : progF) || {};
+      const restam = Number(pf.pendentes || 0) + Number(pf.processando || 0);
+      const total = Number(pf.pendentes || 0) + Number(pf.processando || 0) + Number(pf.enviados || 0) +
+        Number(pf.falhas || 0) + Number(pf.pulados || 0);
       const concluiu = restam === 0;
+
       await supabase
         .from("email_campaigns")
         .update({
           status: concluiu ? "completed" : "sending",
           ...(concluiu ? { completed_at: new Date().toISOString(), sent_at: new Date().toISOString() } : {}),
-          sent_count: sentBase + sent,
-          failed_count: (campaign.failed_count || 0) + failed,
-          total_sent: sentBase + sent,
+          sent_count: Number(pf.enviados || 0),
+          total_sent: Number(pf.enviados || 0),
+          failed_count: Number(pf.falhas || 0),
+          total_leads: total,
+          total_recipients: total,
           updated_at: new Date().toISOString(),
         })
         .eq("id", campaign_id);
-      console.log(`Campaign ${campaign_id}: ${sent} enviados neste lote, ${failed} falhas, ${restam} na fila`);
+
+      console.log(
+        `Campanha ${campaign_id}: +${enviadosAqui} nesta invocação (${falhasAqui} falhas), ` +
+          `${restam} na fila, parou por: ${motivoParada}`,
+      );
     })();
 
     // @ts-ignore EdgeRuntime global
     if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(bgTask);
 
     return new Response(
-      JSON.stringify({ success: true, message: "Campanha em envio", recipients: audience.length }),
+      JSON.stringify({ success: true, message: "Campanha em envio", na_fila: naFila }),
       { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err: any) {
