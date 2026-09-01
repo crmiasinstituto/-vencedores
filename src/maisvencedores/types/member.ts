@@ -136,6 +136,9 @@ export interface Training {
   faixaMinima: Faixa;
   videoUrl?: string;
   progress?: number;
+  /** Quem publicou. Vazio = veio da equipe. */
+  createdBy?: string | null;
+  isActive?: boolean;
 }
 
 export interface Treinador {

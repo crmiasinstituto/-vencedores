@@ -9,6 +9,10 @@ import type { Training } from '@/maisvencedores/types/member';
  * (current_faixa() >= faixa_minima). Repetir a regra no front seria uma segunda fonte da
  * verdade pra divergir da primeira — e a que vale é a do banco.
  *
+ * O `.eq('is_active', true)` saiu daqui pelo mesmo motivo: a policy já esconde o que está
+ * despublicado, MENOS para o autor, que precisa continuar vendo (e reeditando) o próprio
+ * treinamento se um admin o desativar. Filtrar aqui apagaria essa exceção.
+ *
  * Existe porque o /membros/treinamentos lia `mockTrainings`: 6 treinamentos inventados pelo
  * template da Lovable, que apareciam mesmo com o catálogo real vazio.
  */
@@ -20,8 +24,7 @@ export function useTrainings() {
     setLoading(true);
     const { data, error } = await supabase
       .from('trainings')
-      .select('id, title, description, thumbnail_url, video_url, duration, category_id, faixa_minima, training_categories(nome)')
-      .eq('is_active', true)
+      .select('id, title, description, thumbnail_url, video_url, duration, category_id, faixa_minima, is_active, created_by, training_categories(nome)')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -39,6 +42,8 @@ export function useTrainings() {
           categoryId: t.category_id || undefined,
           categoryNome: t.training_categories?.nome || undefined,
           faixaMinima: t.faixa_minima,
+          createdBy: t.created_by ?? null,
+          isActive: t.is_active,
         })),
       );
     }

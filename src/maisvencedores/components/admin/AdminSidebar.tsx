@@ -18,6 +18,7 @@ const menuItems = [
   { icon: GraduationCap, label: 'Treinamentos', path: '/admin/maisvencedores/treinamentos' },
   { icon: DollarSign, label: 'Vendas', path: '/admin/maisvencedores/vendas' },
   { icon: Megaphone, label: 'Anúncios', path: '/admin/maisvencedores/anuncios' },
+  { icon: Settings, label: 'Configurações', path: '/admin/maisvencedores/configuracoes' },
 ];
 
 export function AdminSidebar() {
