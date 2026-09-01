@@ -22,6 +22,8 @@ export interface SystemCron {
   http_at: string | null;
   http_body: string | null;
   instrumented: boolean;
+  /** a chamada estourou o tempo limite antes de responder */
+  timed_out: boolean | null;
   /** respondeu 200 mas com {"ok":false} — falha que o HTTP não denuncia */
   soft_error: boolean;
 }
