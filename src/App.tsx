@@ -60,6 +60,7 @@ const EmailTemplates = lazy(() => import("./pages/marketing/EmailTemplates"));
 const EmailTemplateEditor = lazy(() => import("./pages/marketing/EmailTemplateEditor"));
 const MarketingAutomations = lazy(() => import("./pages/marketing/MarketingAutomations"));
 const MarketingAutomationEditor = lazy(() => import("./pages/marketing/MarketingAutomationEditor"));
+const GroupCadenceEditor = lazy(() => import("./pages/marketing/GroupCadenceEditor"));
 const WhatsAppTemplates = lazy(() => import("./pages/marketing/WhatsAppTemplates"));
 const WhatsAppTemplateNew = lazy(() => import("./pages/marketing/WhatsAppTemplateNew"));
 const SalesCampaigns = lazy(() => import("./pages/marketing/SalesCampaigns"));
@@ -202,6 +203,7 @@ const App = () => {
                 <Route path="/admin/marketing/templates/:id" element={<AdminLayout><EmailTemplateEditor /></AdminLayout>} />
                 <Route path="/admin/marketing/automacoes" element={<AdminLayout><MarketingAutomations /></AdminLayout>} />
                 <Route path="/admin/marketing/automacoes/:id" element={<AdminLayout><MarketingAutomationEditor /></AdminLayout>} />
+                <Route path="/admin/marketing/cadencias-grupo/:id" element={<AdminLayout><GroupCadenceEditor /></AdminLayout>} />
                 <Route path="/admin/marketing/wa-templates" element={<AdminLayout><WhatsAppTemplates /></AdminLayout>} />
                 <Route path="/admin/marketing/wa-templates/novo" element={<AdminLayout><WhatsAppTemplateNew /></AdminLayout>} />
                 <Route path="/admin/marketing/wa-campanhas" element={<AdminLayout><SalesCampaigns /></AdminLayout>} />
