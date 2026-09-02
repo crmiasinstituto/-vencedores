@@ -139,6 +139,9 @@ export interface Training {
   /** Quem publicou. Vazio = veio da equipe. */
   createdBy?: string | null;
   isActive?: boolean;
+  /** pendente | aprovado | rejeitado — moderação prévia do conteúdo de membro. */
+  moderacaoStatus?: 'pendente' | 'aprovado' | 'rejeitado';
+  motivoRejeicao?: string | null;
 }
 
 export interface Treinador {

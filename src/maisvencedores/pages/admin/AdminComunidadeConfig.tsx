@@ -6,10 +6,11 @@ import { Badge } from '@/components/ui/badge';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Loader2, GraduationCap, Users } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Loader2, GraduationCap, Users, ShieldCheck } from 'lucide-react';
 import type { Faixa } from '@/maisvencedores/types/member';
 import { FAIXAS, FAIXA_INFO, nivelDaFaixa } from '@/maisvencedores/types/member';
-import { useFaixaMinimaPublicar } from '@/maisvencedores/hooks/useComunidadeConfig';
+import { useFaixaMinimaPublicar, useExigeAprovacao } from '@/maisvencedores/hooks/useComunidadeConfig';
 
 const db = supabase as any;
 
@@ -21,6 +22,7 @@ const db = supabase as any;
  */
 export default function AdminComunidadeConfig() {
   const { faixa, loading, salvando, salvar } = useFaixaMinimaPublicar();
+  const { exige, salvando: salvandoAprovacao, salvar: salvarAprovacao } = useExigeAprovacao();
   const [contagem, setContagem] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -112,6 +114,37 @@ export default function AdminComunidadeConfig() {
             Quem publica só edita e remove o próprio treinamento. Você continua podendo
             despublicar qualquer um na tela de Treinamentos, onde também aparece o autor de cada
             conteúdo.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-card/50 border-gold/20 max-w-2xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <ShieldCheck className="h-5 w-5 text-gold" />
+            Aprovação antes de publicar
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <Label>Revisar antes de ir ao ar</Label>
+              <p className="text-sm text-muted-foreground">
+                {exige
+                  ? 'O treinamento entra despublicado e fica numa fila até você aprovar.'
+                  : 'O treinador publica e o conteúdo aparece na hora, sem passar por você.'}
+              </p>
+            </div>
+            <Switch
+              checked={Boolean(exige)}
+              onCheckedChange={(v) => salvarAprovacao(v)}
+              disabled={salvandoAprovacao || exige === null}
+            />
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Com a revisão ligada, a fila aparece em Treinamentos → “Aguardando aprovação”, e
+            editar um treinamento já publicado devolve ele para a fila.
           </p>
         </CardContent>
       </Card>

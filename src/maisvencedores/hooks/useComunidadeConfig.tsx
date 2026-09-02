@@ -80,3 +80,40 @@ export function useFaixaMinimaPublicar() {
 
   return { faixa, loading, salvando, salvar, refetch: carregar };
 }
+
+/** Se a comunidade exige aprovação antes do treinamento do membro ir ao ar. */
+export function useExigeAprovacao() {
+  const [exige, setExige] = useState<boolean | null>(null);
+  const [salvando, setSalvando] = useState(false);
+
+  const carregar = useCallback(async () => {
+    const { data } = await db
+      .from('comunidade_config')
+      .select('value')
+      .eq('key', 'treinamento_exige_aprovacao')
+      .maybeSingle();
+    setExige(data?.value === true);
+  }, []);
+
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
+
+  const salvar = useCallback(async (novo: boolean) => {
+    setSalvando(true);
+    const { error } = await db.rpc('set_comunidade_config', {
+      p_key: 'treinamento_exige_aprovacao',
+      p_value: novo,
+    });
+    setSalvando(false);
+    if (error) {
+      toast.error(error.message || 'Não consegui salvar');
+      return false;
+    }
+    setExige(novo);
+    toast.success(novo ? 'Aprovação prévia ligada' : 'Aprovação prévia desligada');
+    return true;
+  }, []);
+
+  return { exige, salvando, salvar };
+}

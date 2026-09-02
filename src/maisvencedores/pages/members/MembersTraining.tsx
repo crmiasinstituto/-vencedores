@@ -7,10 +7,10 @@ import { useAuth } from '@/maisvencedores/contexts/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, EyeOff } from 'lucide-react';
+import { Plus, Pencil, Trash2, EyeOff, Clock, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { usePodePublicarTreinamento } from '@/maisvencedores/hooks/useComunidadeConfig';
+import { usePodePublicarTreinamento, useExigeAprovacao } from '@/maisvencedores/hooks/useComunidadeConfig';
 import {
   TrainingFormDialog,
   type TrainingFormValues,
@@ -47,6 +47,7 @@ export default function MembersTraining() {
   const [editando, setEditando] = useState<TrainingFormValues | null>(null);
 
   const { pode: podePublicar } = usePodePublicarTreinamento();
+  const { exige: exigeAprovacao } = useExigeAprovacao();
   const meus = useMemo(
     () => (user ? trainings.filter((t) => t.createdBy === user.id) : []),
     [trainings, user],
@@ -105,7 +106,9 @@ export default function MembersTraining() {
             <div>
               <p className="font-medium text-foreground">Você pode publicar treinamentos</p>
               <p className="text-sm text-muted-foreground">
-                Sua faixa dá acesso a subir conteúdo para a comunidade.
+                {exigeAprovacao
+                  ? 'Sua faixa dá acesso a subir conteúdo. Passa por aprovação antes de aparecer para a comunidade.'
+                  : 'Sua faixa dá acesso a subir conteúdo, e ele entra no ar na hora.'}
               </p>
             </div>
             <Button onClick={abrirNovo} className="bg-gold hover:bg-gold/90 text-black">
@@ -160,16 +163,25 @@ export default function MembersTraining() {
                   <div key={training.id} className="relative group">
                     <TrainingCard training={training} />
 
-                    {/* Despublicado por um admin: só o autor vê, e precisa saber por que
-                        esse card não aparece para mais ninguém. */}
-                    {training.isActive === false && (
+                    {/* Só o autor e o admin enxergam estes cards. Sem o selo, o treinamento
+                        simplesmente não apareceria para mais ninguém e ele não saberia por quê. */}
+                    {training.moderacaoStatus === 'pendente' ? (
+                      <Badge className="absolute top-2 left-2 text-[10px] gap-1 bg-amber-500/90 text-black">
+                        <Clock className="h-3 w-3" /> aguardando aprovação
+                      </Badge>
+                    ) : training.moderacaoStatus === 'rejeitado' ? (
                       <Badge
-                        variant="secondary"
+                        variant="destructive"
                         className="absolute top-2 left-2 text-[10px] gap-1"
+                        title={training.motivoRejeicao || undefined}
                       >
+                        <AlertCircle className="h-3 w-3" /> não aprovado
+                      </Badge>
+                    ) : training.isActive === false ? (
+                      <Badge variant="secondary" className="absolute top-2 left-2 text-[10px] gap-1">
                         <EyeOff className="h-3 w-3" /> despublicado
                       </Badge>
-                    )}
+                    ) : null}
 
                     {training.createdBy && training.createdBy === user?.id && (
                       <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
@@ -193,6 +205,14 @@ export default function MembersTraining() {
                         </Button>
                       </div>
                     )}
+
+                    {training.createdBy === user?.id &&
+                      training.moderacaoStatus === 'rejeitado' &&
+                      training.motivoRejeicao && (
+                        <p className="mt-2 text-xs text-destructive">
+                          Motivo: {training.motivoRejeicao}
+                        </p>
+                      )}
                   </div>
                 ))}
               </div>
@@ -200,6 +220,12 @@ export default function MembersTraining() {
               {aba === MEUS && meus.length === 0 && (
                 <p className="text-sm text-muted-foreground">
                   Você ainda não publicou nenhum treinamento.
+                </p>
+              )}
+
+              {aba === MEUS && meus.length > 0 && exigeAprovacao && (
+                <p className="mt-4 text-xs text-muted-foreground">
+                  Editar um treinamento já publicado devolve ele para a fila de aprovação.
                 </p>
               )}
             </TabsContent>

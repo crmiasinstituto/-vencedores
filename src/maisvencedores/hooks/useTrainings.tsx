@@ -24,7 +24,7 @@ export function useTrainings() {
     setLoading(true);
     const { data, error } = await supabase
       .from('trainings')
-      .select('id, title, description, thumbnail_url, video_url, duration, category_id, faixa_minima, is_active, created_by, training_categories(nome)')
+      .select('id, title, description, thumbnail_url, video_url, duration, category_id, faixa_minima, is_active, created_by, moderacao_status, motivo_rejeicao, training_categories(nome)')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -44,6 +44,8 @@ export function useTrainings() {
           faixaMinima: t.faixa_minima,
           createdBy: t.created_by ?? null,
           isActive: t.is_active,
+          moderacaoStatus: t.moderacao_status ?? 'aprovado',
+          motivoRejeicao: t.motivo_rejeicao ?? null,
         })),
       );
     }
