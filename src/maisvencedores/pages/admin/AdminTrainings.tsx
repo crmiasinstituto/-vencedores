@@ -12,8 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Pencil, Trash2, Loader2, Clock } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Faixa } from '@/maisvencedores/types/member';
 import { FAIXA_INFO } from '@/maisvencedores/types/member';
@@ -22,9 +21,6 @@ import {
   TrainingFormDialog,
   type TrainingFormValues,
 } from '@/maisvencedores/components/shared/TrainingFormDialog';
-import { FilaModeracaoTreinamentos } from '@/maisvencedores/components/admin/FilaModeracaoTreinamentos';
-import { usePendentesCount } from '@/maisvencedores/hooks/useModeracaoTreinamentos';
-import { useExigeAprovacao } from '@/maisvencedores/hooks/useComunidadeConfig';
 
 interface Training {
   id: string;
@@ -37,14 +33,10 @@ interface Training {
   faixa_minima: Faixa;
   is_active: boolean;
   created_by: string | null;
-  moderacao_status: string;
 }
 
 export default function AdminTrainings() {
   const { categorias } = useCategorias();
-  const pendentesCount = usePendentesCount();
-  const { exige: exigeAprovacao } = useExigeAprovacao();
-  const [aba, setAba] = useState('catalogo');
 
   const [trainings, setTrainings] = useState<Training[]>([]);
   /** user_id -> nome de quem publicou. Vem por RPC: profiles não é legível pelo join. */
@@ -79,7 +71,6 @@ export default function AdminTrainings() {
           faixa_minima: t.faixa_minima,
           is_active: t.is_active,
           created_by: t.created_by ?? null,
-          moderacao_status: t.moderacao_status ?? 'aprovado',
         })),
       );
 
@@ -168,25 +159,6 @@ export default function AdminTrainings() {
         modo="admin"
       />
 
-      <Tabs value={aba} onValueChange={setAba}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="catalogo">Catálogo</TabsTrigger>
-          {(exigeAprovacao || pendentesCount > 0) && (
-          <TabsTrigger value="moderacao" className="gap-1.5">
-            <Clock className="h-3.5 w-3.5" />
-            Aguardando aprovação
-            {pendentesCount > 0 && (
-              <Badge className="ml-1 text-[10px] bg-gold text-black">{pendentesCount}</Badge>
-            )}
-          </TabsTrigger>
-          )}
-        </TabsList>
-
-        <TabsContent value="moderacao">
-          <FilaModeracaoTreinamentos onMudou={fetchTrainings} />
-        </TabsContent>
-
-        <TabsContent value="catalogo">
       <Card className="bg-card/50 border-gold/20">
         <CardContent className="p-0">
           {loading ? (
@@ -244,18 +216,10 @@ export default function AdminTrainings() {
                     </TableCell>
                     <TableCell>{training.duration || '-'}</TableCell>
                     <TableCell>
-                      {training.moderacao_status === 'pendente' ? (
-                        <Badge variant="outline" className="text-[10px] gap-1">
-                          <Clock className="h-3 w-3" /> aguardando
-                        </Badge>
-                      ) : training.moderacao_status === 'rejeitado' ? (
-                        <Badge variant="secondary" className="text-[10px]">recusado</Badge>
-                      ) : (
                       <Switch
                         checked={training.is_active}
                         onCheckedChange={() => handleToggleActive(training.id, training.is_active)}
                       />
-                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(training)}>
@@ -272,8 +236,6 @@ export default function AdminTrainings() {
           )}
         </CardContent>
       </Card>
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }

@@ -127,34 +127,48 @@ export default function EmailCampaignNew() {
   };
 
   const handleSendTest = async () => {
+    // Nada de botão desabilitado em silêncio: se falta alguma coisa, o clique DIZ o que falta.
+    // Antes, sem template escolhido o botão simplesmente não respondia e não havia como
+    // adivinhar o motivo.
     if (!testEmail.trim() || !testEmail.includes('@')) {
       toast({ title: 'Informe um email válido pra teste', variant: 'destructive' });
       return;
     }
-    if (!selectedTemplate) {
-      toast({ title: 'Selecione um template antes de enviar teste', variant: 'destructive' });
+    const html = selectedTemplate?.html_content?.trim();
+    if (!html) {
+      toast({
+        title: 'Escolha um template antes',
+        description: 'Volte em "04 · Conteúdo" e selecione o template que será enviado.',
+        variant: 'destructive',
+      });
       return;
     }
-    try {
-      // Cria campanha rascunho efêmera apenas pra teste
-      const draft = await createCampaign.mutateAsync({
-        name: `[TESTE] ${name || 'Sem nome'}`,
-        subject,
-        from_name: fromName,
-        from_email: fromEmail,
-        reply_to: replyTo || null,
-        template_id: selectedTemplate.id,
-        html_content: selectedTemplate.html_content,
-        audience_filters: { lead_ids: [] } as any,
+    if (!subject.trim()) {
+      toast({
+        title: 'Falta o assunto',
+        description: 'O assunto do email é preenchido em "04 · Conteúdo".',
+        variant: 'destructive',
       });
+      return;
+    }
+
+    try {
+      // O teste NÃO cria mais campanha rascunho. A edge function tem um modo de teste que
+      // dispensa campaign_id, e criar uma linha em email_campaigns só pra testar (a) podia
+      // falhar antes do envio acontecer, deixando o clique sem efeito visível, e (b) enchia
+      // a listagem de campanhas "[TESTE] ..." que ninguém limpava.
       await sendTest.mutateAsync({
-        campaignId: draft.id,
         testEmail: testEmail.trim(),
-        html: selectedTemplate.html_content,
+        html,
+        subject: subject.trim(),
       });
       toast({ title: `Teste enviado pra ${testEmail.trim()}` });
     } catch (err: any) {
-      toast({ title: err.message || 'Erro ao enviar teste', variant: 'destructive' });
+      toast({
+        title: 'Não consegui enviar o teste',
+        description: err?.message || 'Erro desconhecido',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -578,7 +592,7 @@ export default function EmailCampaignNew() {
                         <Button
                           variant="outline"
                           onClick={handleSendTest}
-                          disabled={sendTest.isPending || !selectedTemplate}
+                          disabled={sendTest.isPending}
                           className="gap-1.5"
                         >
                           {sendTest.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}

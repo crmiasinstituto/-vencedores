@@ -15,9 +15,10 @@ import {
 } from '@/components/ui/select';
 import {
   ArrowLeft, Save, Loader2, Plus, Trash2, Play, Pause, Users, Clock,
-  MessageSquare, Search, CheckCircle2, AlertCircle, Image as ImageIcon,
+  MessageSquare, Search, CheckCircle2, AlertCircle,
   ArrowUp, ArrowDown,
 } from 'lucide-react';
+import { MediaDropzone } from '@/components/marketing-mod/MediaDropzone';
 import { toast } from 'sonner';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -464,35 +465,30 @@ export default function GroupCadenceEditor() {
                           className="text-sm resize-none"
                         />
 
-                        <div className="grid grid-cols-[1fr_130px_130px] gap-2">
-                          <div className="relative">
-                            <ImageIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_150px] gap-3">
+                          {/* O tipo não é mais escolhido à mão: sai do próprio arquivo.
+                              Escolher "imagem" e anexar um PDF fazia a uazapi recusar o envio. */}
+                          <MediaDropzone
+                            value={p.media_url || ''}
+                            tipo={(p.media_type as any) || null}
+                            onChange={(url, tipo) =>
+                              atualizarPasso(p._key, {
+                                media_url: url || null,
+                                media_type: tipo,
+                              })
+                            }
+                          />
+                          <div className="space-y-1">
+                            <Label className="text-[11px] text-muted-foreground">
+                              Horário fixo (opcional)
+                            </Label>
                             <Input
-                              value={p.media_url || ''}
-                              onChange={(e) => atualizarPasso(p._key, { media_url: e.target.value || null })}
-                              placeholder="URL de imagem/vídeo (opcional)"
-                              className="pl-8 h-8 text-xs"
+                              type="time"
+                              value={p.send_at_time ? String(p.send_at_time).slice(0, 5) : ''}
+                              onChange={(e) => atualizarPasso(p._key, { send_at_time: e.target.value || null })}
+                              className="h-8 text-xs"
                             />
                           </div>
-                          <Select
-                            value={p.media_type || 'image'}
-                            onValueChange={(v) => atualizarPasso(p._key, { media_type: v })}
-                          >
-                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="image">imagem</SelectItem>
-                              <SelectItem value="video">vídeo</SelectItem>
-                              <SelectItem value="document">documento</SelectItem>
-                              <SelectItem value="audio">áudio</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Input
-                            type="time"
-                            value={p.send_at_time ? String(p.send_at_time).slice(0, 5) : ''}
-                            onChange={(e) => atualizarPasso(p._key, { send_at_time: e.target.value || null })}
-                            className="h-8 text-xs"
-                            title="Horário fixo do dia (opcional)"
-                          />
                         </div>
                         <p className="text-[11px] text-muted-foreground">
                           Use <span className="font-mono">{'{{grupo}}'}</span> pra citar o nome do grupo.

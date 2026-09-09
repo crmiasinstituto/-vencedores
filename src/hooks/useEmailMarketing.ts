@@ -264,18 +264,41 @@ export const useUpdateEmailCampaign = () => {
 export const useSendEmailCampaignTest = () => {
   return useMutation({
     mutationFn: async ({
-      campaignId,
       testEmail,
       html,
+      subject,
+      campaignId,
     }: {
-      campaignId: string;
       testEmail: string;
       html: string;
+      subject?: string;
+      /** Opcional: sem ele a função usa o modo de teste puro, que não toca em campanha. */
+      campaignId?: string;
     }) => {
       const { data, error } = await supabase.functions.invoke('send-email-campaign', {
-        body: { campaign_id: campaignId, test_email: testEmail, html },
+        body: {
+          ...(campaignId ? { campaign_id: campaignId } : {}),
+          test_email: testEmail,
+          html,
+          subject,
+        },
       });
-      if (error) throw error;
+
+      // FunctionsHttpError esconde o corpo da resposta, então "Edge Function returned a
+      // non-2xx status code" era tudo que aparecia na tela — inútil pra saber que o Resend
+      // recusou, ou que faltava configuração. Aqui o motivo real é extraído.
+      if (error) {
+        let detalhe = error.message;
+        const resposta = (error as any)?.context;
+        if (resposta && typeof resposta.text === 'function') {
+          try {
+            const corpo = await resposta.text();
+            const json = (() => { try { return JSON.parse(corpo); } catch { return null; } })();
+            detalhe = json?.error || json?.message || corpo || detalhe;
+          } catch { /* fica a mensagem original */ }
+        }
+        throw new Error(detalhe);
+      }
       if ((data as any)?.error) throw new Error((data as any).error);
       return data;
     },
