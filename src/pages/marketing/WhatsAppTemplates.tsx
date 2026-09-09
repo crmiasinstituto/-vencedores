@@ -52,6 +52,9 @@ export default function WhatsAppTemplates() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set());
   const [categoryFilter, setCategoryFilter] = useState<Set<string>>(new Set());
+  // Template da Cloud API pertence a um NÚMERO. Com duas linhas, sem este filtro os
+  // templates do IAS e do Coexistente ficam embaralhados na mesma lista.
+  const [linhaFilter, setLinhaFilter] = useState<Set<string>>(new Set());
   const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
   const [previewOf, setPreviewOf] = useState<WhatsAppTemplate | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<WhatsAppTemplate | null>(null);
@@ -73,13 +76,19 @@ export default function WhatsAppTemplates() {
         byTag[slug] = (byTag[slug] || 0) + 1;
       });
     });
-    return { byStatus, byCategory, byTag };
+    const byLinha: Record<string, number> = {};
+    for (const t of templates) {
+      const l = t.linha_nome || 'Sem linha';
+      byLinha[l] = (byLinha[l] || 0) + 1;
+    }
+    return { byStatus, byCategory, byTag, byLinha };
   }, [templates]);
 
   const filtered = useMemo(() => {
     return templates.filter(t => {
       if (statusFilter.size > 0 && !statusFilter.has(t.status)) return false;
       if (categoryFilter.size > 0 && !categoryFilter.has(t.category)) return false;
+      if (linhaFilter.size > 0 && !linhaFilter.has(t.linha_nome || 'Sem linha')) return false;
       if (tagFilter.size > 0) {
         const has = (t.internal_tags || []).some(s => tagFilter.has(s));
         if (!has) return false;
@@ -92,7 +101,7 @@ export default function WhatsAppTemplates() {
       }
       return true;
     });
-  }, [templates, statusFilter, categoryFilter, tagFilter, search]);
+  }, [templates, statusFilter, categoryFilter, linhaFilter, tagFilter, search]);
 
   const toggleSet = (set: Set<string>, value: string, fn: (s: Set<string>) => void) => {
     const next = new Set(set);
@@ -173,6 +182,21 @@ export default function WhatsAppTemplates() {
               className="pl-9"
             />
           </div>
+
+          {Object.keys(counts.byLinha).length > 1 && (
+            <FilterGroup title="Número">
+              {Object.entries(counts.byLinha).map(([nome, qtd]) => (
+                <FilterCheck
+                  key={nome}
+                  checked={linhaFilter.has(nome)}
+                  onChange={() => toggleSet(linhaFilter, nome, setLinhaFilter)}
+                  label={nome}
+                  count={qtd}
+                  color="#25d366"
+                />
+              ))}
+            </FilterGroup>
+          )}
 
           <FilterGroup title="Status Meta">
             {Object.entries(STATUS_META).map(([key, meta]) => (
@@ -333,6 +357,16 @@ function TemplateCard({
           <div className="flex items-center gap-1.5">
             <Badge variant="outline" className={category.color}>{category.label}</Badge>
             <Badge variant="outline" className="text-[10px] uppercase">{template.language}</Badge>
+            {/* De qual número é o template — com duas linhas, o nome sozinho não diz. */}
+            {template.linha_nome && (
+              <Badge
+                variant="outline"
+                className="text-[10px] border-[#25d366]/40 text-[#25d366] max-w-[130px] truncate"
+                title={`${template.linha_nome} · ${template.linha_numero || ''}`}
+              >
+                {template.linha_nome}
+              </Badge>
+            )}
           </div>
         </div>
 

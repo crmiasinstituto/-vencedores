@@ -141,7 +141,7 @@ export function SalesHistory({ sales, onSaleUpdated, onSaleDeleted }: SalesHisto
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Horário</TableHead>
+              <TableHead>Data e hora</TableHead>
               <TableHead>Comprador</TableHead>
               <TableHead>Produto</TableHead>
               <TableHead>Pagamento</TableHead>
@@ -152,8 +152,13 @@ export function SalesHistory({ sales, onSaleUpdated, onSaleDeleted }: SalesHisto
           <TableBody>
             {sales.map((sale) => (
               <TableRow key={sale.id} className="hover:bg-muted/50">
-                <TableCell className="font-mono text-sm">
-                  {format(new Date(sale.created_at), 'HH:mm:ss', { locale: ptBR })}
+                <TableCell className="font-mono text-sm whitespace-nowrap">
+                  {/* Só a hora não dizia de que dia era a venda — com o filtro em "Todos",
+                      a lista cobre meses e 13:38:16 podia ser de agosto. */}
+                  <div>{format(new Date(sale.created_at), 'dd/MM/yy', { locale: ptBR })}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {format(new Date(sale.created_at), 'HH:mm:ss', { locale: ptBR })}
+                  </div>
                 </TableCell>
                 <TableCell>
                   {editingId === sale.id ? (

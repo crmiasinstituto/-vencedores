@@ -295,6 +295,91 @@ async function handleInboundMessage(supabase: any, instanceId: string | null, va
     },
   });
 
+  // ── Resposta automática ao clique de botão do template ──────────────────────
+  //
+  // Quando o lead toca "Confirmar inscrição" (ou qualquer gatilho configurado em
+  // /admin/marketing/respostas-automaticas), ele abre a janela de 24h. É a única
+  // brecha para mandar áudio: fora da janela a Meta só aceita template, e template
+  // não carrega áudio.
+  //
+  // O texto chega como "[button] Confirmar inscrição" — daí o replace.
+  if (content?.startsWith("[button]") || content?.startsWith("[list]")) {
+    const textoBotao = content.replace(/^\[(button|list)\]\s*/, "");
+    try {
+      const { data: regras } = await supabase.rpc("wa_resposta_para_botao", {
+        p_texto: textoBotao,
+        p_instance_id: instanceId,
+      });
+      const regra = Array.isArray(regras) ? regras[0] : regras;
+
+      if (regra) {
+        // Reserva ANTES de enviar: a Meta reentrega o mesmo webhook quando não recebe
+        // 200 a tempo, e sem esta trava o lead ouviria o áudio várias vezes. O índice
+        // único (regra_id, wamid) é quem garante — não a checagem.
+        const { error: jaRespondeu } = await supabase
+          .from("wa_respostas_automaticas_log")
+          .insert({ regra_id: regra.id, remote_phone: from, wamid, status: "enviando" });
+
+        if (jaRespondeu) {
+          console.log(`[auto-resposta] ${wamid} já respondido, ignorando reentrega`);
+        } else {
+          // Não seguramos o webhook: a Meta espera 200 rápido, senão reentrega.
+          const disparar = async () => {
+            if (regra.delay_segundos > 0) {
+              await new Promise((r) => setTimeout(r, regra.delay_segundos * 1000));
+            }
+            // wa-send-cloud decide pelo `action`, não por um campo `type`.
+            const corpo: Record<string, unknown> = {
+              action: `send_${regra.tipo}`,
+              instance_id: instanceId,
+              phone: from,
+              lead_id: leadId,
+            };
+            if (regra.tipo === "text") corpo.text = regra.mensagem || "";
+            else {
+              corpo.media_url = regra.media_url;
+              // Áudio no WhatsApp não tem legenda; mandar caption faz a Meta recusar.
+              if (regra.mensagem && regra.tipo !== "audio") corpo.caption = regra.mensagem;
+            }
+
+            const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/wa-send-cloud`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              },
+              body: JSON.stringify(corpo),
+            });
+            const resultado = await res.json().catch(() => ({}));
+
+            await supabase
+              .from("wa_respostas_automaticas_log")
+              .update({
+                status: res.ok && !resultado?.error ? "enviado" : "falhou",
+                erro: res.ok && !resultado?.error ? null : JSON.stringify(resultado).slice(0, 300),
+              })
+              .eq("regra_id", regra.id)
+              .eq("wamid", wamid);
+
+            if (res.ok && !resultado?.error) {
+              await supabase.rpc("wa_incrementa_resposta_automatica", { p_regra_id: regra.id });
+            }
+          };
+
+          // EdgeRuntime.waitUntil mantém a tarefa viva depois do 200 devolvido.
+          const runtime = (globalThis as any).EdgeRuntime;
+          if (runtime?.waitUntil) runtime.waitUntil(disparar());
+          else disparar().catch((e) => console.error("[auto-resposta]", e));
+
+          console.log(`[auto-resposta] regra ${regra.id} disparada para ${from}`);
+        }
+      }
+    } catch (e) {
+      // Falha aqui nunca pode derrubar o webhook: a Meta reentregaria tudo de novo.
+      console.error("[auto-resposta] erro:", (e as Error).message);
+    }
+  }
+
   // Auto-trigger DISC PDF: se lead pediu o diagnostico e ja completou o quiz,
   // dispara o envio. disc-pdf-deliver tem dedup interno via disc_pdf_requests,
   // entao chamadas repetidas sao idempotentes.

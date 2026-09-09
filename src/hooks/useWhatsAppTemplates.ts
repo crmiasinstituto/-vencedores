@@ -21,6 +21,17 @@ export interface WhatsAppTemplate {
   last_used_at: string | null;
   created_at: string;
   updated_at: string;
+  /** De qual número o template é (vem da view). */
+  linha_nome?: string | null;
+  linha_numero?: string | null;
+  instance_id?: string | null;
+}
+
+/** Preenchidos pela view: de qual número (WABA) o template é. */
+export interface WhatsAppTemplateLinha {
+  linha_nome: string | null;
+  linha_numero: string | null;
+  instance_id: string | null;
 }
 
 export interface WhatsAppTemplateTag {
@@ -38,8 +49,11 @@ export const useWhatsAppTemplates = () => {
   return useQuery({
     queryKey: ["whatsapp-templates"],
     queryFn: async (): Promise<WhatsAppTemplate[]> => {
-      const { data, error } = await supabase
-        .from("whatsapp_cloud_templates")
+      // Vem da view (e não da tabela) porque template da Cloud API pertence a um NÚMERO:
+      // cada linha tem seu WABA. Sem saber de quem é cada template, os 44 viram uma lista
+      // só e ninguém distingue o que é do IAS do que é do Coexistente.
+      const { data, error } = await (supabase as any)
+        .from("whatsapp_cloud_templates_com_linha")
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -57,7 +71,12 @@ export const useSyncWhatsAppTemplates = () => {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return data as { success: boolean; total: number; upserted: number };
+      return data as {
+        success: boolean;
+        total: number;
+        upserted: number;
+        linhas?: { linha: string; waba_id: string; encontrados: number; salvos: number; erro: string | null }[];
+      };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["whatsapp-templates"] });
