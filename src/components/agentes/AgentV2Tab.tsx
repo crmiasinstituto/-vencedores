@@ -49,20 +49,66 @@ export default function AgentV2Tab() {
   const [testResult, setTestResult] = useState<any>(null);
   const [testing, setTesting] = useState(false);
   const [view, setView] = useState<'config' | 'dashboard'>('config');
+  const [loading, setLoading] = useState(true);
+  const [criando, setCriando] = useState(false);
 
   useEffect(() => { load(); }, []);
 
   const load = async () => {
-    const [{ data: a }, { data: i }] = await Promise.all([
+    setLoading(true);
+    // `is_active` não existe em whatsapp_instances — o select inteiro voltava 42703 e o erro
+    // era descartado no destructuring, então a lista de instâncias ficava vazia sem avisar.
+    const [ra, ri] = await Promise.all([
       db.from('ai_sales_agents').select('*').order('is_default', { ascending: false }).order('created_at', { ascending: false }),
-      db.from('whatsapp_instances').select('id, instance_name, agent_version, ai_agent_id, is_active').order('instance_name'),
+      db.from('whatsapp_instances_publicas').select('id, instance_name, agent_version, ai_agent_id, status').order('instance_name'),
     ]);
-    setAgents(a || []);
-    setInstances(i || []);
-    if (!selectedId && a?.length) {
+
+    if (ra.error) {
+      console.error('Erro ao carregar agentes:', ra.error);
+      toast.error(`Não consegui carregar os agentes: ${ra.error.message}`);
+    }
+    if (ri.error) {
+      console.error('Erro ao carregar instâncias:', ri.error);
+      toast.error(`Não consegui carregar os números: ${ri.error.message}`);
+    }
+
+    const a = ra.data || [];
+    setAgents(a);
+    setInstances(ri.data || []);
+    if (!selectedId && a.length) {
       setSelectedId(a[0].id);
       setForm(a[0]);
     }
+    setLoading(false);
+  };
+
+  /** Cria o primeiro agente com os padrões do banco, para a tela ter o que editar. */
+  const criarPrimeiroAgente = async () => {
+    setCriando(true);
+    const { data, error } = await db
+      .from('ai_sales_agents')
+      .insert({
+        name: 'Agente de Vendas',
+        description: 'Atende no WhatsApp, qualifica e agenda.',
+        system_prompt:
+          'Você atende no WhatsApp do IAS Instituto. Responda curto, em português do Brasil, ' +
+          'com o tom de quem já conhece a pessoa. Descubra o que ela precisa antes de oferecer ' +
+          'qualquer coisa. Nunca invente data, preço ou promessa de resultado: se não souber, ' +
+          'diga que vai confirmar e use transfer_to_human.',
+        is_active: false,
+        is_default: true,
+      })
+      .select()
+      .single();
+    setCriando(false);
+    if (error) {
+      toast.error(error.message || 'Não consegui criar o agente');
+      return;
+    }
+    toast.success('Agente criado — configure e ative quando quiser');
+    setAgents([data]);
+    setSelectedId(data.id);
+    setForm(data);
   };
 
   useEffect(() => {
@@ -71,12 +117,37 @@ export default function AgentV2Tab() {
     if (a) setForm({ ...a });
   }, [selectedId, agents]);
 
-  if (!form) {
+  if (loading) {
     return (
       <Card>
         <CardContent className="p-8 text-center text-muted-foreground">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
           Carregando agentes...
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Sem nenhum agente cadastrado a tela ficava em "Carregando agentes..." para sempre:
+  // `form` só era preenchido quando a consulta trazia alguma linha, e a tabela está vazia.
+  if (!form) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
+            <Rocket className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <p className="font-semibold">Nenhum agente configurado ainda</p>
+            <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+              Crie o primeiro para definir o prompt, o número que ele atende e as regras de
+              pausa. Ele nasce desligado — nada é enviado até você ativar.
+            </p>
+          </div>
+          <Button onClick={criarPrimeiroAgente} disabled={criando} className="gap-2">
+            {criando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
+            Criar agente
+          </Button>
         </CardContent>
       </Card>
     );

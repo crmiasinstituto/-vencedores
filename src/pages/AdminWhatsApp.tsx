@@ -164,9 +164,12 @@ const AdminWhatsApp: React.FC = () => {
   const [profileImage, setProfileImage] = useState('');
 
   const loadInstances = useCallback(async () => {
+    // Colunas explícitas: os tokens (instance_token, admin_token, api_key,
+    // verification_pin) não são mais concedidos ao browser, então `select('*')`
+    // volta 42501 e a tela ficaria vazia. Credencial só trafega no servidor.
     const { data, error } = await supabase
       .from('whatsapp_instances')
-      .select('*')
+      .select('id, instance_name, subdomain, status, qr_code, phone_number, webhook_url, created_at, updated_at, channel, agent_version, ai_agent_id, provider, business_account_id, phone_number_id, api_url, is_dedicated_blast, notes, purpose, avatar_url, tem_credenciais')
       .order('created_at', { ascending: false });
     if (!error && data) {
       setInstances(data as WhatsAppInstance[]);
@@ -685,7 +688,8 @@ const AdminWhatsApp: React.FC = () => {
                 // Sem este derivado, polling antigo grava 'disconnected' e UI mostra
                 // "Reconectar QR" pra Cloud API (nao faz sentido, Cloud nao tem QR).
                 const isCloudApi = (instance as any).provider === 'cloud_api';
-                const cloudHasCreds = isCloudApi && !!(instance as any).api_key && !!(instance as any).phone_number_id;
+                // `tem_credenciais` é coluna gerada no banco: diz SE há chave, sem trazer a chave.
+                const cloudHasCreds = isCloudApi && !!(instance as any).tem_credenciais && !!(instance as any).phone_number_id;
                 const effectiveStatus = cloudHasCreds ? 'connected' : instance.status;
                 return (
                   <Card key={instance.id} className={effectiveStatus === 'connected' ? 'border-green-500/50' : effectiveStatus !== 'connecting' ? 'border-red-500/30' : ''}>
