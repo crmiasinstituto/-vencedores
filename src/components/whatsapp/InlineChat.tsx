@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Send, Paperclip, Phone, MessageSquare, RefreshCw, FileText, Mic, Check, CheckCheck, Download, X, User, Image, Video, File, Upload, Bot, BotOff, Timer, CornerUpLeft, Smile, Reply, MapPin, Trash2, Pencil, UserPlus, MoreVertical, Copy, Forward, Info } from 'lucide-react';
+import { Send, Paperclip, Phone, MessageSquare, RefreshCw, FileText, Mic, Check, CheckCheck, Download, X, User, Image, Video, File, Upload, Bot, BotOff, Timer, CornerUpLeft, Smile, Reply, MapPin, Trash2, Pencil, UserPlus, MoreVertical, Copy, Forward, Info, ChevronDown } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -83,8 +83,8 @@ interface WhatsAppInstance {
   status: string;
   provider: string | null;
   api_url: string | null;
-  api_key: string | null;
-  instance_token: string | null;
+  /** Coluna gerada no banco: diz SE há credencial, sem expor o valor. */
+  tem_credenciais?: boolean | null;
   purpose: string | null;
   notes: string | null;
 }
@@ -203,6 +203,8 @@ export const InlineChat: React.FC<InlineChatProps> = ({ contact, onOpenContact }
   const [forwardResults, setForwardResults] = useState<{ id: string; name: string; whatsapp: string | null }[]>([]);
   const [infoMsg, setInfoMsg] = useState<WhatsAppMessage | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const conversaAnteriorRef = useRef<string | null>(null);
+  const [temMensagemNova, setTemMensagemNova] = useState(false);
   // Guarda o contato em que o operador escolheu a instancia na mao — enquanto
   // for o mesmo contato, o auto-switch nao sobrescreve a escolha dele.
   const manualPickRef = useRef<string | null>(null);
@@ -258,11 +260,21 @@ export const InlineChat: React.FC<InlineChatProps> = ({ contact, onOpenContact }
     if (manualPickRef.current !== contact.id) manualPickRef.current = null;
   }, [contact.id]);
 
-  const scrollToBottom = useCallback(() => {
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
     setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      messagesEndRef.current?.scrollIntoView({ behavior });
     }, 100);
   }, []);
+
+  /** O container rolável das mensagens (o mesmo dos dois layouts). */
+  const containerDeScroll = useCallback(() => chatAreaRef.current, []);
+
+  /** Perto o bastante do fim para valer rolar sozinho (mesma folga que o WhatsApp usa). */
+  const estaNoFim = useCallback(() => {
+    const el = containerDeScroll();
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+  }, [containerDeScroll]);
 
   // Fetch CRM lead name to override WhatsApp contact name
   useEffect(() => {
@@ -277,13 +289,18 @@ export const InlineChat: React.FC<InlineChatProps> = ({ contact, onOpenContact }
   // Load ALL connected instances
   useEffect(() => {
     const loadInstances = async () => {
-      const { data } = await supabase
+      // `as any`: tem_credenciais é coluna nova e o types.ts gerado ainda não a conhece.
+      const { data } = await (supabase as any)
         .from('whatsapp_instances')
-        .select('id, instance_name, phone_number, channel, status, provider, api_url, api_key, instance_token, purpose, notes')
+        // Sem api_key/instance_token: credencial não trafega mais pro browser (o envio já
+        // vai por edge function). `tem_credenciais` é coluna gerada e diz o que o filtro
+        // abaixo precisa saber. Pedir as colunas revogadas fazia o select inteiro voltar
+        // 42501 e a lista ficar vazia — daí o "Nenhuma instância conectada".
+        .select('id, instance_name, phone_number, channel, status, provider, api_url, tem_credenciais, purpose, notes')
         .eq('status', 'connected');
       if (data && data.length > 0) {
         const usable = (data as WhatsAppInstance[]).filter(i =>
-          i.provider === 'cloud_api' || i.instance_token || (i.api_url && i.api_key),
+          i.provider === 'cloud_api' || (i as any).tem_credenciais,
         );
         const final = usable.length > 0 ? usable : data as WhatsAppInstance[];
         setInstances(final);
@@ -457,7 +474,36 @@ export const InlineChat: React.FC<InlineChatProps> = ({ contact, onOpenContact }
     return () => { supabase.removeChannel(channel); };
   }, [contact.id, contact.leadId, contact.phone]);
 
-  useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
+  // Rolagem no modelo do WhatsApp: desce sozinho só quando você JÁ está no fim. Se você
+  // subiu para ler o histórico, a tela fica parada e aparece o aviso de mensagem nova —
+  // antes qualquer mensagem que chegasse arrancava você de onde estava lendo.
+  useEffect(() => {
+    if (conversaAnteriorRef.current !== contact.id) {
+      conversaAnteriorRef.current = contact.id;
+      setTemMensagemNova(false);
+      scrollToBottom('auto');   // conversa nova abre no fim, sem animação
+      return;
+    }
+    if (!messages.length) return;
+    if (estaNoFim()) {
+      scrollToBottom();
+      setTemMensagemNova(false);
+    } else {
+      // Só avisa se a mensagem é de quem está do outro lado; o que EU mando desce sempre.
+      const ultima = messages[messages.length - 1];
+      if (ultima?.direction === 'outbound') scrollToBottom();
+      else setTemMensagemNova(true);
+    }
+  }, [messages, contact.id, estaNoFim, scrollToBottom]);
+
+  // Voltou ao fim rolando na mão: some o aviso.
+  useEffect(() => {
+    const el = containerDeScroll();
+    if (!el) return;
+    const aoRolar = () => { if (estaNoFim()) setTemMensagemNova(false); };
+    el.addEventListener('scroll', aoRolar, { passive: true });
+    return () => el.removeEventListener('scroll', aoRolar);
+  }, [containerDeScroll, estaNoFim, messages.length]);
 
   // Reagir com emoji em uma msg (manda pro UAZAPI + atualiza local)
   // useCallback pra estabilizar a referencia, permitindo memoizar o render
@@ -1930,6 +1976,19 @@ export const InlineChat: React.FC<InlineChatProps> = ({ contact, onOpenContact }
           <>
             {renderedMessages}
             <div ref={messagesEndRef} />
+
+            {/* Lendo o histórico e chegou mensagem: a tela fica parada e o aviso avisa.
+                Antes qualquer mensagem nova arrancava você de onde estava lendo. */}
+            {temMensagemNova && (
+              <button
+                type="button"
+                onClick={() => { scrollToBottom(); setTemMensagemNova(false); }}
+                className="sticky bottom-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 rounded-full bg-[#25d366] px-3 py-1.5 text-xs font-medium text-black shadow-lg hover:bg-[#128C7E] hover:text-white transition-colors"
+              >
+                <ChevronDown className="h-3.5 w-3.5" />
+                Mensagem nova
+              </button>
+            )}
           </>
         )}
       </div>
@@ -2110,6 +2169,19 @@ export const InlineChat: React.FC<InlineChatProps> = ({ contact, onOpenContact }
           <>
             {renderedMessages}
             <div ref={messagesEndRef} />
+
+            {/* Lendo o histórico e chegou mensagem: a tela fica parada e o aviso avisa.
+                Antes qualquer mensagem nova arrancava você de onde estava lendo. */}
+            {temMensagemNova && (
+              <button
+                type="button"
+                onClick={() => { scrollToBottom(); setTemMensagemNova(false); }}
+                className="sticky bottom-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 rounded-full bg-[#25d366] px-3 py-1.5 text-xs font-medium text-black shadow-lg hover:bg-[#128C7E] hover:text-white transition-colors"
+              >
+                <ChevronDown className="h-3.5 w-3.5" />
+                Mensagem nova
+              </button>
+            )}
           </>
         )}
       </div>

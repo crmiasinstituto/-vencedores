@@ -23,7 +23,10 @@ export function useEmailConfig() {
     queryFn: async (): Promise<EmailConfig | null> => {
       const { data, error } = await supabase
         .from('email_config' as any)
-        .select('*')
+        // Colunas explícitas: `resend_api_key` não é mais concedida ao browser, então
+        // `select('*')` volta 42501 e a tela de e-mail carregaria vazia. Para saber se a
+        // chave existe há `tem_api_key`, que é coluna gerada.
+        .select('id, resend_webhook_secret, from_email, from_name, reply_to, company_address, company_name, app_url, is_active, domain_verified, created_at, updated_at, tem_api_key')
         .eq('id', 'singleton')
         .maybeSingle();
       if (error) throw error;
@@ -40,7 +43,7 @@ export function useSaveEmailConfig() {
         .from('email_config' as any)
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', 'singleton')
-        .select()
+        .select('id, resend_webhook_secret, from_email, from_name, reply_to, company_address, company_name, app_url, is_active, domain_verified, created_at, updated_at, tem_api_key')
         .single();
       if (error) throw error;
       return data as unknown as EmailConfig;

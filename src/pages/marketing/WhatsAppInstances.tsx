@@ -55,7 +55,9 @@ function useInstances() {
     queryFn: async (): Promise<Instance[]> => {
       const { data, error } = await supabase
         .from('whatsapp_instances')
-        .select('id, instance_name, provider, status, phone_number, business_account_id, phone_number_id, api_url, api_key, is_dedicated_blast, notes, avatar_url, verification_pin, admin_token, instance_token, subdomain')
+        // Tokens saíram do browser. Para saber se a instância está configurada existe
+        // `tem_credenciais`; para TROCAR a credencial, o campo é escrito (nunca lido).
+        .select('id, instance_name, provider, status, phone_number, business_account_id, phone_number_id, api_url, tem_credenciais, is_dedicated_blast, notes, avatar_url, subdomain')
         .order('instance_name');
       if (error) throw error;
       return (data as unknown as Instance[]) || [];

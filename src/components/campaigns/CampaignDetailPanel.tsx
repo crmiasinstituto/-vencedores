@@ -52,24 +52,19 @@ export default function CampaignDetailPanel({ campaign }: Props) {
   const hasInstanceAlerts = blockedInstances.length > 0 || disconnectedInstances.length > 0;
 
   const handleGenerateQR = useCallback(async (inst: { instanceId: string; name: string; apiKey?: string; apiUrl?: string }) => {
-    const url = inst.apiUrl;
-    if (!url || !inst.apiKey) {
-      toast({ title: 'Instância sem API configurada', variant: 'destructive' });
-      return;
-    }
     setQrLoadingId(inst.instanceId);
     setQrMap(prev => ({ ...prev, [inst.instanceId]: '' }));
     try {
-      await fetch(`${url}/instance/connect`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', token: inst.apiKey },
-        body: JSON.stringify({}),
+      // Vai pelo uazapi-proxy, como o resto do app. Antes chamava a uazapi direto do
+      // browser com o token no header — o que exigia trazer a credencial pro cliente.
+      await supabase.functions.invoke('uazapi-proxy', {
+        body: { instance_id: inst.instanceId, path: '/instance/connect', method: 'POST', payload: {} },
       });
       await new Promise(r => setTimeout(r, 2000));
-      const statusRes = await fetch(`${url}/instance/status`, {
-        headers: { token: inst.apiKey },
+      const statusRes = await supabase.functions.invoke('uazapi-proxy', {
+        body: { instance_id: inst.instanceId, path: '/instance/status', method: 'GET' },
       });
-      const statusData = await statusRes.json();
+      const statusData = (statusRes.data as any) || {};
       const qr = statusData.instance?.qrcode || statusData.qrcode;
       if (qr) {
         setQrMap(prev => ({ ...prev, [inst.instanceId]: qr }));

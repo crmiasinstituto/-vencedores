@@ -634,7 +634,7 @@ export const useCampaignInstanceStats = (instanceIds: string[]) => {
 
       const { data: instances, error: instErr } = await supabase
         .from('whatsapp_instances' as any)
-        .select('id, name, status, phone_number, api_key, api_url')
+        .select('id, name, status, phone_number, tem_credenciais, api_url')
         .in('id', instanceIds);
       if (instErr) throw instErr;
 
@@ -684,7 +684,9 @@ export const useCampaignInstances = () => {
       //    disparo de template e não tem risco de ban por volume, independente do purpose.
       const { data, error } = await supabase
         .from('whatsapp_instances' as any)
-        .select('*')
+        // Sem os tokens: `select('*')` volta 42501 desde que a credencial deixou de ser
+        // concedida ao browser.
+        .select('id, instance_name, subdomain, status, qr_code, phone_number, webhook_url, created_at, updated_at, channel, agent_version, ai_agent_id, provider, business_account_id, phone_number_id, api_url, is_dedicated_blast, notes, purpose, avatar_url, tem_credenciais')
         .or('purpose.eq.campaign,provider.eq.cloud_api')
         .order('instance_name');
       if (error) throw error;

@@ -107,7 +107,9 @@ export default function EmailConfigSettings() {
   }, [config?.updated_at]);
 
   const status = useMemo(() => ({
-    apiKey: !!config?.resend_api_key,
+    // `tem_api_key` é coluna gerada no banco. A chave em si não vem mais pro browser,
+    // então testar `!!config.resend_api_key` daria sempre falso.
+    apiKey: !!(config as any)?.tem_api_key,
     webhook: !!config?.resend_webhook_secret,
     fromEmail: !!config?.from_email,
     active: !!config?.is_active,

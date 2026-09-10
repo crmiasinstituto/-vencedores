@@ -91,6 +91,61 @@ function normPhone(raw: string): string {
   return n;
 }
 
+/**
+ * Baixa a mídia da Meta e guarda no nosso storage.
+ *
+ * O webhook só recebe um `media_id`. A URL que a Graph devolve para ele expira em minutos
+ * e exige o token — guardar o id sem baixar significa perder a foto, o áudio e o documento
+ * do cliente. Era o que acontecia: `media_url` ficava nulo em toda mensagem de mídia.
+ *
+ * Devolve a URL pública do arquivo salvo, ou null. Falhar aqui nunca pode impedir a
+ * mensagem de ser gravada — melhor a mensagem sem anexo do que mensagem nenhuma.
+ */
+async function baixarMidiaDaMeta(
+  supabase: any,
+  mediaId: string,
+  token: string,
+  wamid: string,
+): Promise<string | null> {
+  try {
+    const metaRes = await fetch(`https://graph.facebook.com/v22.0/${mediaId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const meta = await metaRes.json();
+    if (!meta?.url) {
+      console.warn(`[midia] ${mediaId} sem url: ${JSON.stringify(meta).slice(0, 200)}`);
+      return null;
+    }
+
+    // O download exige o token de novo: a url da Graph não é pública.
+    const arqRes = await fetch(meta.url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!arqRes.ok) {
+      console.warn(`[midia] download falhou ${arqRes.status}`);
+      return null;
+    }
+    const bytes = new Uint8Array(await arqRes.arrayBuffer());
+
+    const mime: string =
+      meta.mime_type || arqRes.headers.get("content-type") || "application/octet-stream";
+    const ext = (mime.split("/")[1] || "bin").split(";")[0].replace("jpeg", "jpg");
+    const caminho = `cloud/${wamid || mediaId}.${ext}`;
+
+    const { error } = await supabase.storage
+      .from("chat-media")
+      .upload(caminho, bytes, { contentType: mime, upsert: true });
+    if (error) {
+      console.error(`[midia] upload falhou: ${error.message}`);
+      return null;
+    }
+
+    const { data } = supabase.storage.from("chat-media").getPublicUrl(caminho);
+    return data?.publicUrl || null;
+  } catch (e) {
+    console.error(`[midia] erro: ${(e as Error).message}`);
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -272,6 +327,18 @@ async function handleInboundMessage(supabase: any, instanceId: string | null, va
           .update({ first_contact_at: ts, updated_at: new Date().toISOString() })
           .eq("id", lead.id);
       }
+    }
+  }
+
+  // Baixa o anexo antes de gravar: o media_id da Meta expira e o arquivo se perde.
+  if (mediaId && !mediaUrl) {
+    const { data: inst } = await supabase
+      .from("whatsapp_instances")
+      .select("api_key")
+      .eq("id", instanceId)
+      .maybeSingle();
+    if (inst?.api_key) {
+      mediaUrl = await baixarMidiaDaMeta(supabase, mediaId, inst.api_key, wamid);
     }
   }
 
