@@ -27,10 +27,11 @@ import {
   Link2, Image as ImageIcon, Palette, Eraser,
   Type, Heading1, Heading2, Heading3,
   Undo2, Redo2,
-  ExternalLink, Trash2, AtSign,
+  ExternalLink, Trash2, AtSign, Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface EditableTemplateIframeHandle {
   /** Retorna o HTML atual editado, preservando o doctype e estrutura completa */
@@ -72,6 +73,11 @@ export const EditableTemplateIframe = forwardRef<EditableTemplateIframeHandle, P
     const [linkEditOpen, setLinkEditOpen] = useState(false);
     const onChangeRef = useRef(onChange);
     onChangeRef.current = onChange;
+    const imageInputRef = useRef<HTMLInputElement>(null);
+    const [uploadingImage, setUploadingImage] = useState(false);
+    // Onde o cursor estava quando o seletor de arquivo abriu: escolher o arquivo tira o
+    // foco do iframe e a seleção se perde, então guardamos pra restaurar depois.
+    const savedRangeRef = useRef<Range | null>(null);
 
     const insertTextAtCursor = (text: string) => {
       const doc = iframeRef.current?.contentDocument;
@@ -247,10 +253,76 @@ export const EditableTemplateIframe = forwardRef<EditableTemplateIframeHandle, P
       exec('createLink', url);
     };
 
+    const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+
+    /** Abre o seletor de arquivo, guardando antes onde o cursor está. */
     const insertImage = () => {
-      const url = window.prompt('Cole a URL da imagem (faz upload em Anexos da sidebar e pega a URL):');
+      const doc = iframeRef.current?.contentDocument;
+      const sel = doc?.getSelection();
+      savedRangeRef.current = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
+      imageInputRef.current?.click();
+    };
+
+    /** Alternativa pra quem já tem a imagem hospedada em outro lugar. */
+    const insertImageFromUrl = () => {
+      const url = window.prompt('Cole a URL da imagem:');
       if (!url) return;
       exec('insertImage', url);
+    };
+
+    // Sobe pro bucket público email-assets e insere já com a URL final. Tem que ser URL
+    // pública e absoluta: cliente de e-mail bloqueia data URL e o tamanho estoura.
+    const handleImageFile = async (fileList: FileList | null) => {
+      const file = fileList?.[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        toast.error('Isso não é uma imagem', { description: 'Escolha um arquivo JPG, PNG, GIF ou WEBP.' });
+        return;
+      }
+      if (file.size > MAX_IMAGE_SIZE) {
+        toast.error('Imagem muito pesada', { description: 'Máximo 5MB — acima disso o e-mail cai em spam ou nem carrega.' });
+        return;
+      }
+      setUploadingImage(true);
+      try {
+        const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 60);
+        const path = `inline/${crypto.randomUUID()}-${safe}`;
+        const { error } = await supabase.storage
+          .from('email-assets')
+          .upload(path, file, { contentType: file.type, upsert: false });
+        if (error) throw error;
+        const { data } = supabase.storage.from('email-assets').getPublicUrl(path);
+        if (!data?.publicUrl) throw new Error('storage não devolveu URL pública');
+
+        // Devolve o cursor pro ponto onde estava antes de abrir o seletor de arquivo.
+        const doc = iframeRef.current?.contentDocument;
+        const win = iframeRef.current?.contentWindow;
+        if (doc && win && savedRangeRef.current) {
+          win.focus();
+          const sel = doc.getSelection();
+          sel?.removeAllRanges();
+          sel?.addRange(savedRangeRef.current);
+        }
+        exec('insertImage', data.publicUrl);
+
+        // execCommand insere <img> sem limite de largura: num e-mail isso estoura o layout.
+        const img = doc?.querySelector(`img[src="${data.publicUrl}"]`) as HTMLImageElement | null;
+        if (img) {
+          img.style.maxWidth = '100%';
+          img.style.height = 'auto';
+          img.setAttribute('alt', file.name);
+          if (onChangeRef.current) {
+            onChangeRef.current('<!DOCTYPE html>' + doc!.documentElement.outerHTML);
+          }
+        }
+        toast.success('Imagem inserida', { description: 'Já está hospedada — o lead vai ver ela no e-mail.' });
+      } catch (err: any) {
+        toast.error('Não consegui subir a imagem', { description: err?.message || 'Erro no storage' });
+      } finally {
+        setUploadingImage(false);
+        savedRangeRef.current = null;
+        if (imageInputRef.current) imageInputRef.current.value = '';
+      }
     };
 
     const removeFormatting = () => exec('removeFormat');
@@ -417,7 +489,21 @@ export const EditableTemplateIframe = forwardRef<EditableTemplateIframeHandle, P
 
           {/* Link / Imagem */}
           <ToolbarBtn onClick={insertLink} title="Inserir link"><Link2 className="h-3.5 w-3.5" /></ToolbarBtn>
-          <ToolbarBtn onClick={insertImage} title="Inserir imagem"><ImageIcon className="h-3.5 w-3.5" /></ToolbarBtn>
+          <ToolbarBtn onClick={insertImage} title="Inserir imagem (sobe do seu computador)">
+            {uploadingImage
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <ImageIcon className="h-3.5 w-3.5" />}
+          </ToolbarBtn>
+          <ToolbarBtn onClick={insertImageFromUrl} title="Inserir imagem por URL">
+            <span className="text-[10px] font-semibold">URL</span>
+          </ToolbarBtn>
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/gif,image/webp"
+            className="hidden"
+            onChange={(e) => handleImageFile(e.target.files)}
+          />
 
           <div className="w-px h-5 bg-zinc-300 mx-1" />
 

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useMemo as useMemoLib } from 'react';
+import { useState, useMemo, useEffect, useRef, useMemo as useMemoLib } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useWhatsAppTemplates } from '@/hooks/useWhatsAppTemplates';
@@ -148,6 +148,54 @@ export default function SalesCampaignNew() {
   }, [ultimaMidia, headerMediaUrl]);
   const preenchidoAutomatico = !!ultimaMidia?.media_url && headerMediaUrl === ultimaMidia.media_url;
 
+  // A imagem que o template exibe na Meta. Serve pra mostrar ao usuário QUAL arquivo o template
+  // tem — não dá pra usar no envio (é o exemplo da aprovação e a URL do scontent expira).
+  const exemploDoTemplate = useMemo(() => {
+    const h = (selectedCloudTemplate?.components || []).find((c: any) => c?.type === 'HEADER');
+    return h?.example?.header_handle?.[0] as string | undefined;
+  }, [selectedCloudTemplate]);
+
+  const [uploadingHeader, setUploadingHeader] = useState(false);
+  const headerFileRef = useRef<HTMLInputElement>(null);
+
+  // Limites da Meta por tipo de cabeçalho.
+  const limiteMidia = headerMediaFormat === 'VIDEO' ? 16 : headerMediaFormat === 'DOCUMENT' ? 100 : 5;
+  const acceptMidia = headerMediaFormat === 'VIDEO' ? 'video/mp4,video/3gpp'
+    : headerMediaFormat === 'DOCUMENT' ? 'application/pdf'
+    : 'image/png,image/jpeg';
+
+  // Sobe o arquivo pro bucket público e devolve a URL — é ela que vai como `link` pra Meta.
+  const handleHeaderFile = async (fileList: FileList | null) => {
+    const file = fileList?.[0];
+    if (!file) return;
+    if (file.size > limiteMidia * 1024 * 1024) {
+      toast({
+        title: 'Arquivo muito pesado',
+        description: `A Meta aceita até ${limiteMidia}MB em cabeçalho de ${headerMediaFormat}.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    setUploadingHeader(true);
+    try {
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 60);
+      const path = `wa-templates/${crypto.randomUUID()}-${safe}`;
+      const { error } = await supabase.storage
+        .from('chat-media')
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (error) throw error;
+      const { data } = supabase.storage.from('chat-media').getPublicUrl(path);
+      if (!data?.publicUrl) throw new Error('storage não devolveu URL pública');
+      setHeaderMediaUrl(data.publicUrl);
+      toast({ title: 'Arquivo enviado', description: 'Já está hospedado e preenchido no campo.' });
+    } catch (err: any) {
+      toast({ title: 'Não consegui subir o arquivo', description: err?.message || 'Erro no storage', variant: 'destructive' });
+    } finally {
+      setUploadingHeader(false);
+      if (headerFileRef.current) headerFileRef.current.value = '';
+    }
+  };
+
   // Validações por step
   const stepValid: Record<StepId, boolean> = {
     basic: name.trim().length > 0,
@@ -187,7 +235,7 @@ export default function SalesCampaignNew() {
     }
     if (needsHeaderMedia && !headerMediaUrl.trim()) {
       toast({
-        title: `Falta o arquivo do cabeçalho (${headerMediaFormat})`,
+        title: 'Falta o arquivo do cabeçalho',
         description: 'A Meta exige o arquivo em cada envio; sem ele a campanha falha no disparo.',
         variant: 'destructive',
       });
@@ -419,25 +467,66 @@ export default function SalesCampaignNew() {
                             ) : (
                               <AlertCircle className="w-4 h-4 text-amber-500" />
                             )}
-                            {headerMediaFormat} do cabeçalho
+                            {headerMediaFormat === 'IMAGE' ? 'Imagem' : headerMediaFormat === 'VIDEO' ? 'Vídeo' : 'Documento'} do cabeçalho
                             {preenchidoAutomatico ? ' — já preenchido' : ' — obrigatório'}
                           </Label>
-                          <Input
-                            value={headerMediaUrl}
-                            onChange={(e) => setHeaderMediaUrl(e.target.value)}
-                            placeholder="https://… (URL pública do arquivo) ou o media_id da Meta"
-                          />
-                          {preenchidoAutomatico ? (
+                          {/* O arquivo que o template mostra na Meta. Fica à vista pra ficar claro
+                              QUAL imagem é — e por que ainda assim precisa reenviar o arquivo. */}
+                          {exemploDoTemplate && headerMediaFormat === 'IMAGE' && (
+                            <div className="flex gap-3 items-start rounded-md border border-border/60 p-2">
+                              <img
+                                src={exemploDoTemplate}
+                                alt="Imagem aprovada no template"
+                                className="w-24 h-24 rounded object-cover border border-border/60 shrink-0"
+                                loading="lazy"
+                              />
+                              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                Esta é a imagem com que o template foi aprovado. Ela <strong>não</strong> é
+                                reenviada sozinha: a Meta trata o arquivo da aprovação como exemplo e recusa o
+                                disparo se ele for reaproveitado (erro #132012). Suba o mesmo arquivo abaixo —
+                                é uma vez só, as próximas campanhas com este template já vêm preenchidas.
+                              </p>
+                            </div>
+                          )}
+
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={uploadingHeader}
+                              onClick={() => headerFileRef.current?.click()}
+                              className="shrink-0"
+                            >
+                              {uploadingHeader ? 'Enviando…' : `Escolher ${headerMediaFormat?.toLowerCase()}`}
+                            </Button>
+                            <input
+                              ref={headerFileRef}
+                              type="file"
+                              accept={acceptMidia}
+                              className="hidden"
+                              onChange={(e) => handleHeaderFile(e.target.files)}
+                            />
+                            <Input
+                              value={headerMediaUrl}
+                              onChange={(e) => setHeaderMediaUrl(e.target.value)}
+                              placeholder={`Escolha o arquivo ao lado — ou cole uma URL pública (até ${limiteMidia}MB)`}
+                            />
+                          </div>
+
+                          {headerMediaUrl && headerMediaFormat === 'IMAGE' && /^https?:\/\//.test(headerMediaUrl) && (
+                            <img
+                              src={headerMediaUrl}
+                              alt="Arquivo que vai no disparo"
+                              className="w-24 h-24 rounded object-cover border border-emerald-500/40"
+                              loading="lazy"
+                            />
+                          )}
+
+                          {preenchidoAutomatico && (
                             <p className="text-[11px] text-muted-foreground">
                               Reaproveitado da campanha <strong>{ultimaMidia?.name}</strong>. É o mesmo arquivo
-                              já hospedado na Meta — não precisa mexer. Só troque se for outro vídeo.
-                            </p>
-                          ) : (
-                            <p className="text-[11px] text-muted-foreground">
-                              Primeira campanha com este template, então precisa informar o arquivo uma vez —
-                              das próximas ele já vem preenchido. A Meta exige a mídia em <strong>cada
-                              envio</strong>; o que aparece no template aprovado é só o exemplo da aprovação
-                              e não pode ser reaproveitado (erro #132012).
+                              já hospedado — não precisa mexer. Só troque se for outro arquivo.
                             </p>
                           )}
                         </CardContent>

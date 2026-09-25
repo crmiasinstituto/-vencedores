@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -28,11 +28,30 @@ interface MultiSelectProps {
   emptyText?: string;
 }
 
+// Quantos itens a lista desenha de uma vez. São 3.4 mil tags no CRM: renderizar todas trava o
+// popover, e o filtro do cmdk faria isso a cada tecla. Aqui a busca é nossa e a lista é cortada —
+// o que ficou de fora se alcança digitando.
+const MAX_VISIVEIS = 200;
+
 function MultiSelect({ label, icon, options, selected, onChange, placeholder = 'Selecionar...', emptyText = 'Nada encontrado' }: MultiSelectProps) {
+  const [busca, setBusca] = useState('');
+
   const selectedLabels = useMemo(
     () => options.filter(o => selected.includes(o.value)).map(o => o.label),
     [options, selected]
   );
+
+  const { visiveis, ocultos } = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    const casa = termo
+      ? options.filter(o => o.label.toLowerCase().includes(termo) || o.value.toLowerCase().includes(termo))
+      : options;
+    // O que já está marcado aparece sempre no topo, mesmo fora dos primeiros MAX_VISIVEIS.
+    const marcados = casa.filter(o => selected.includes(o.value));
+    const resto = casa.filter(o => !selected.includes(o.value));
+    const corte = Math.max(0, MAX_VISIVEIS - marcados.length);
+    return { visiveis: [...marcados, ...resto.slice(0, corte)], ocultos: Math.max(0, resto.length - corte) };
+  }, [options, selected, busca]);
 
   const toggle = (value: string) => {
     onChange(selected.includes(value) ? selected.filter(v => v !== value) : [...selected, value]);
@@ -68,8 +87,8 @@ function MultiSelect({ label, icon, options, selected, onChange, placeholder = '
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Buscar..." className="h-9" />
+          <Command shouldFilter={false}>
+            <CommandInput placeholder="Buscar..." className="h-9" value={busca} onValueChange={setBusca} />
             <CommandList>
               <CommandEmpty>{emptyText}</CommandEmpty>
               <CommandGroup>
@@ -78,7 +97,7 @@ function MultiSelect({ label, icon, options, selected, onChange, placeholder = '
                     Sem opções disponíveis
                   </CommandItem>
                 )}
-                {options.map(opt => {
+                {visiveis.map(opt => {
                   const isSel = selected.includes(opt.value);
                   return (
                     <CommandItem
@@ -91,6 +110,11 @@ function MultiSelect({ label, icon, options, selected, onChange, placeholder = '
                     </CommandItem>
                   );
                 })}
+                {ocultos > 0 && (
+                  <CommandItem disabled className="text-[11px] text-muted-foreground">
+                    +{ocultos.toLocaleString('pt-BR')} sem aparecer — digite pra encontrar
+                  </CommandItem>
+                )}
               </CommandGroup>
             </CommandList>
           </Command>
@@ -118,6 +142,16 @@ export default function EmailAudienceBuilder({ filters, onChange }: Props) {
   const update = <K extends keyof EmailAudienceFilters>(key: K, value: EmailAudienceFilters[K]) => {
     onChange({ ...filters, [key]: value });
   };
+
+  // A contagem no rótulo é o que diferencia uma tag de produto com 20 compradores de uma com 2 —
+  // sem ela, escolher entre `compra-realizada-3067982` e `-3067984` é adivinhação.
+  const tagOptions = useMemo(
+    () => (opts?.tags || []).map(t => {
+      const info = opts?.tagInfo.get(t);
+      return { value: t, label: info ? `${t} (${info.leads.toLocaleString('pt-BR')})` : t };
+    }),
+    [opts],
+  );
 
   // Colunas disponíveis: se boards selecionados, filtra; senão mostra todas
   const visibleColumns = useMemo(() => {
@@ -185,7 +219,7 @@ export default function EmailAudienceBuilder({ filters, onChange }: Props) {
         <MultiSelect
           label="Tags — incluir"
           icon={<Tag className="h-3 w-3" />}
-          options={(opts?.tags || []).map(t => ({ value: t, label: t }))}
+          options={tagOptions}
           selected={filters.tags_any || []}
           onChange={(v) => update('tags_any', v)}
           placeholder="Quaisquer tags"
@@ -197,7 +231,7 @@ export default function EmailAudienceBuilder({ filters, onChange }: Props) {
           <MultiSelect
             label="Tags — excluir"
             icon={<Tag className="h-3 w-3" />}
-            options={(opts?.tags || []).map(t => ({ value: t, label: t }))}
+            options={tagOptions}
             selected={filters.exclude_tags || []}
             onChange={(v) => update('exclude_tags', v)}
             placeholder="Não excluir ninguém"
@@ -317,7 +351,7 @@ export default function EmailAudienceBuilder({ filters, onChange }: Props) {
           <MultiSelect
             label="Excluir Tag(s)"
             icon={<Tag className="h-3 w-3 text-red-400" />}
-            options={(opts?.tags || []).map(t => ({ value: t, label: t }))}
+            options={tagOptions}
             selected={filters.exclude_tags || []}
             onChange={v => update('exclude_tags', v.length ? v : undefined)}
             placeholder="Tags pra excluir..."

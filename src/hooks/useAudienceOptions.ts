@@ -4,12 +4,14 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface Board { id: string; name: string; }
 export interface Column { id: string; name: string; board_id: string; sort_order: number | null; }
+export interface TagOption { tag: string; leads: number; com_email: number; }
 export interface AudienceOptions {
   boards: Board[];
   columnsByBoard: Map<string, Column[]>;
   allColumns: Column[];
   sources: string[];
   tags: string[];
+  tagInfo: Map<string, TagOption>;
   assignedTo: string[];
 }
 
@@ -17,15 +19,13 @@ export function useAudienceOptions() {
   return useQuery({
     queryKey: ['audience-options'],
     queryFn: async (): Promise<AudienceOptions> => {
-      const [boardsRes, columnsRes, leadsRes] = await Promise.all([
+      // As tags/origens/responsáveis vêm de uma RPC porque não dá pra deduzir a lista lendo
+      // leads pelo REST: o PostgREST corta em 1000 linhas e são 18 mil leads com e-mail, então
+      // toda tag de cauda longa (as de produto da Eduzz, por exemplo) ficava invisível.
+      const [boardsRes, columnsRes, opcoesRes] = await Promise.all([
         supabase.from('crm_boards').select('id, name').order('name'),
         supabase.from('crm_columns').select('id, name, board_id, sort_order').order('sort_order'),
-        supabase
-          .from('crm_leads')
-          .select('source, tags, assigned_to')
-          .not('email', 'is', null)
-          .neq('email', '')
-          .limit(5000),
+        supabase.rpc('opcoes_de_audiencia' as any),
       ]);
 
       const boards = (boardsRes.data || []) as Board[];
@@ -38,22 +38,24 @@ export function useAudienceOptions() {
         columnsByBoard.set(c.board_id, arr);
       }
 
-      const sourcesSet = new Set<string>();
-      const tagsSet = new Set<string>();
-      const assignedSet = new Set<string>();
-      for (const l of (leadsRes.data || []) as any[]) {
-        if (l.source) sourcesSet.add(l.source);
-        if (Array.isArray(l.tags)) l.tags.forEach((t: string) => t && tagsSet.add(t));
-        if (l.assigned_to) assignedSet.add(l.assigned_to);
-      }
+      const opcoes = (opcoesRes.data || {}) as {
+        tags?: TagOption[];
+        sources?: string[];
+        assigned_to?: string[];
+      };
+
+      // A RPC já devolve por volume decrescente — a ordem útil pra quem está escolhendo.
+      const tagList = (opcoes.tags || []).filter(t => t?.tag);
+      const tagInfo = new Map<string, TagOption>(tagList.map(t => [t.tag, t]));
 
       return {
         boards,
         columnsByBoard,
         allColumns,
-        sources: Array.from(sourcesSet).sort(),
-        tags: Array.from(tagsSet).sort(),
-        assignedTo: Array.from(assignedSet).sort(),
+        sources: opcoes.sources || [],
+        tags: tagList.map(t => t.tag),
+        tagInfo,
+        assignedTo: opcoes.assigned_to || [],
       };
     },
     staleTime: 60_000, // 1 min

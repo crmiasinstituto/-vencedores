@@ -277,11 +277,26 @@ function TemplatePreview({ template, compact }: { template: any; compact?: boole
     );
   }
 
+  // O balão é branco fixo (imita o WhatsApp), então a cor do texto TEM que ser explícita:
+  // herdando o `foreground` do tema escuro do CRM, ficava texto claro sobre fundo branco.
+  const headerImg = header?.format === 'IMAGE' ? header?.example?.header_handle?.[0] : null;
+
   return (
-    <div className="bg-white rounded-lg border p-3 space-y-2 text-sm" style={{ fontFamily: '-apple-system, system-ui, sans-serif' }}>
-      {header?.text && <p className="font-semibold">{header.text}</p>}
-      {bodyText && <p className="whitespace-pre-wrap leading-relaxed">{bodyText}</p>}
-      {footer?.text && <p className="text-xs text-muted-foreground italic">{footer.text}</p>}
+    <div
+      className="bg-white text-zinc-900 rounded-lg border p-3 space-y-2 text-sm"
+      style={{ fontFamily: '-apple-system, system-ui, sans-serif', colorScheme: 'light' }}
+    >
+      {headerImg && (
+        <img
+          src={headerImg}
+          alt="Imagem do cabeçalho do template"
+          className="w-full rounded-md border border-zinc-200 object-cover max-h-56"
+          loading="lazy"
+        />
+      )}
+      {header?.text && <p className="font-semibold text-zinc-900">{header.text}</p>}
+      {bodyText && <p className="whitespace-pre-wrap leading-relaxed text-zinc-800">{bodyText}</p>}
+      {footer?.text && <p className="text-xs text-zinc-500 italic">{footer.text}</p>}
     </div>
   );
 }
