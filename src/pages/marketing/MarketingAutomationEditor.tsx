@@ -341,10 +341,10 @@ export default function MarketingAutomationEditor() {
     switch (type) {
       case 'sendEmail': return { template_id: null, template_name: null, subject: '' };
       case 'wait': return { duration: 1, unit: 'dias' };
-      case 'updateField': return { field: 'sales_stage', value: '' };
+      case 'updateField': return { field: 'lead_score', value: '' };
       case 'addTag': return { tag: '' };
       case 'createTask': return { title: '', team: 'comercial' };
-      case 'branch': return { condition_field: 'sales_stage', condition_op: '=', condition_value: '' };
+      case 'branch': return { condition_field: 'has_tag', condition_op: '=', condition_value: '' };
       case 'waitUntilDate': return { event_date: '', offset: 1, offset_unit: 'dias' };
       case 'end': return { reason: 'completed' };
       case 'sendWhatsapp': return { message: '', use_lead_phone: true };
@@ -817,15 +817,16 @@ export default function MarketingAutomationEditor() {
                   <div>
                     <Label className="text-xs">Campo</Label>
                     <Select
-                      value={(selectedNode.data.field as string) || 'sales_stage'}
+                      value={({ sales_score: 'lead_score' } as Record<string, string>)[selectedNode.data.field as string] || (selectedNode.data.field as string) || 'lead_score'}
                       onValueChange={(v) => updateNodeData(selectedNode.id, { field: v })}
                     >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Escolha o campo" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="sales_stage">Estágio do funil</SelectItem>
-                        <SelectItem value="sales_score">Score</SelectItem>
-                        <SelectItem value="status">Status</SelectItem>
+                        {/* Pra mudar a coluna do funil use o passo "Mover lead no Kanban" */}
+                        <SelectItem value="lead_score">Score (0 a 100)</SelectItem>
                         <SelectItem value="source">Origem</SelectItem>
+                        <SelectItem value="priority">Prioridade (low, medium, high)</SelectItem>
+                        <SelectItem value="evento">Evento</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -888,13 +889,14 @@ export default function MarketingAutomationEditor() {
                     <div>
                       <Label className="text-xs">Campo</Label>
                       <Select
-                        value={(selectedNode.data.condition_field as string) || 'sales_stage'}
+                        value={({ sales_stage: 'column_name', sales_score: 'lead_score' } as Record<string, string>)[selectedNode.data.condition_field as string] || (selectedNode.data.condition_field as string) || 'has_tag'}
                         onValueChange={(v) => updateNodeData(selectedNode.id, { condition_field: v })}
                       >
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="sales_stage">Estágio</SelectItem>
-                          <SelectItem value="sales_score">Score</SelectItem>
+                          <SelectItem value="column_name">Coluna do funil</SelectItem>
+                          <SelectItem value="lead_score">Score</SelectItem>
+                          <SelectItem value="source">Origem</SelectItem>
                           <SelectItem value="email_opened">Abriu email</SelectItem>
                           <SelectItem value="email_clicked">Clicou email</SelectItem>
                           <SelectItem value="has_tag">Tem tag</SelectItem>
@@ -921,6 +923,7 @@ export default function MarketingAutomationEditor() {
                       <Input
                         value={(selectedNode.data.condition_value as string) || ''}
                         onChange={(e) => updateNodeData(selectedNode.id, { condition_value: e.target.value })}
+                        placeholder={({ column_name: 'Qualificado', lead_score: '50', source: 'pagina:...', has_tag: 'vip', email_opened: 'sim', email_clicked: 'sim' } as Record<string, string>)[(selectedNode.data.condition_field as string) || 'has_tag'] || ''}
                       />
                     </div>
                   </div>

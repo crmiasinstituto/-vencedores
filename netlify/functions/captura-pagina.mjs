@@ -193,7 +193,7 @@ export default async (req) => {
     if (existing) {
       await db(`crm_leads?id=eq.${existing.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ name: nome, email: email || undefined, tags: mergeTags(existing.tags) }),
+        body: JSON.stringify({ name: nome, email: email || undefined, tags: mergeTags(existing.tags), whatsapp_opt_in: true }),
       });
       return done('atualizado', existing.id, { duplicado: true });
     }
@@ -208,6 +208,10 @@ export default async (req) => {
         email: email || null,
         source: `pagina:${integration.slug}`,
         tags: [],
+        // Deixou o WhatsApp no formulário pra se inscrever: vale como aceite, igual às
+        // inscrições da landing (source landing_inscricao). Sem isso os passos de WhatsApp
+        // das automações pulam o lead.
+        whatsapp_opt_in: true,
         notes,
       }),
     });

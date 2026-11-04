@@ -53,6 +53,18 @@ function renderJsonToHtml(node: any): string {
 interface FlowNode { id: string; type: string; data: any; position: { x: number; y: number }; }
 interface FlowEdge { id?: string; source: string; target: string; sourceHandle?: string; }
 
+// Fluxos antigos salvaram campos que não existem em crm_leads (vieram do template do CRM):
+// sales_score vira lead_score; sales_stage/status viram a coluna do funil na condição.
+const LEAD_FIELD_ALIASES: Record<string, string> = { sales_score: "lead_score", sales_stage: "column_name" };
+const UPDATABLE_LEAD_FIELDS = new Set(["lead_score", "source", "priority", "evento"]);
+
+function fillLeadVars(text: string, lead: { name?: string | null } | null): string {
+  const nome = lead?.name || "";
+  return text
+    .replace(/\{\{\s*nome\s*\}\}/g, nome)
+    .replace(/\{\{\s*primeiro_nome\s*\}\}/g, nome.split(" ")[0]);
+}
+
 function getNextNode(flow: any, fromNodeId: string, branch?: "yes" | "no"): FlowNode | null {
   const edges: FlowEdge[] = flow.edges || [];
   const nodes: FlowNode[] = flow.nodes || [];
@@ -73,7 +85,7 @@ function calculateWaitDate(duration: number, unit: string): Date {
 }
 
 async function evaluateBranch(supabase: any, leadId: string, condition: any): Promise<boolean> {
-  const field = condition.condition_field;
+  const field = LEAD_FIELD_ALIASES[condition.condition_field] ?? condition.condition_field;
   const op = condition.condition_op || "=";
   const value = condition.condition_value;
   if (!field) return true;
@@ -85,11 +97,25 @@ async function evaluateBranch(supabase: any, leadId: string, condition: any): Pr
       .select("id", { count: "exact", head: true })
       .eq("lead_id", leadId)
       .not(field === "email_opened" ? "opened_at" : "clicked_at", "is", null);
-    currentValue = (count || 0) > 0;
+    // Valor vazio, "sim" ou "true" = "abriu/clicou?"; "não"/"false" = o contrário
+    const esperado = !/^(n[aã]o|false|0|no)$/i.test(String(value ?? "").trim());
+    const bate = ((count || 0) > 0) === esperado;
+    return op === "!=" ? !bate : bate;
   } else if (field === "has_tag") {
     const { data: lead } = await supabase.from("crm_leads").select("tags").eq("id", leadId).single();
     currentValue = (lead?.tags || []).includes(value);
     return Boolean(currentValue);
+  } else if (field === "column_name") {
+    // Compara pelo nome da coluna (ex: "Qualificado"), sem diferenciar maiúsculas
+    const { data: lead } = await supabase
+      .from("crm_leads")
+      .select("column:crm_columns(name)")
+      .eq("id", leadId)
+      .single();
+    const atual = String(lead?.column?.name || "").trim().toLowerCase();
+    const alvo = String(value || "").trim().toLowerCase();
+    if (op === "!=") return atual !== alvo;
+    return atual === alvo;
   } else {
     const { data: lead } = await supabase.from("crm_leads").select(field).eq("id", leadId).single();
     currentValue = lead?.[field];
@@ -197,6 +223,18 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
         return { done: false, nextNodeId: next?.id, nextAt: new Date() };
       }
 
+      // O send-email-campaign só envia pra quem está na fila (email_campaign_leads); sem
+      // popular a fila ele acha "fila vazia", conclui a campanha e nenhum e-mail sai.
+      // A RPC já tira descadastrados e quem pediu pra não receber e-mail.
+      const { data: naFila, error: filaErr } = await supabase.rpc("populate_email_campaign_leads", {
+        p_campaign_id: tempCampaign.id,
+      });
+      if (filaErr || !naFila) {
+        console.warn(`[run ${run.id}] lead ${leadId} fora da fila do e-mail (descadastrado ou opt-out)`, filaErr);
+        const next = getNextNode(run.flow, node.id);
+        return { done: false, nextNodeId: next?.id, nextAt: new Date() };
+      }
+
       const fnRes = await fetch(`${SUPABASE_URL}/functions/v1/send-email-campaign`, {
         method: "POST",
         headers: {
@@ -216,10 +254,16 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
     }
 
     case "updateField": {
-      const field = node.data.field;
+      const field = LEAD_FIELD_ALIASES[node.data.field] ?? node.data.field;
       const value = node.data.value;
-      if (field && value !== undefined) {
-        await supabase.from("crm_leads").update({ [field]: value }).eq("id", leadId);
+      if (field && UPDATABLE_LEAD_FIELDS.has(field) && value !== undefined && value !== "") {
+        const { error } = await supabase
+          .from("crm_leads")
+          .update({ [field]: field === "lead_score" ? Number(value) : value })
+          .eq("id", leadId);
+        if (error) console.error(`[run ${run.id}] updateField ${field} falhou:`, error);
+      } else if (field) {
+        console.warn(`[run ${run.id}] updateField: campo "${node.data.field}" não existe em crm_leads, pulando`);
       }
       const next = getNextNode(run.flow, node.id);
       return { done: false, nextNodeId: next?.id, nextAt: new Date() };
@@ -239,8 +283,18 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
     }
 
     case "createTask": {
-      const title = node.data.title || "Tarefa automática";
-      const { data: lead } = await supabase.from("crm_leads").select("board_id").eq("id", leadId).single();
+      const { data: lead } = await supabase.from("crm_leads").select("board_id, name").eq("id", leadId).single();
+      const title = fillLeadVars(node.data.title || "Tarefa automática", lead);
+      // A tela de tarefas (Operações) lê da tabela tasks; o crm_activities fica pro histórico do lead.
+      const { error: taskErr } = await supabase.from("tasks").insert({
+        title,
+        description: `Criada pela automação${node.data.team ? ` · time ${node.data.team}` : ""}`,
+        type: "task",
+        status: "pending",
+        lead_id: leadId,
+        due_date: new Date(Date.now() + Number(node.data.due_in_hours || 24) * 3600_000).toISOString(),
+      });
+      if (taskErr) console.error(`[run ${run.id}] createTask falhou:`, taskErr);
       await supabase.from("crm_activities").insert({
         lead_id: leadId,
         board_id: lead?.board_id || null,
@@ -409,7 +463,9 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
       // Atribui responsável (assigned_to) ao lead
       const target = node.data.assigned_to || node.data.value;
       if (target) {
-        await supabase.from("crm_leads").update({ assigned_to: target }).eq("id", leadId);
+        // "Sem responsável" no editor vem como __unassigned__: limpa em vez de gravar o marcador
+        const assigned = target === "__unassigned__" ? null : target;
+        await supabase.from("crm_leads").update({ assigned_to: assigned }).eq("id", leadId);
       }
       const next = getNextNode(run.flow, node.id);
       return { done: false, nextNodeId: next?.id, nextAt: new Date() };
@@ -430,10 +486,22 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
 
     case "notifyTeam": {
       // Notificação interna pra um membro do time
-      const targetMember = node.data.member_id || null;
-      const title = node.data.title || "Automação SQUAAD";
-      const message = node.data.message || "";
+      const targetMember = node.data.member_id && node.data.member_id !== "__unassigned__" ? node.data.member_id : null;
+      const { data: lead } = await supabase.from("crm_leads").select("name").eq("id", leadId).single();
+      const title = fillLeadVars(node.data.title || "Automação", lead);
+      const message = fillLeadVars(node.data.message || "", lead);
       try {
+        // O sino do admin (NotificationBell) lê admin_notifications
+        const { error: notifErr } = await supabase.from("admin_notifications").insert({
+          type: "automation",
+          title,
+          description: message || null,
+          link: `/admin/crm?lead=${leadId}`,
+          severity: "info",
+          lead_id: leadId,
+          metadata: { automation_id: run.automation_id, automation_run_id: run.id, target_member: targetMember },
+        });
+        if (notifErr) console.error(`[run ${run.id}] notifyTeam falhou:`, notifErr);
         await supabase.from("crm_activities").insert({
           lead_id: leadId,
           activity_type: "automation_notify",
