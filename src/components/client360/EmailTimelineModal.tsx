@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -37,10 +39,24 @@ function fmt(dt?: string | null) {
 export default function EmailTimelineModal({ open, onOpenChange, metadata, onOpenCampaign }: Props) {
   const [view, setView] = useState<'desktop' | 'mobile'>('desktop');
 
+  // O motor de disparo por fila não grava mais o HTML em cada email_sends: sem cópia do envio,
+  // mostra o conteúdo da campanha (o mesmo e-mail, com as variáveis ainda sem preencher).
+  const campaignId = metadata?.campaign_id as string | undefined;
+  const { data: htmlCampanha, isLoading: carregandoHtml } = useQuery({
+    queryKey: ['email-campaign-html', campaignId],
+    enabled: open && !metadata?.html && !!campaignId,
+    queryFn: async () => {
+      const { data } = await supabase.from('email_campaigns' as any).select('html_content').eq('id', campaignId!).maybeSingle();
+      return ((data as any)?.html_content as string | null) || null;
+    },
+  });
+
   if (!metadata) return null;
 
   const subject = metadata.subject || 'Email';
-  const html = metadata.html || '<p style="padding:40px;text-align:center;color:#999;">Conteúdo do email indisponível</p>';
+  const html = metadata.html || htmlCampanha || (carregandoHtml
+    ? '<p style="padding:40px;text-align:center;color:#999;">Carregando...</p>'
+    : '<p style="padding:40px;text-align:center;color:#999;">Conteúdo do email indisponível</p>');
   const campaignName = metadata.campaign_name;
   const fromLabel = metadata.from_name || metadata.from_email
     ? `${metadata.from_name || ''}${metadata.from_email ? ` <${metadata.from_email}>` : ''}`.trim()
@@ -86,7 +102,7 @@ export default function EmailTimelineModal({ open, onOpenChange, metadata, onOpe
                 variant={view === 'desktop' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setView('desktop')}
-                className={cn('h-7 px-2.5 gap-1', view === 'desktop' && 'bg-background shadow-sm hover:bg-background')}
+                className={cn('h-7 px-2.5 gap-1', view === 'desktop' && 'bg-background text-foreground shadow-sm hover:bg-background')}
               >
                 <Monitor className="h-3.5 w-3.5" /> Desktop
               </Button>
@@ -94,7 +110,7 @@ export default function EmailTimelineModal({ open, onOpenChange, metadata, onOpe
                 variant={view === 'mobile' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setView('mobile')}
-                className={cn('h-7 px-2.5 gap-1', view === 'mobile' && 'bg-background shadow-sm hover:bg-background')}
+                className={cn('h-7 px-2.5 gap-1', view === 'mobile' && 'bg-background text-foreground shadow-sm hover:bg-background')}
               >
                 <Smartphone className="h-3.5 w-3.5" /> Mobile
               </Button>

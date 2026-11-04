@@ -752,6 +752,14 @@ function ReviewPanel({
     if (filters.utm_sources?.length) lines.push(`UTM: ${filters.utm_sources.join(', ')}`);
     if (filters.score_min !== undefined || filters.score_max !== undefined) lines.push(`Score ${filters.score_min ?? 0}-${filters.score_max ?? 100}`);
     if (filters.exclude_campaign_days) lines.push(`Excluindo quem recebeu nos últimos ${filters.exclude_campaign_days} dias`);
+    if (filters.engajamento) {
+      const quem = { recebeu: 'recebeu', abriu: 'abriu', clicou: 'clicou', nao_abriu: 'recebeu e não abriu', nao_clicou: 'recebeu e não clicou' }[filters.engajamento];
+      const onde = filters.engajamento_campanhas?.length ? `${filters.engajamento_campanhas.length} campanha(s) escolhida(s)` : 'qualquer campanha';
+      lines.push(`Só quem ${quem} e-mail (${onde}${filters.engajamento_dias ? `, últimos ${filters.engajamento_dias} dias` : ''})`);
+    }
+    if (filters.exclude_board_ids?.length) lines.push(`Excluindo ${filters.exclude_board_ids.length} quadro(s)`);
+    if (filters.exclude_column_ids?.length) lines.push(`Excluindo ${filters.exclude_column_ids.length} coluna(s)`);
+    if (filters.exclude_tags?.length) lines.push(`Excluindo tags: ${filters.exclude_tags.join(', ')}`);
     if (lines.length === 0) lines.push('Sem filtros aplicados');
     return lines;
   }, [filters, isSpecific, leadIds.length]);

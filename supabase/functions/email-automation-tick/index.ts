@@ -192,7 +192,7 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
         .from("email_campaigns")
         .select("id")
         .eq("source_type", "automation")
-        .contains("audience_filters", { automation_run_id: run.id, node_id: node.id })
+        .contains("audience_filters", { automation_run_id: run.id, node_id: node.id, run_started_at: run.started_at })
         .limit(1);
       if (jaMandou && jaMandou.length > 0) {
         console.log(`[run ${run.id}] no ${node.id} ja enviou e-mail antes, pulando reenvio`);
@@ -212,7 +212,9 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
           source_type: "automation",
           automation_id: run.automation_id,
           // node_id entra aqui pra permitir o guard de reenvio acima.
-          audience_filters: { lead_ids: [leadId], automation_run_id: run.id, node_id: node.id },
+          // run_started_at separa as passagens: quem se reinscreve recomeça o run (novo started_at)
+          // e recebe o e-mail de novo; retentativa dentro da mesma passagem continua barrada.
+          audience_filters: { lead_ids: [leadId], automation_run_id: run.id, node_id: node.id, run_started_at: run.started_at },
         })
         .select("id")
         .single();
@@ -583,7 +585,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: runs } = await supabase
       .from("email_automation_runs")
-      .select("id, automation_id, lead_id, current_node_id, scheduled_next_at, status, context, automation:email_automations(flow_json, is_active)")
+      .select("id, automation_id, lead_id, current_node_id, scheduled_next_at, status, context, started_at, automation:email_automations(flow_json, is_active)")
       .eq("status", "active")
       .lte("scheduled_next_at", new Date().toISOString())
       .limit(50);

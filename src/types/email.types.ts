@@ -125,6 +125,11 @@ export interface EmailAudienceFilters {
   exclude_tags?: string[];
   // Filtra por status do onboarding pós-Masterclass: 'completed' = só quem terminou wizard, 'pending' = só quem ainda não terminou
   onboarding_status?: 'any' | 'completed' | 'pending';
+  // Engajamento com e-mails já enviados (email_sends): recebeu / abriu / clicou / não abriu / não clicou,
+  // só nas campanhas escolhidas (vazio = qualquer uma) e nos últimos N dias (vazio = sempre)
+  engajamento?: 'recebeu' | 'abriu' | 'clicou' | 'nao_abriu' | 'nao_clicou';
+  engajamento_campanhas?: string[];
+  engajamento_dias?: number;
   // Modo "leads específicos": quando preenchido, ignora os demais filtros
   lead_ids?: string[];
 }

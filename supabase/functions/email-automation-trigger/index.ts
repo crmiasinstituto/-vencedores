@@ -76,17 +76,41 @@ Deno.serve(async (req: Request) => {
 
       if (!matches) continue;
 
+      const agora = new Date().toISOString();
       const { error } = await supabase
         .from("email_automation_runs")
         .insert({
           automation_id: auto.id,
           lead_id,
           current_node_id: triggerNode.id,
-          scheduled_next_at: new Date().toISOString(),
+          scheduled_next_at: agora,
           status: "active",
           context: { trigger_event: event, ...context },
         });
-      if (!error) triggered++;
+      if (!error) {
+        triggered++;
+        continue;
+      }
+
+      // Um run por (automação, lead). Lead que dispara de novo (ex: preencheu a página outra vez)
+      // recomeça do gatilho SEMPRE, mesmo no meio do fluxo: cada inscrição recebe o fluxo inteiro.
+      // O started_at novo é o que libera o e-mail de novo (ver guard no email-automation-tick).
+      if (error.code === "23505") {
+        const { data: reiniciado } = await supabase
+          .from("email_automation_runs")
+          .update({
+            current_node_id: triggerNode.id,
+            scheduled_next_at: agora,
+            started_at: agora,
+            completed_at: null,
+            status: "active",
+            context: { trigger_event: event, ...context, reinicio: true },
+          })
+          .eq("automation_id", auto.id)
+          .eq("lead_id", lead_id)
+          .select("id");
+        if (reiniciado && reiniciado.length > 0) triggered++;
+      }
     }
 
     return new Response(JSON.stringify({ ok: true, triggered, total_automations: automations.length }), {

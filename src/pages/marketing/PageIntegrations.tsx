@@ -136,7 +136,7 @@ export default function PageIntegrations() {
               <TabsList className="flex-wrap h-auto">
                 <TabsTrigger value="config" className="gap-1.5"><Settings2 className="h-3.5 w-3.5" /> Destino</TabsTrigger>
                 <TabsTrigger value="instalar" disabled={!atual} className="gap-1.5"><Code2 className="h-3.5 w-3.5" /> Instalar na página</TabsTrigger>
-                <TabsTrigger value="automacao" disabled={!atual} className="gap-1.5"><Workflow className="h-3.5 w-3.5" /> Automação de e-mail</TabsTrigger>
+                <TabsTrigger value="automacao" disabled={!atual} className="gap-1.5"><Workflow className="h-3.5 w-3.5" /> Automação</TabsTrigger>
                 <TabsTrigger value="envios" disabled={!atual} className="gap-1.5"><Inbox className="h-3.5 w-3.5" /> Envios</TabsTrigger>
               </TabsList>
               <TabsContent value="config" className="mt-5">
@@ -283,7 +283,7 @@ function ConfigTab({ integracao, onSaved, onDeleted }: {
           </datalist>
         </div>
         <p className="text-[11px] text-muted-foreground">
-          Toda inscrição recebe essas tags, inclusive quem já era lead. É por elas que a automação de e-mail dispara.
+          Toda inscrição recebe essas tags, inclusive quem já era lead. É por elas que a automação dispara.
           Sem tag, usamos o nome da integração.
         </p>
       </div>
@@ -449,10 +449,11 @@ function AutomacaoTab({ integracao }: { integracao: PageIntegration }) {
     <div className="space-y-5">
       <div className="rounded-md border p-4 space-y-3">
         <div>
-          <p className="text-sm font-medium">Disparar e-mails a cada inscrição</p>
+          <p className="text-sm font-medium">Disparar uma automação a cada inscrição</p>
           <p className="text-xs text-muted-foreground">
             Abre o editor de automações com o gatilho "Tag adicionada" já apontando pra tag dessa página.
-            Lá você monta a sequência (e-mail de boas-vindas, espera, lembrete...) e ativa.
+            Lá você monta a sequência com e-mail, WhatsApp, convite pro grupo, tarefa pro vendedor,
+            mover no funil... e ativa. Roda toda vez que a pessoa preencher a página, mesmo que já seja lead.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -465,7 +466,7 @@ function AutomacaoTab({ integracao }: { integracao: PageIntegration }) {
             </Select>
           )}
           <Button onClick={criar} disabled={!tag} className="bg-[#BAA05E] hover:bg-[#917D3D] text-white gap-1.5">
-            <Plus className="h-3.5 w-3.5" /> Criar automação de e-mail
+            <Plus className="h-3.5 w-3.5" /> Criar automação
           </Button>
         </div>
       </div>

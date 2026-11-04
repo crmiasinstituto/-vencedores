@@ -195,6 +195,21 @@ export default async (req) => {
         method: 'PATCH',
         body: JSON.stringify({ name: nome, email: email || undefined, tags: mergeTags(existing.tags), whatsapp_opt_in: true }),
       });
+      // Tag nova já disparou lead_tag_added pelo trigger do banco no PATCH acima. Tag que o lead
+      // já tinha não dispara nada: avisa o motor direto que é uma reinscrição, pra automação
+      // da página rodar de novo (o trigger recomeça o run de quem já terminou o fluxo).
+      const jaTinha = (integration.tags || []).filter((t) => (existing.tags || []).includes(t));
+      await Promise.all(jaTinha.map((tag) =>
+        fetch(`${url}/functions/v1/email-automation-trigger`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
+          body: JSON.stringify({
+            event: 'lead_tag_added',
+            lead_id: existing.id,
+            context: { tag, all_tags: mergeTags(existing.tags), reinscricao: true, integracao: integration.slug },
+          }),
+        }).catch((e) => console.warn('email-automation-trigger:', e.message)),
+      ));
       return done('atualizado', existing.id, { duplicado: true });
     }
 

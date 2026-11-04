@@ -7,7 +7,9 @@ import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Check, ChevronsUpDown, X, Layers, Columns, Tag, UserCircle, Sparkles, Calendar, GraduationCap, ShieldAlert } from 'lucide-react';
+import { Check, ChevronsUpDown, X, Layers, Columns, Tag, UserCircle, Sparkles, Calendar, GraduationCap, ShieldAlert, MailOpen } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useAudienceOptions } from '@/hooks/useAudienceOptions';
@@ -138,6 +140,21 @@ function MultiSelect({ label, icon, options, selected, onChange, placeholder = '
 
 export default function EmailAudienceBuilder({ filters, onChange }: Props) {
   const { data: opts, isLoading } = useAudienceOptions();
+
+  // Campanhas já disparadas, pra filtrar quem abriu/clicou numa delas
+  const { data: campanhasEnviadas = [] } = useQuery({
+    queryKey: ['email-campaigns-enviadas'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('email_campaigns' as any)
+        .select('id, name, created_at')
+        .neq('source_type', 'automation')
+        .in('status', ['sending', 'completed', 'paused'])
+        .order('created_at', { ascending: false })
+        .limit(200);
+      return (data || []) as unknown as { id: string; name: string; created_at: string }[];
+    },
+  });
 
   const update = <K extends keyof EmailAudienceFilters>(key: K, value: EmailAudienceFilters[K]) => {
     onChange({ ...filters, [key]: value });
@@ -315,6 +332,62 @@ export default function EmailAudienceBuilder({ filters, onChange }: Props) {
             Anti-fadiga: evita disparar pro mesmo lead muito seguido.
           </p>
         </div>
+      </div>
+
+      {/* Engajamento */}
+      <div className="border-t pt-4 mt-4">
+        <Label className="text-xs font-semibold text-[#BAA05E] uppercase tracking-wider flex items-center gap-1.5 mb-3">
+          <MailOpen className="h-3.5 w-3.5" />
+          Engajamento com e-mails anteriores
+        </Label>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Quem</Label>
+            <Select
+              value={filters.engajamento || 'todos'}
+              onValueChange={v => onChange({
+                ...filters,
+                engajamento: v === 'todos' ? undefined : (v as EmailAudienceFilters['engajamento']),
+                ...(v === 'todos' ? { engajamento_campanhas: undefined, engajamento_dias: undefined } : {}),
+              })}
+            >
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos (não filtrar)</SelectItem>
+                <SelectItem value="recebeu">Recebeu e-mail</SelectItem>
+                <SelectItem value="abriu">Abriu e-mail</SelectItem>
+                <SelectItem value="clicou">Clicou em link do e-mail</SelectItem>
+                <SelectItem value="nao_abriu">Recebeu e NÃO abriu</SelectItem>
+                <SelectItem value="nao_clicou">Recebeu e NÃO clicou</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <MultiSelect
+            label="Em quais campanhas"
+            icon={<MailOpen className="h-3 w-3" />}
+            options={campanhasEnviadas.map(c => ({ value: c.id, label: c.name }))}
+            selected={filters.engajamento_campanhas || []}
+            onChange={v => update('engajamento_campanhas', v.length ? v : undefined)}
+            placeholder={filters.engajamento ? 'Qualquer campanha' : 'Escolha "Quem" primeiro'}
+            emptyText="Nenhuma campanha enviada"
+          />
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Nos últimos N dias</Label>
+            <Input
+              type="number"
+              min={1}
+              className="h-9"
+              placeholder="Sempre"
+              disabled={!filters.engajamento}
+              value={filters.engajamento_dias ?? ''}
+              onChange={e => update('engajamento_dias', e.target.value ? Number(e.target.value) : undefined)}
+            />
+          </div>
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-2">
+          Use pra reenviar pra quem não abriu, ou mandar a próxima etapa só pra quem clicou.
+          Abertura e clique dependem do webhook do Resend estar configurado (Marketing › Configurações).
+        </p>
       </div>
 
       {/* Exclusao */}
