@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ReactFlow, Background, Controls, MiniMap,
   useNodesState, useEdgesState, addEdge, Handle, Position,
@@ -284,6 +284,8 @@ export default function MarketingAutomationEditor() {
   const { id } = useParams<{ id: string }>();
   const isNew = !id || id === 'nova';
   const navigate = useNavigate();
+  // Fluxo novo pode chegar pré-preenchido (ex: Captura de Páginas manda ?gatilho=lead_tag_added&tag=...&nome=...)
+  const [searchParams] = useSearchParams();
 
   const { data: existing, isLoading } = useEmailAutomation(isNew ? undefined : id);
   const saveAutomation = useSaveEmailAutomation();
@@ -292,10 +294,16 @@ export default function MarketingAutomationEditor() {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const [name, setName] = useState('Nova automação');
+  const [name, setName] = useState(() => (isNew && searchParams.get('nome')) || 'Nova automação');
   const [description, setDescription] = useState('');
-  const [triggerEvent, setTriggerEvent] = useState<TriggerEvent>('lead_created');
-  const [triggerFilter, setTriggerFilter] = useState<Record<string, any>>({});
+  const [triggerEvent, setTriggerEvent] = useState<TriggerEvent>(() =>
+    (isNew && TRIGGER_OPTIONS.some((t) => t.value === searchParams.get('gatilho'))
+      ? searchParams.get('gatilho')
+      : 'lead_created') as TriggerEvent,
+  );
+  const [triggerFilter, setTriggerFilter] = useState<Record<string, any>>(() =>
+    isNew && searchParams.get('tag') ? { tag: searchParams.get('tag') } : {},
+  );
   const [reportOpen, setReportOpen] = useState(false);
 
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);

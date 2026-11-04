@@ -70,6 +70,7 @@ export const AREAS_ADMIN: GrupoAreas[] = [
       { title: 'Campanhas Email', url: '/admin/marketing/campanhas', icon: 'Mail' },
       { title: 'Templates Email', url: '/admin/marketing/templates', icon: 'FileText' },
       { title: 'Automações', url: '/admin/marketing/automacoes', icon: 'Workflow' },
+      { title: 'Captura de Páginas', url: '/admin/marketing/captura', icon: 'PlugZap' },
       { title: 'Templates WhatsApp', url: '/admin/marketing/wa-templates', icon: 'MessageSquare' },
       { title: 'Campanhas WhatsApp', url: '/admin/marketing/wa-campanhas', icon: 'Send' },
       { title: 'Instâncias WhatsApp', url: '/admin/marketing/instancias', icon: 'Smartphone' },
