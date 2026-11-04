@@ -124,7 +124,10 @@ export default function EmailConfigSettings() {
     }
     try {
       await save.mutateAsync({
-        resend_api_key: form.resend_api_key || null,
+        // A chave salva nunca volta pro browser, então o campo chega vazio. Vazio = manter a
+        // chave atual; só grava quando alguém digita uma nova. (Antes, salvar qualquer outra
+        // coisa — ex.: o Webhook Secret — apagava a chave e parava todos os envios.)
+        ...(form.resend_api_key.trim() ? { resend_api_key: form.resend_api_key.trim() } : {}),
         resend_webhook_secret: form.resend_webhook_secret || null,
         from_email: form.from_email || null,
         from_name: form.from_name || null,
@@ -242,7 +245,7 @@ export default function EmailConfigSettings() {
             <Input
               id="api_key"
               type={showSecrets ? 'text' : 'password'}
-              placeholder="re_..."
+              placeholder={status.apiKey ? 'Chave já configurada — deixe em branco para manter' : 're_...'}
               value={form.resend_api_key}
               onChange={(e) => setForm({ ...form, resend_api_key: e.target.value })}
             />
