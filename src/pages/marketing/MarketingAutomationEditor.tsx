@@ -26,6 +26,7 @@ import {
   Columns, Eye, MousePointerClick,
 } from 'lucide-react';
 import AutomationReportSheet from '@/components/marketing-mod/AutomationReportSheet';
+import { useAutomationNodeStats, type NodeCounters } from '@/hooks/useAutomationStats';
 import {
   useEmailAutomation,
   useSaveEmailAutomation,
@@ -54,6 +55,58 @@ const TRIGGER_OPTIONS: { value: TriggerEvent | string; label: string; icon: any;
   { value: 'custom', label: 'Customizado (manual / API)', icon: Zap, group: 'Outros' },
 ];
 
+// ===== Contadores ao vivo nas etapas =====
+// _publico: quantos leads batem com o gatilho (ex.: têm a tag); _stats: envios desta etapa;
+// _aqui: quantos estão nesta etapa agora (na fila / esperando).
+function PublicoBadge({ data }: { data: any }) {
+  if (data._publico == null && data._entraram == null) return null;
+  return (
+    <div className="mt-2 rounded-lg bg-background/80 border px-2 py-1.5 text-xs space-y-0.5">
+      {data._publico != null && (
+        <p className="flex items-center gap-1.5 font-semibold">
+          <Users className="h-3 w-3 text-blue-600" />
+          {Number(data._publico).toLocaleString('pt-BR')} leads {data._filtroTag ? 'com a tag' : 'no público'}
+        </p>
+      )}
+      {data._entraram != null && (
+        <p className="text-muted-foreground">{Number(data._entraram).toLocaleString('pt-BR')} já entraram no fluxo</p>
+      )}
+    </div>
+  );
+}
+
+function EnvioCounter({ data, color, aberturaLabel }: { data: any; color: string; aberturaLabel: string }) {
+  const st: NodeCounters | undefined = data._stats;
+  const total: number | null = data._total ?? null;
+  const enviados = st?.enviados ?? 0;
+  const aqui: number = data._aqui ?? 0;
+  if (total == null && !st && !aqui) return null;
+  const pct = total && total > 0 ? Math.min(100, Math.round((enviados / total) * 100)) : 0;
+  return (
+    <div className="mt-2 rounded-lg bg-background/80 border px-2 py-1.5 text-xs space-y-1 min-w-[190px]">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="font-bold text-sm" style={{ color }}>
+          {enviados.toLocaleString('pt-BR')}
+          {total != null && <span className="text-muted-foreground font-medium">/{total.toLocaleString('pt-BR')}</span>}
+        </span>
+        <span className="text-muted-foreground">receberam</span>
+      </div>
+      {total != null && total > 0 && (
+        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
+        </div>
+      )}
+      {st && (
+        <p className="text-muted-foreground">
+          {st.entregues} entregues · {st.abertos} {aberturaLabel}
+          {st.falhas > 0 && <span className="text-red-600"> · {st.falhas} falha{st.falhas === 1 ? '' : 's'}</span>}
+        </p>
+      )}
+      {aqui > 0 && <p className="text-amber-600">{aqui} na fila desta etapa</p>}
+    </div>
+  );
+}
+
 // ===== Custom Nodes =====
 function TriggerNode({ data }: { data: any }) {
   return (
@@ -68,6 +121,7 @@ function TriggerNode({ data }: { data: any }) {
         </div>
       </div>
       {data.description && <p className="text-xs text-muted-foreground">{data.description}</p>}
+      <PublicoBadge data={data} />
       <Handle type="source" position={Position.Bottom} className="!bg-blue-500" />
     </div>
   );
@@ -87,6 +141,7 @@ function SendEmailNode({ data }: { data: any }) {
         </div>
       </div>
       {data.subject && <p className="text-xs text-muted-foreground truncate">📧 {data.subject}</p>}
+      <EnvioCounter data={data} color="#BAA05E" aberturaLabel="abertos" />
       <Handle type="source" position={Position.Bottom} className="!bg-[#BAA05E]" />
     </div>
   );
@@ -112,7 +167,7 @@ function WaitNode({ data }: { data: any }) {
   );
 }
 
-function GenericNode({ data, color, label, icon: Icon, summary }: any) {
+function GenericNode({ data, color, label, icon: Icon, summary, counter }: any) {
   return (
     <div
       className="group border-2 rounded-2xl p-4 min-w-[200px] shadow-md relative"
@@ -137,6 +192,7 @@ function GenericNode({ data, color, label, icon: Icon, summary }: any) {
           <p className="text-sm font-semibold truncate max-w-[160px]">{summary}</p>
         </div>
       </div>
+      {counter && <EnvioCounter data={data} color={color} aberturaLabel="lidos" />}
       <Handle type="source" position={Position.Bottom} style={{ background: color }} />
     </div>
   );
@@ -197,11 +253,11 @@ function EndNode({ data }: { data: any }) {
 }
 
 function SendWhatsAppNode({ data }: { data: any }) {
-  return <GenericNode data={data} color="#22c55e" label="Enviar WhatsApp" icon={MessageSquare} summary={data.message ? data.message.slice(0, 30) + '...' : 'Configurar mensagem'} />;
+  return <GenericNode data={data} color="#22c55e" label="Enviar WhatsApp" icon={MessageSquare} summary={data.message ? data.message.slice(0, 30) + '...' : 'Configurar mensagem'} counter />;
 }
 
 function SendWhatsAppCloudNode({ data }: { data: any }) {
-  return <GenericNode data={data} color="#25d366" label="WA Cloud API" icon={MessageSquare} summary={data.template_name || 'Configurar template'} />;
+  return <GenericNode data={data} color="#25d366" label="WA Cloud API" icon={MessageSquare} summary={data.template_name || 'Configurar template'} counter />;
 }
 
 function MoveLeadNode({ data }: { data: any }) {
@@ -394,9 +450,30 @@ export default function MarketingAutomationEditor() {
     if (isNew) navigate(`/admin/marketing/automacoes/${saved.id}`, { replace: true });
   };
 
+  const { data: nodeStats } = useAutomationNodeStats(isNew ? undefined : id, triggerFilter);
+  const ENVIO_TYPES = ['sendEmail', 'sendWhatsapp', 'sendWhatsappCloud'];
+
   const enrichedNodes = useMemo(
-    () => nodes.map((n) => n.type === 'trigger' ? n : { ...n, data: { ...n.data, _onDelete: () => deleteNode(n.id) } }),
-    [nodes],
+    () => nodes.map((n) => {
+      // Total de referência do X/total: leads do gatilho (ex.: com a tag); sem filtro, quem entrou.
+      const total = nodeStats ? (nodeStats.publico ?? nodeStats.entraram) : null;
+      if (n.type === 'trigger') {
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            _publico: nodeStats?.publico ?? null,
+            _entraram: nodeStats ? nodeStats.entraram : null,
+            _filtroTag: !!triggerFilter?.tag,
+          },
+        };
+      }
+      const extra = ENVIO_TYPES.includes(n.type || '')
+        ? { _stats: nodeStats?.nodes?.[n.id], _total: total, _aqui: nodeStats?.aqui?.[n.id] ?? 0 }
+        : {};
+      return { ...n, data: { ...n.data, ...extra, _onDelete: () => deleteNode(n.id) } };
+    }),
+    [nodes, nodeStats, triggerFilter],
   );
 
   const deletableEdges = useMemo(

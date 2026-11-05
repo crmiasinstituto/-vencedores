@@ -69,3 +69,37 @@ export function useAutomationWhatsappLog(automationId: string | undefined, enabl
     },
   });
 }
+
+export interface NodeCounters {
+  enviados: number;
+  entregues: number;
+  abertos: number;
+  clicados: number;
+  falhas: number;
+}
+
+export interface AutomationNodeStats {
+  /** Leads que batem com o filtro do gatilho (ex.: têm a tag). null quando o gatilho não tem filtro. */
+  publico: number | null;
+  /** Pessoas que já entraram no fluxo. */
+  entraram: number;
+  nodes: Record<string, NodeCounters>;
+  /** Quantas pessoas estão paradas/aguardando em cada etapa agora. */
+  aqui: Record<string, number>;
+}
+
+/** Contadores por etapa do editor: público do gatilho e X/total em cada envio. Atualiza sozinho. */
+export function useAutomationNodeStats(automationId: string | undefined, filter: Record<string, any>) {
+  return useQuery({
+    queryKey: ['automation-node-stats', automationId, filter],
+    refetchInterval: 20_000,
+    queryFn: async (): Promise<AutomationNodeStats | null> => {
+      const { data, error } = await supabase.rpc('automation_node_stats' as any, {
+        p_automation_id: automationId ?? '00000000-0000-0000-0000-000000000000',
+        p_filter: filter || {},
+      });
+      if (error) throw error;
+      return (data as any) || null;
+    },
+  });
+}

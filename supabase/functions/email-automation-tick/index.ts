@@ -492,7 +492,7 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
                   .maybeSingle();
                 if (msg) {
                   await supabase.from("whatsapp_messages").update({
-                    metadata: { ...(msg.metadata || {}), automation_id: run.automation_id, automation_run_id: run.id },
+                    metadata: { ...(msg.metadata || {}), automation_id: run.automation_id, automation_run_id: run.id, node_id: node.id },
                   }).eq("id", msg.id);
                 }
               }
