@@ -70,8 +70,15 @@ function getNextNode(flow: any, fromNodeId: string, branch?: "yes" | "no"): Flow
   const nodes: FlowNode[] = flow.nodes || [];
   const candidates = edges.filter((e) => e.source === fromNodeId);
   let match: FlowEdge | undefined;
-  if (branch) match = candidates.find((e) => e.sourceHandle === branch);
-  if (!match) match = candidates[0];
+  if (branch) {
+    match = candidates.find((e) => e.sourceHandle === branch);
+    // Caminho "Não" sem ligação = o fluxo termina aqui. Antes caía no primeiro caminho
+    // (o "Sim") e o lead seguia o fluxo errado. Só aceita ligação sem handle (fluxo antigo)
+    // pro lado "Sim".
+    if (!match && branch === "yes") match = candidates.find((e) => !e.sourceHandle);
+  } else {
+    match = candidates[0];
+  }
   if (!match) return null;
   return nodes.find((n) => n.id === match!.target) || null;
 }
@@ -127,6 +134,72 @@ async function evaluateBranch(supabase: any, leadId: string, condition: any): Pr
     case ">":  return Number(currentValue) > Number(value);
     case "<":  return Number(currentValue) < Number(value);
     default:   return false;
+  }
+}
+
+// ===== WhatsApp pela UAZAPI (etapas "Enviar WhatsApp" e "Convidar para grupo") =====
+// Igual ao uazapi-proxy: a chave do número fica em instance_token (api_key vem vazio nas
+// instâncias UAZAPI). Antes o passo lia só api_key e nunca enviava. Agora confere a resposta,
+// grava a mensagem na conversa do lead e registra falhas/pulos no histórico.
+async function registrarFalhaAutomacao(supabase: any, run: any, node: FlowNode, leadId: string, texto: string) {
+  console.warn(`[run ${run.id}] ${texto}`);
+  await supabase.from("crm_activities").insert({
+    lead_id: leadId,
+    activity_type: "automation_error",
+    description: `Automação: ${texto}`,
+    metadata: { automation_id: run.automation_id, run_id: run.id, node_id: node.id },
+  });
+}
+
+async function enviarUazapiTexto(
+  supabase: any, run: any, node: FlowNode, leadId: string, rotulo: string, numeroBruto: string, texto: string,
+) {
+  let number = String(numeroBruto || "").replace(/\D/g, "");
+  if (!number.startsWith("55") && number.length >= 10 && number.length <= 11) number = "55" + number;
+  if (number.startsWith("55") && number.length === 12) number = number.slice(0, 4) + "9" + number.slice(4);
+
+  let q = supabase
+    .from("whatsapp_instances")
+    .select("id, api_url, api_key, instance_token")
+    .eq("provider", "uazapi")
+    .eq("status", "connected");
+  if (node.data.instance_id) q = q.eq("id", node.data.instance_id);
+  const { data: instance } = await q.order("created_at", { ascending: true }).limit(1).maybeSingle();
+  const token = instance?.instance_token || instance?.api_key;
+  if (!instance || !token) {
+    await registrarFalhaAutomacao(supabase, run, node, leadId, `${rotulo} não foi enviado — nenhum número UAZAPI conectado`);
+    return;
+  }
+  const base = (instance.api_url || "https://squaad.uazapi.com").replace(/\/$/, "");
+  try {
+    const res = await fetch(`${base}/send/text`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", token },
+      body: JSON.stringify({ number, text: texto }),
+    });
+    const corpo = await res.text();
+    let data: any = {};
+    try { data = JSON.parse(corpo); } catch { /* resposta não-JSON */ }
+    if (!res.ok) {
+      await registrarFalhaAutomacao(supabase, run, node, leadId, `${rotulo} não foi enviado — UAZAPI ${res.status}: ${corpo.slice(0, 200)}`);
+      return;
+    }
+    await supabase.from("whatsapp_messages").insert({
+      instance_id: instance.id,
+      lead_id: leadId,
+      remote_phone: number,
+      direction: "outbound",
+      message_type: "text",
+      content: texto,
+      whatsapp_message_id: data.key?.id || data.messageId || data.id || null,
+      status: "sent",
+      metadata: {
+        sent_by: "automation", provider: "uazapi",
+        automation_id: run.automation_id, automation_run_id: run.id, node_id: node.id,
+      },
+    });
+  } catch (e: any) {
+    await registrarFalhaAutomacao(supabase, run, node, leadId, `${rotulo} não foi enviado — ${e?.message || e}`);
   }
 }
 
@@ -317,16 +390,18 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
     }
 
     case "sendWhatsapp": {
-      // BLOQUEADO em automação: blast WhatsApp só via wa_campaigns com instância dedicada (anti-ban).
-      // Mensagem unitária de automação OK desde que use instância ativa atendimento.
+      // Mensagem unitária de automação pela UAZAPI (blast em massa continua só via wa_campaigns).
       const message = node.data.message || "";
       if (message) {
-        const { data: lead } = await supabase
+        const { data: lead, error: leadErr } = await supabase
           .from("crm_leads")
           .select("whatsapp, name, whatsapp_opt_in")
           .eq("id", leadId)
           .single();
-        if (lead?.whatsapp && lead.whatsapp_opt_in) {
+        if (leadErr || !lead?.whatsapp || !lead.whatsapp_opt_in) {
+          await registrarFalhaAutomacao(supabase, run, node, leadId,
+            `WhatsApp não foi enviado — ${leadErr ? leadErr.message : !lead?.whatsapp ? "lead sem WhatsApp" : "lead sem permissão de WhatsApp (opt-in)"}`);
+        } else {
           // Onboarding URL única do lead (Masterclass IA wizard)
           let onboardingUrl = "";
           try {
@@ -343,26 +418,7 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
             .replace(/\{\{onboarding_url\}\}/g, onboardingUrl)
             .replace(/\{\{link_plataforma\}\}/g, onboardingUrl)
             .replace(/\{\{acessar_plataforma\}\}/g, onboardingUrl);
-          const { data: instance } = await supabase
-            .from("whatsapp_instances")
-            .select("api_url, api_key, provider")
-            .eq("status", "connected")
-            .eq("provider", "uazapi")
-            .limit(1)
-            .maybeSingle();
-          if (instance?.api_url && instance?.api_key) {
-            try {
-              await fetch(`${instance.api_url}/send/text`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", token: instance.api_key },
-                body: JSON.stringify({ number: lead.whatsapp, text }),
-              });
-            } catch (e) {
-              console.error("Erro WhatsApp automação:", e);
-            }
-          }
-        } else {
-          console.log(`[automation] skip WhatsApp para lead ${leadId}: sem opt-in ou sem whatsapp`);
+          await enviarUazapiTexto(supabase, run, node, leadId, "WhatsApp", lead.whatsapp, text);
         }
       }
       const next = getNextNode(run.flow, node.id);
@@ -373,33 +429,19 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
       const groupLink = node.data.group_link || "";
       const message = node.data.message || "";
       if (groupLink) {
-        const { data: lead } = await supabase
+        const { data: lead, error: leadErr } = await supabase
           .from("crm_leads")
           .select("whatsapp, name, whatsapp_opt_in")
           .eq("id", leadId)
           .single();
-        if (lead?.whatsapp && lead.whatsapp_opt_in) {
-          const text = (message + "\n\n" + groupLink)
+        if (leadErr || !lead?.whatsapp || !lead.whatsapp_opt_in) {
+          await registrarFalhaAutomacao(supabase, run, node, leadId,
+            `Convite do grupo não foi enviado — ${leadErr ? leadErr.message : !lead?.whatsapp ? "lead sem WhatsApp" : "lead sem permissão de WhatsApp (opt-in)"}`);
+        } else {
+          const text = ((message ? message + "\n\n" : "") + groupLink)
             .replace(/\{\{nome\}\}/g, lead.name || "")
             .replace(/\{\{primeiro_nome\}\}/g, (lead.name || "").split(" ")[0]);
-          const { data: instance } = await supabase
-            .from("whatsapp_instances")
-            .select("api_url, api_key, provider")
-            .eq("status", "connected")
-            .eq("provider", "uazapi")
-            .limit(1)
-            .maybeSingle();
-          if (instance?.api_url && instance?.api_key) {
-            try {
-              await fetch(`${instance.api_url}/send/text`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", token: instance.api_key },
-                body: JSON.stringify({ number: lead.whatsapp, text }),
-              });
-            } catch (e) {
-              console.error("Erro envio convite grupo:", e);
-            }
-          }
+          await enviarUazapiTexto(supabase, run, node, leadId, "Convite do grupo", lead.whatsapp, text);
         }
       }
       const next = getNextNode(run.flow, node.id);
@@ -585,7 +627,7 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
       if (url) {
         try {
           const { data: lead } = await supabase.from("crm_leads").select("*").eq("id", leadId).single();
-          await fetch(url, {
+          const res = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -595,8 +637,15 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
               lead,
               extra: node.data.payload || {},
             }),
+            signal: AbortSignal.timeout(15_000),
           });
-        } catch (e) { console.error("webhook falhou:", e); }
+          if (!res.ok) {
+            const corpo = await res.text().catch(() => "");
+            await registrarFalhaAutomacao(supabase, run, node, leadId, `Webhook respondeu ${res.status}: ${corpo.slice(0, 200)}`);
+          }
+        } catch (e: any) {
+          await registrarFalhaAutomacao(supabase, run, node, leadId, `Webhook não respondeu — ${e?.message || e}`);
+        }
       }
       const next = getNextNode(run.flow, node.id);
       return { done: false, nextNodeId: next?.id, nextAt: new Date() };

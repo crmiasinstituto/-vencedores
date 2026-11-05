@@ -1369,6 +1369,13 @@ function AssigneePicker({ value, onChange, label = 'Vendedor responsável' }: {
           ))}
         </SelectContent>
       </Select>
+      {!isLoading && members.length === 0 && (
+        <p className="text-[11px] text-amber-600 mt-1.5">
+          Nenhum vendedor cadastrado ainda. Cadastre a equipe em{' '}
+          <a href="/admin/equipe" target="_blank" rel="noreferrer" className="underline font-medium">Equipe</a>{' '}
+          para escolher aqui.
+        </p>
+      )}
     </div>
   );
 }

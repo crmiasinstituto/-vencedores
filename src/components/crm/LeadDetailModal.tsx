@@ -42,6 +42,7 @@ import { DiscPdfPanel } from './DiscPdfPanel';
 import { OnboardingPanel } from './OnboardingPanel';
 import { FinalStageDialog } from './FinalStageDialog';
 import { normalizePhoneBR } from '@/lib/phone';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -678,7 +679,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                       {lead.assigned_to && (
                         <span className="flex items-center gap-1">
                           <User className="w-3 h-3" />
-                          {lead.assigned_to}
+                          <ResponsavelNome valor={lead.assigned_to} />
                         </span>
                       )}
                       {(currentBoardName || lead.source) && (
@@ -905,3 +906,12 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
     </Dialog>
   );
 };
+
+
+// assigned_to guarda o id do team_member (é o que a tela Equipe e a automação "Atribuir
+// responsável" usam). Mostra o nome; se não achar (valor antigo em texto), mostra o valor.
+function ResponsavelNome({ valor }: { valor: string }) {
+  const { data: membros = [] } = useTeamMembers();
+  const m = membros.find((x) => x.id === valor);
+  return <>{m?.name || valor}</>;
+}

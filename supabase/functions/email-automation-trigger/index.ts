@@ -53,7 +53,9 @@ Deno.serve(async (req: Request) => {
       let matches = true;
 
       // Filtros por evento — ignora se o context não bate
-      if (filter.board_id && context.board_id !== filter.board_id) matches = false;
+      // lead_board_changed manda o quadro de destino em to_board (não em board_id)
+      const boardDoEvento = context.board_id ?? context.to_board;
+      if (filter.board_id && boardDoEvento !== filter.board_id) matches = false;
       if (filter.column_id) {
         const target = context.to_column || context.column_id;
         if (target !== filter.column_id) matches = false;
@@ -96,6 +98,18 @@ Deno.serve(async (req: Request) => {
       // recomeça do gatilho SEMPRE, mesmo no meio do fluxo: cada inscrição recebe o fluxo inteiro.
       // O started_at novo é o que libera o e-mail de novo (ver guard no email-automation-tick).
       if (error.code === "23505") {
+        // Lead inativo: o cron diário manda o mesmo lead todo dia enquanto ele seguir parado.
+        // Só recomeça depois de passar o prazo configurado (senão ele recebe o fluxo todo dia).
+        if (event === "lead_inactive") {
+          const dias = Math.max(1, Number(filter.days || 1));
+          const { data: atual } = await supabase
+            .from("email_automation_runs")
+            .select("started_at")
+            .eq("automation_id", auto.id)
+            .eq("lead_id", lead_id)
+            .maybeSingle();
+          if (atual?.started_at && Date.now() - new Date(atual.started_at).getTime() < dias * 86400_000) continue;
+        }
         const { data: reiniciado } = await supabase
           .from("email_automation_runs")
           .update({
