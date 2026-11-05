@@ -14,8 +14,10 @@ import {
 import {
   Plus, Search, Workflow, MoreVertical, Pencil, Trash2, Zap, Users, Target,
   MessageSquare, Clock, CheckCircle2, AlertCircle, Server, Database, Play,
-  Pause, Radio,
+  Pause, Radio, Send, Eye, MessageCircle, BarChart3,
 } from 'lucide-react';
+import { useAutomationStats } from '@/hooks/useAutomationStats';
+import AutomationReportSheet from '@/components/marketing-mod/AutomationReportSheet';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -61,6 +63,8 @@ export default function MarketingAutomations() {
   const [search, setSearch] = useState('');
 
   const { data: automations = [], isLoading } = useEmailAutomations();
+  const { data: statsMap = {} } = useAutomationStats();
+  const [relatorio, setRelatorio] = useState<{ id: string; name: string } | null>(null);
   const deleteAutomation = useDeleteEmailAutomation();
   const toggleAutomation = useToggleEmailAutomation();
 
@@ -202,7 +206,46 @@ export default function MarketingAutomations() {
                           {stepsCount} {stepsCount === 1 ? 'passo' : 'passos'} ·{' '}
                           Atualizado {formatDistanceToNow(new Date(a.updated_at), { addSuffix: true, locale: ptBR })}
                         </p>
+                        {(() => {
+                          const st = statsMap[a.id];
+                          if (!st) return null;
+                          return (
+                            <div className="flex items-center gap-3 flex-wrap mt-2 text-xs">
+                              <span className="flex items-center gap-1" title="Pessoas que entraram no fluxo">
+                                <Users className="h-3 w-3 text-[#BAA05E]" /> <strong>{st.entraram}</strong> entraram
+                              </span>
+                              {(st.emails_enviados > 0 || st.emails_falhas > 0) && (
+                                <span className="flex items-center gap-1" title="E-mails enviados · entregues · abertos">
+                                  <Send className="h-3 w-3 text-sky-600" /> <strong>{st.emails_enviados}</strong> e-mails
+                                  <span className="text-muted-foreground">({st.emails_entregues} entregues · {st.emails_abertos} abertos)</span>
+                                </span>
+                              )}
+                              {(st.whatsapp_enviados > 0 || st.whatsapp_falhas > 0) && (
+                                <span className="flex items-center gap-1" title="WhatsApp enviados · lidos">
+                                  <MessageCircle className="h-3 w-3 text-emerald-600" /> <strong>{st.whatsapp_enviados}</strong> WhatsApp
+                                  <span className="text-muted-foreground">({st.whatsapp_lidos} lidos)</span>
+                                </span>
+                              )}
+                              {(st.emails_falhas + st.whatsapp_falhas + st.falharam) > 0 && (
+                                <span className="flex items-center gap-1 text-red-600">
+                                  <AlertCircle className="h-3 w-3" /> {st.emails_falhas + st.whatsapp_falhas + st.falharam} falha(s)
+                                </span>
+                              )}
+                              {st.ultimo_envio && (
+                                <span className="text-muted-foreground">
+                                  último envio {formatDistanceToNow(new Date(st.ultimo_envio), { addSuffix: true, locale: ptBR })}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
+                      <Button
+                        variant="outline" size="sm" className="gap-1.5 shrink-0"
+                        onClick={(e) => { e.stopPropagation(); setRelatorio({ id: a.id, name: a.name }); }}
+                      >
+                        <BarChart3 className="h-3.5 w-3.5" /> Ver envios
+                      </Button>
                       <Switch
                         checked={a.is_active}
                         onCheckedChange={(v) => toggleAutomation.mutate({ id: a.id, isActive: v })}
@@ -520,6 +563,14 @@ export default function MarketingAutomations() {
           </TabsContent>
         </Tabs>
       </div>
+      {relatorio && (
+        <AutomationReportSheet
+          open={!!relatorio}
+          onOpenChange={(v) => { if (!v) setRelatorio(null); }}
+          automationId={relatorio.id}
+          automationName={relatorio.name}
+        />
+      )}
     </AppLayout>
   );
 }

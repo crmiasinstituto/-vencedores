@@ -411,21 +411,58 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
       const language = node.data.language || "pt_BR";
       const rawParams: string[] = node.data.template_params || [];
       if (templateName) {
-        const { data: lead } = await supabase
+        // crm_leads não tem coluna "empresa": pedir ela fazia a consulta falhar, o lead vinha
+        // vazio e o passo pulava sem enviar e sem avisar. {{empresa}} fica vazio.
+        const { data: lead, error: leadErr } = await supabase
           .from("crm_leads")
-          .select("whatsapp, name, empresa, whatsapp_opt_in")
+          .select("whatsapp, name, whatsapp_opt_in")
           .eq("id", leadId)
           .single();
+        const motivoPulo = leadErr ? `erro ao ler o lead: ${leadErr.message}`
+          : !lead?.whatsapp ? "lead sem WhatsApp"
+          : !lead.whatsapp_opt_in ? "lead sem permissão de WhatsApp (opt-in)" : null;
+        if (motivoPulo) {
+          console.warn(`[run ${run.id}] WhatsApp pulado: ${motivoPulo}`);
+          await supabase.from("crm_activities").insert({
+            lead_id: leadId,
+            activity_type: "automation_error",
+            description: `Automação: WhatsApp "${templateName}" não foi enviado — ${motivoPulo}`,
+            metadata: { automation_id: run.automation_id, run_id: run.id, node_id: node.id },
+          });
+        }
         if (lead?.whatsapp && lead.whatsapp_opt_in) {
           const resolvedParams = rawParams.map((p: string) =>
             p
               .replace(/\{\{nome\}\}/g, lead.name || "")
               .replace(/\{\{primeiro_nome\}\}/g, (lead.name || "").split(" ")[0])
-              .replace(/\{\{empresa\}\}/g, lead.empresa || ""),
+              .replace(/\{\{empresa\}\}/g, ""),
           );
+          // Com mais de um número na API oficial, o modelo só existe na conta (WABA) onde foi
+          // aprovado. Sem instance_id o wa-send-cloud pega um número qualquer e a Meta recusa
+          // ("template does not exist"). Usa o número escolhido no passo ou o dono do modelo.
+          let instanceId: string | undefined = node.data.instance_id || undefined;
+          if (!instanceId) {
+            const { data: tpl } = await supabase
+              .from("whatsapp_cloud_templates")
+              .select("meta_waba_id")
+              .eq("name", templateName)
+              .eq("language", language)
+              .maybeSingle();
+            if (tpl?.meta_waba_id) {
+              const { data: inst } = await supabase
+                .from("whatsapp_instances")
+                .select("id")
+                .eq("provider", "cloud_api")
+                .eq("business_account_id", tpl.meta_waba_id)
+                .order("created_at", { ascending: true })
+                .limit(1)
+                .maybeSingle();
+              instanceId = inst?.id;
+            }
+          }
           try {
             const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/wa-send-cloud`;
-            await fetch(url, {
+            const waRes = await fetch(url, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -439,8 +476,35 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
                 template_params: resolvedParams.length > 0 ? resolvedParams : undefined,
                 lead_id: leadId,
                 sent_by: "automation",
+                instance_id: instanceId,
               }),
             });
+            const waBody = await waRes.text();
+            if (waRes.ok) {
+              // Marca a mensagem com a automação: é o que alimenta os números da lista e o relatório.
+              let messageId: string | undefined;
+              try { messageId = JSON.parse(waBody)?.message_id; } catch { /* ignora */ }
+              if (messageId) {
+                const { data: msg } = await supabase
+                  .from("whatsapp_messages")
+                  .select("id, metadata")
+                  .eq("whatsapp_message_id", messageId)
+                  .maybeSingle();
+                if (msg) {
+                  await supabase.from("whatsapp_messages").update({
+                    metadata: { ...(msg.metadata || {}), automation_id: run.automation_id, automation_run_id: run.id },
+                  }).eq("id", msg.id);
+                }
+              }
+            } else {
+              console.error(`[run ${run.id}] WhatsApp Cloud falhou:`, waBody);
+              await supabase.from("crm_activities").insert({
+                lead_id: leadId,
+                activity_type: "automation_error",
+                description: `Automação: WhatsApp "${templateName}" não foi enviado — ${waBody.slice(0, 300)}`,
+                metadata: { automation_id: run.automation_id, run_id: run.id, node_id: node.id },
+              });
+            }
           } catch (e) {
             console.error("Erro WhatsApp Cloud API automacao:", e);
           }

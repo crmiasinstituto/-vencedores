@@ -6,8 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Mail, Send, Eye, MousePointerClick, AlertTriangle, ChevronLeft, ChevronRight,
-  Loader2, ExternalLink, Activity, PlayCircle, CheckCircle2, XCircle,
+  Loader2, ExternalLink, Activity, PlayCircle, CheckCircle2, XCircle, MessageCircle, Users,
 } from 'lucide-react';
+import { useAutomationStats, useAutomationWhatsappLog } from '@/hooks/useAutomationStats';
 import { useAutomationSends, useAutomationRuns, type EmailSendLogRow } from '@/hooks/useEmailMarketing';
 import EmailTimelineModal from '@/components/client360/EmailTimelineModal';
 import { format } from 'date-fns';
@@ -22,6 +23,14 @@ const SEND_STATUS: Record<string, { label: string; color: string }> = {
   clicked: { label: 'Clicado', color: 'text-purple-700 bg-purple-50' },
   bounced: { label: 'Bounce', color: 'text-red-700 bg-red-50' },
   failed: { label: 'Falhou', color: 'text-red-700 bg-red-50' },
+};
+
+const WA_STATUS: Record<string, { label: string; color: string }> = {
+  pending: { label: 'Na fila', color: 'text-gray-700 bg-gray-100' },
+  sent: { label: 'Enviado', color: 'text-sky-700 bg-sky-50' },
+  delivered: { label: 'Entregue', color: 'text-teal-700 bg-teal-50' },
+  read: { label: 'Lido', color: 'text-indigo-700 bg-indigo-50' },
+  failed: { label: 'Não enviado', color: 'text-red-700 bg-red-50' },
 };
 
 const RUN_STATUS: Record<string, { label: string; color: string; icon: any }> = {
@@ -40,13 +49,16 @@ interface Props {
 
 export default function AutomationReportSheet({ open, onOpenChange, automationId, automationName }: Props) {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<'sends' | 'runs'>('sends');
+  const [tab, setTab] = useState<'sends' | 'whatsapp' | 'runs'>('sends');
   const [sendsPage, setSendsPage] = useState(0);
   const [runsPage, setRunsPage] = useState(0);
   const [selectedSend, setSelectedSend] = useState<EmailSendLogRow | null>(null);
 
   const { data: sends, isLoading: sendsLoading } = useAutomationSends(automationId, sendsPage, 25);
   const { data: runs, isLoading: runsLoading } = useAutomationRuns(automationId, runsPage, 25);
+  const { data: statsMap } = useAutomationStats();
+  const stats = statsMap?.[automationId];
+  const { data: waRows = [], isLoading: waLoading } = useAutomationWhatsappLog(automationId, open);
 
   const sendRows = sends?.rows || [];
   const sendTotal = sends?.total || 0;
@@ -55,15 +67,6 @@ export default function AutomationReportSheet({ open, onOpenChange, automationId
   const runRows = runs?.rows || [];
   const runTotal = runs?.total || 0;
   const runTotalPages = Math.max(1, Math.ceil(runTotal / 25));
-
-  // KPIs simples agregados do que carregou
-  const kpis = useMemo(() => {
-    const sent = sendRows.length;
-    const opened = sendRows.filter((r) => !!r.opened_at).length;
-    const clicked = sendRows.filter((r) => !!r.clicked_at).length;
-    const bounced = sendRows.filter((r) => !!r.bounced_at).length;
-    return { sent, opened, clicked, bounced };
-  }, [sendRows]);
 
   const modalMetadata = useMemo(() => {
     if (!selectedSend) return null;
@@ -104,43 +107,37 @@ export default function AutomationReportSheet({ open, onOpenChange, automationId
               Envios disparados por essa automação e quem está executando.
             </SheetDescription>
 
-            {/* KPIs */}
-            <div className="grid grid-cols-4 gap-2 pt-3">
-              <div className="rounded-md border p-2">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Página</p>
-                <p className="text-lg font-semibold flex items-center gap-1.5">
-                  <Send className="h-3.5 w-3.5 text-[#BAA05E]" />
-                  {kpis.sent}
-                </p>
-              </div>
-              <div className="rounded-md border p-2">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Abertos</p>
-                <p className="text-lg font-semibold flex items-center gap-1.5">
-                  <Eye className="h-3.5 w-3.5 text-indigo-600" />
-                  {kpis.opened}
-                </p>
-              </div>
-              <div className="rounded-md border p-2">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Cliques</p>
-                <p className="text-lg font-semibold flex items-center gap-1.5">
-                  <MousePointerClick className="h-3.5 w-3.5 text-purple-600" />
-                  {kpis.clicked}
-                </p>
-              </div>
-              <div className="rounded-md border p-2">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Bounces</p>
-                <p className="text-lg font-semibold flex items-center gap-1.5">
-                  <AlertTriangle className="h-3.5 w-3.5 text-red-600" />
-                  {kpis.bounced}
-                </p>
-              </div>
+            {/* KPIs — totais reais da automação (não só da página carregada) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3">
+              {[
+                { label: 'Pessoas que entraram', value: stats?.entraram ?? 0, icon: Users, color: 'text-[#BAA05E]',
+                  sub: stats ? `${stats.em_andamento} em andamento · ${stats.concluidos} concluídas` : '' },
+                { label: 'E-mails enviados', value: stats?.emails_enviados ?? 0, icon: Send, color: 'text-sky-600',
+                  sub: stats ? `${stats.emails_entregues} entregues${stats.emails_falhas ? ` · ${stats.emails_falhas} falharam` : ''}` : '' },
+                { label: 'E-mails abertos', value: stats?.emails_abertos ?? 0, icon: Eye, color: 'text-indigo-600',
+                  sub: stats ? `${stats.emails_clicados} clicaram` : '' },
+                { label: 'WhatsApp enviados', value: stats?.whatsapp_enviados ?? 0, icon: MessageCircle, color: 'text-emerald-600',
+                  sub: stats ? `${stats.whatsapp_lidos} lidos${stats.whatsapp_falhas ? ` · ${stats.whatsapp_falhas} não enviados` : ''}` : '' },
+              ].map((k) => (
+                <div key={k.label} className="rounded-md border p-2">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{k.label}</p>
+                  <p className="text-lg font-semibold flex items-center gap-1.5">
+                    <k.icon className={cn('h-3.5 w-3.5', k.color)} />
+                    {k.value}
+                  </p>
+                  {k.sub && <p className="text-[10px] text-muted-foreground">{k.sub}</p>}
+                </div>
+              ))}
             </div>
           </SheetHeader>
 
           <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="flex-1 flex flex-col overflow-hidden">
             <TabsList className="mx-6 mt-3 self-start">
               <TabsTrigger value="sends" className="gap-1.5">
-                <Mail className="h-3.5 w-3.5" /> Envios <Badge variant="outline" className="ml-1 text-[10px]">{sendTotal}</Badge>
+                <Mail className="h-3.5 w-3.5" /> E-mails <Badge variant="outline" className="ml-1 text-[10px]">{sendTotal}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="whatsapp" className="gap-1.5">
+                <MessageCircle className="h-3.5 w-3.5" /> WhatsApp <Badge variant="outline" className="ml-1 text-[10px]">{waRows.length}</Badge>
               </TabsTrigger>
               <TabsTrigger value="runs" className="gap-1.5">
                 <Activity className="h-3.5 w-3.5" /> Execuções <Badge variant="outline" className="ml-1 text-[10px]">{runTotal}</Badge>
@@ -214,6 +211,49 @@ export default function AutomationReportSheet({ open, onOpenChange, automationId
                       <ChevronRight className="h-3.5 w-3.5" />
                     </Button>
                   </div>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* WhatsApp */}
+            <TabsContent value="whatsapp" className="flex-1 overflow-y-auto px-6 py-4 mt-0">
+              {waLoading ? (
+                <div className="py-12 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></div>
+              ) : waRows.length === 0 ? (
+                <div className="py-16 text-center text-muted-foreground">
+                  <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">Nenhum WhatsApp enviado por essa automação ainda</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {waRows.map((r, i) => {
+                    const st = WA_STATUS[r.status] || { label: r.status, color: 'text-gray-700 bg-gray-100' };
+                    return (
+                      <div key={`${r.quando}-${i}`} className="group flex items-center gap-3 p-2.5 rounded-md border hover:bg-accent/30 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-sm truncate">{r.lead_nome || '—'}</p>
+                            <Badge className={cn('text-[10px] border-0', st.color)}>{st.label}</Badge>
+                          </div>
+                          <p className={cn('text-xs truncate', r.status === 'failed' ? 'text-red-600' : 'text-muted-foreground')}>
+                            {r.status === 'failed' ? (r.erro || 'Falhou') : (r.telefone || '')}
+                          </p>
+                        </div>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {format(new Date(r.quando), 'dd/MM HH:mm', { locale: ptBR })}
+                        </span>
+                        {r.lead_id && (
+                          <button
+                            onClick={() => navigate(`/admin/crm?lead=${r.lead_id}`)}
+                            className="p-1 rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Abrir lead"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </TabsContent>
