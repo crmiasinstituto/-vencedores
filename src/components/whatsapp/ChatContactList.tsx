@@ -4,8 +4,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { formatInstancePhone, shortInstanceName, getInstanceTag, describeInstance, InstanceIdentity } from '@/lib/whatsappInstance';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { nomeValido, previewMensagem } from '@/lib/whatsapp-display';
 
 export interface ChatContact {
@@ -49,6 +47,16 @@ function formatPhoneDisplay(phone: string) {
     return `(${phone.slice(0, 2)}) ${phone.slice(2, 7)}-${phone.slice(7)}`;
   }
   return phone;
+}
+
+/** "14:32" se for hoje, "ontem", ou "09/11". Mais curto que "menos de um minuto". */
+function horaCurta(iso: string) {
+  const d = new Date(iso);
+  const hoje = new Date();
+  const ontem = new Date(); ontem.setDate(hoje.getDate() - 1);
+  if (d.toDateString() === hoje.toDateString()) return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  if (d.toDateString() === ontem.toDateString()) return 'ontem';
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
 type ChatFilter = 'all' | 'unread' | 'read' | 'groups';
@@ -497,33 +505,21 @@ export const ChatContactList: React.FC<ChatContactListProps> = ({ selectedContac
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`font-medium text-sm truncate ${contact.unreadCount > 0 ? 'text-foreground font-semibold' : 'text-foreground'}`}>
+                    {/* Linha 1: nome inteiro + hora. Linha 2: prévia. Linha 3: por qual número.
+                        Antes nome, etiqueta e "menos de um minuto" disputavam a mesma linha e o
+                        nome virava "Edilceia ...". */}
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className={`text-sm truncate min-w-0 ${contact.unreadCount > 0 ? 'text-foreground font-semibold' : 'text-foreground font-medium'}`} title={contact.name}>
                         {contact.name}
                       </span>
-                      {/* Por qual dos nossos numeros essa conversa corre. Sem isso
-                          nao da pra saber de onde ligar/responder pro lead. */}
-                      {(() => {
-                        const inst = contact.lastInstanceId ? instanceMap[contact.lastInstanceId] : null;
-                        if (!inst) return null;
-                        const tag = getInstanceTag(inst);
-                        return (
-                          <span
-                            className={`text-[8px] px-1 py-px rounded font-semibold uppercase tracking-wide flex-shrink-0 ml-auto ${tag.className}`}
-                            title={describeInstance(inst)}
-                          >
-                            {tag.label}
-                          </span>
-                        );
-                      })()}
                       {contact.lastMessageAt && (
-                        <span className={`text-[10px] flex-shrink-0 ml-2 ${contact.unreadCount > 0 ? 'text-green-400 font-medium' : 'text-muted-foreground'}`}>
-                          {formatDistanceToNow(new Date(contact.lastMessageAt), { addSuffix: false, locale: ptBR })}
+                        <span className={`text-[10px] flex-shrink-0 ${contact.unreadCount > 0 ? 'text-green-500 font-semibold' : 'text-muted-foreground'}`}>
+                          {horaCurta(contact.lastMessageAt)}
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center justify-between mt-0.5">
-                      <p className="text-xs text-muted-foreground truncate">
+                    <div className="flex items-center justify-between gap-2 mt-0.5">
+                      <p className="text-xs text-muted-foreground truncate min-w-0">
                         {contact.isGroup && contact.lastSenderName
                           ? <><span className="text-foreground/70">{contact.lastSenderName.split(' ')[0]}:</span> {contact.lastMessage}</>
                           : isCrmOnly
@@ -531,22 +527,24 @@ export const ChatContactList: React.FC<ChatContactListProps> = ({ selectedContac
                             : (contact.lastMessage || 'Sem mensagens')
                         }
                       </p>
-                      {(() => {
-                        const inst = contact.lastInstanceId ? instanceMap[contact.lastInstanceId] : null;
-                        const phone = formatInstancePhone(inst?.phone_number);
-                        if (!inst || !phone) return null;
-                        return (
-                          <span className="text-[9px] text-muted-foreground/70 flex-shrink-0 ml-2 font-mono" title={describeInstance(inst)}>
-                            {phone}
-                          </span>
-                        );
-                      })()}
                       {contact.unreadCount > 0 && (
                         <Badge className="bg-green-500 text-white text-[10px] px-1.5 py-0 min-w-[18px] text-center flex-shrink-0 ml-2 animate-pulse">
                           {contact.unreadCount}
                         </Badge>
                       )}
                     </div>
+                    {(() => {
+                      const inst = contact.lastInstanceId ? instanceMap[contact.lastInstanceId] : null;
+                      if (!inst) return null;
+                      const tag = getInstanceTag(inst);
+                      const tel = formatInstancePhone(inst.phone_number);
+                      return (
+                        <div className="flex items-center gap-1.5 mt-1" title={describeInstance(inst)}>
+                          <span className={`text-[8px] px-1 py-px rounded font-semibold uppercase tracking-wide ${tag.className}`}>{tag.label}</span>
+                          {tel && <span className="text-[9px] text-muted-foreground/70 font-mono truncate">{tel}</span>}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </button>
               );
