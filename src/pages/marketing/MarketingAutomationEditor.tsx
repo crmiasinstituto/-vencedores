@@ -58,6 +58,27 @@ const TRIGGER_OPTIONS: { value: TriggerEvent | string; label: string; icon: any;
 // ===== Contadores ao vivo nas etapas =====
 // _publico: quantos leads batem com o gatilho (ex.: têm a tag); _stats: envios desta etapa;
 // _aqui: quantos estão nesta etapa agora (na fila / esperando).
+/** Distância mínima entre uma etapa e a de baixo. Os cartões ganharam contadores (público,
+ * X/total) e ficaram mais altos; fluxos salvos com 80px de distância ficavam encavalados. */
+const ESPACO_VERTICAL = 190;
+
+/** Empurra pra baixo as etapas que ficaram encostadas na de cima (só se estiverem na mesma
+ * "coluna"). Não muda a ordem nem as ligações; só a posição na tela. */
+function espacarEtapas(nodes: Node[]): Node[] {
+  const ordenados = [...nodes].sort((a, b) => a.position.y - b.position.y);
+  const novaPos = new Map<string, { x: number; y: number }>();
+  const colocados: { x: number; y: number }[] = [];
+  for (const n of ordenados) {
+    let y = n.position.y;
+    for (const c of colocados) {
+      if (Math.abs(c.x - n.position.x) < 320 && y >= c.y && y < c.y + ESPACO_VERTICAL) y = c.y + ESPACO_VERTICAL;
+    }
+    colocados.push({ x: n.position.x, y });
+    novaPos.set(n.id, { x: n.position.x, y });
+  }
+  return nodes.map((n) => ({ ...n, position: novaPos.get(n.id) || n.position }));
+}
+
 function PublicoBadge({ data }: { data: any }) {
   if (data._publico == null && data._entraram == null) return null;
   return (
@@ -370,7 +391,7 @@ export default function MarketingAutomationEditor() {
       setDescription(existing.description || '');
       setTriggerEvent(existing.trigger_event);
       setTriggerFilter(existing.trigger_filter || {});
-      if (existing.flow_json?.nodes) setNodes(existing.flow_json.nodes);
+      if (existing.flow_json?.nodes) setNodes(espacarEtapas(existing.flow_json.nodes));
       if (existing.flow_json?.edges) setEdges(existing.flow_json.edges);
     }
   }, [existing]);
@@ -415,7 +436,7 @@ export default function MarketingAutomationEditor() {
     const newNode: Node = {
       id: `${type}-${Date.now()}`,
       type,
-      position: { x: 450, y: maxY + 80 },
+      position: { x: 450, y: maxY + ESPACO_VERTICAL },
       data: defaultDataFor(type),
     };
     setNodes((nds) => [...nds, newNode]);

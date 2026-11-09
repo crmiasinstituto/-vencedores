@@ -377,7 +377,7 @@ export default function CampaignDetailPanel({ campaign }: Props) {
                 <div className="bg-muted/50 rounded-lg p-3 border space-y-2">
                   <div className="flex items-center gap-2 mb-1">
                     <Badge variant="outline" className="text-[10px] gap-1 text-emerald-700 border-emerald-200">
-                      <CheckCheck className="h-2.5 w-2.5" /> APPROVED
+                      <CheckCheck className="h-2.5 w-2.5" /> Aprovado
                     </Badge>
                     <span className="text-sm font-medium">{cloudTpl.name}</span>
                     <span className="text-[10px] text-muted-foreground uppercase tracking-wider">

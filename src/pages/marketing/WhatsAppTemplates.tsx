@@ -38,6 +38,11 @@ const CATEGORY_META: Record<string, { label: string; color: string }> = {
   AUTHENTICATION: { label: "Autenticação", color: "bg-orange-500/10 text-orange-700 border-orange-500/30" },
 };
 
+function botoesDoModelo(t: any): string[] {
+  const comp = (t?.components || []).find((c: any) => String(c?.type).toUpperCase() === "BUTTONS");
+  return ((comp?.buttons || []) as any[]).map((b) => b?.text).filter(Boolean);
+}
+
 function getBodyText(t: WhatsAppTemplate): string {
   const body = (t.components || []).find((c: any) => c.type === "BODY");
   return body?.text || "";
@@ -350,12 +355,12 @@ function TemplateCard({
   return (
     <Card className="flex flex-col">
       <CardHeader className="pb-3 space-y-2">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant="outline" className={status.color}>
             <StatusIcon className="h-3 w-3 mr-1" />
             {status.label}
           </Badge>
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <Badge variant="outline" className={category.color}>{category.label}</Badge>
             <Badge variant="outline" className="text-[10px] uppercase">{template.language}</Badge>
             {/* De qual número é o template — com duas linhas, o nome sozinho não diz. */}
@@ -371,7 +376,7 @@ function TemplateCard({
           </div>
         </div>
 
-        <CardTitle className="font-mono text-sm leading-tight">{template.name}</CardTitle>
+        <CardTitle className="font-mono text-sm leading-tight break-all">{template.name}</CardTitle>
 
         {(template.internal_tags || []).length > 0 && (
           <div className="flex flex-wrap gap-1.5">
@@ -393,9 +398,26 @@ function TemplateCard({
         )}
       </CardHeader>
       <CardContent className="flex-1 flex flex-col">
-        <p className="text-sm text-foreground/80 line-clamp-3 flex-1 whitespace-pre-line">
-          {body || <em className="text-muted-foreground">Template sem corpo</em>}
-        </p>
+        {/* Prévia em balão, com mais linhas e os botões do modelo, pra dar pra ler sem abrir. */}
+        <button
+          type="button"
+          onClick={onPreview}
+          className="flex-1 text-left rounded-lg rounded-tl-none border bg-muted/40 px-3 py-2.5 hover:bg-muted/70 transition-colors"
+          title="Clique para ver a mensagem inteira"
+        >
+          <p className="text-[13px] leading-relaxed text-foreground line-clamp-6 whitespace-pre-line break-words">
+            {body || <em className="text-muted-foreground">Template sem corpo</em>}
+          </p>
+          {botoesDoModelo(template).length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {botoesDoModelo(template).map((b, i) => (
+                <span key={i} className="inline-flex items-center rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-300">
+                  ↪ {b}
+                </span>
+              ))}
+            </div>
+          )}
+        </button>
 
         {template.status === "REJECTED" && template.rejection_reason && (
           <p className="text-xs text-rose-600 mt-2 px-2 py-1 bg-rose-50 rounded">

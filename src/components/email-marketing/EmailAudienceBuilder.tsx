@@ -214,7 +214,11 @@ export default function EmailAudienceBuilder({ filters, onChange, canal = 'email
       <div className="rounded-lg border border-[#BAA05E]/20 bg-[#BAA05E]/[0.04] p-3">
         <p className="text-xs text-muted-foreground leading-relaxed">
           <Sparkles className="h-3 w-3 inline mr-1 text-[#BAA05E]" />
-          Audiência é montada filtrando <strong>crm_leads</strong>. Apenas leads com email preenchido e que não pediram descadastro entram. <strong>Sem filtros = todos os leads elegíveis</strong>.
+          {ehWhatsApp ? (
+            <>Só entram leads com <strong>WhatsApp preenchido</strong> que não pediram pra parar de receber. <strong>Sem filtros = todos os leads com WhatsApp</strong>.</>
+          ) : (
+            <>Só entram leads com <strong>e-mail preenchido</strong> que não pediram descadastro. <strong>Sem filtros = todos os leads com e-mail</strong>.</>
+          )}
         </p>
       </div>
 
@@ -263,7 +267,7 @@ export default function EmailAudienceBuilder({ filters, onChange, canal = 'email
             icon={<Tag className="h-3 w-3 text-red-400" />}
             options={tagOptions}
             selected={filters.exclude_tags || []}
-            onChange={(v) => update('exclude_tags', v)}
+            onChange={(v) => update('exclude_tags', v.length ? v : undefined)}
             placeholder="Não excluir ninguém"
           />
           {(filters.exclude_tags?.length || 0) > 0 && (
@@ -413,13 +417,13 @@ export default function EmailAudienceBuilder({ filters, onChange, canal = 'email
           Excluir da audiencia (nao recebem)
         </Label>
         <p className="text-[11px] text-muted-foreground mb-2">
-          Leads que estiverem nos quadros, colunas ou tags abaixo NÃO recebem, mesmo que passem nos filtros acima.
+          Leads que estiverem nos quadros ou colunas abaixo NÃO recebem, mesmo que passem nos filtros acima. Pra excluir por tag, use o campo "🚫 Não enviar para quem tem a tag" lá em cima.
         </p>
         <p className="text-[11px] mb-3 rounded-md border border-red-500/20 bg-red-500/5 px-2.5 py-1.5 text-red-400">
           🔒 {bloqueados != null ? `${bloqueados.toLocaleString('pt-BR')} lead${bloqueados === 1 ? '' : 's'}` : 'Os leads'} marcado{bloqueados === 1 ? '' : 's'} como
           <strong> Não contatar</strong> (pelo botão no lead ou porque pediram pra parar) já ficam de fora automaticamente.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <MultiSelect
             label="Excluir Board(s)"
             icon={<Layers className="h-3 w-3 text-red-400" />}
@@ -440,15 +444,6 @@ export default function EmailAudienceBuilder({ filters, onChange, canal = 'email
             onChange={v => update('exclude_column_ids', v.length ? v : undefined)}
             placeholder="Colunas pra excluir..."
             emptyText="Nenhuma coluna"
-          />
-          <MultiSelect
-            label="Excluir Tag(s)"
-            icon={<Tag className="h-3 w-3 text-red-400" />}
-            options={tagOptions}
-            selected={filters.exclude_tags || []}
-            onChange={v => update('exclude_tags', v.length ? v : undefined)}
-            placeholder="Tags pra excluir..."
-            emptyText="Nenhuma tag"
           />
         </div>
       </div>

@@ -66,12 +66,19 @@ export const ChatContactList: React.FC<ChatContactListProps> = ({ selectedContac
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadContacts = useCallback(async () => {
-    const { data: messages } = await supabase
-      .from('whatsapp_messages')
-      .select('remote_phone, lead_id, board_id, content, created_at, direction, is_read, message_type, metadata, instance_id')
-      .order('created_at', { ascending: false });
+    // O banco devolve no máximo 1.000 linhas por consulta. Durante um disparo isso são só as
+    // últimas mensagens da campanha, e as conversas anteriores sumiam da lista. Busca 3 lotes
+    // ao mesmo tempo (3.000 mensagens mais recentes). Conversa mais antiga: use a busca.
+    const lotes = await Promise.all([0, 1, 2].map((pagina) =>
+      supabase
+        .from('whatsapp_messages')
+        .select('remote_phone, lead_id, board_id, content, created_at, direction, is_read, message_type, metadata, instance_id')
+        .order('created_at', { ascending: false })
+        .range(pagina * 1000, pagina * 1000 + 999),
+    ));
+    const messages: any[] = lotes.flatMap((l) => (l.data as any[]) || []);
 
-    if (!messages) { setIsLoading(false); return; }
+    if (messages.length === 0) { setIsLoading(false); return; }
 
     // Group by NORMALIZED phone
     const phoneMap = new Map<string, any>();
@@ -108,9 +115,28 @@ export const ChatContactList: React.FC<ChatContactListProps> = ({ selectedContac
     }
 
     // Enrich with CRM leads - now also fetch whatsapp_profile_pic_url
-    const { data: leads } = await supabase
-      .from('crm_leads')
-      .select('id, name, whatsapp, instagram_profile_pic_url, whatsapp_profile_pic_url, board_id');
+    // Busca só os leads das conversas da lista (por id e por telefone). Antes buscava "todos",
+    // mas o banco corta em 1.000 de mais de 40 mil, e a maioria das conversas aparecia só com
+    // o número em vez do nome.
+    const colunasLead = 'id, name, whatsapp, instagram_profile_pic_url, whatsapp_profile_pic_url, board_id';
+    const emLotes = <T,>(lista: T[], tam: number) => Array.from({ length: Math.ceil(lista.length / tam) }, (_, i) => lista.slice(i * tam, i * tam + tam));
+    // 1) pelos lead_id das mensagens
+    const leadIds = [...new Set([...phoneMap.values()].map((d: any) => d.leadId).filter(Boolean))] as string[];
+    const porId = await Promise.all(emLotes(leadIds, 200).map((lote) => supabase.from('crm_leads').select(colunasLead).in('id', lote)));
+    const achadosPorId = new Set<string>();
+    for (const r of porId) for (const l of (r.data || []) as any[]) achadosPorId.add(l.id);
+    // 2) pelo telefone, só nas conversas sem lead achado (com e sem o 9)
+    const telefones = new Set<string>();
+    for (const [phone, data] of phoneMap) {
+      if (data.leadId && achadosPorId.has(data.leadId)) continue;
+      telefones.add(phone);
+      if (phone.startsWith('55') && phone.length === 13) telefones.add(phone.slice(0, 4) + phone.slice(5));
+    }
+    const porTelefone = await Promise.all(emLotes([...telefones], 300).map((lote) => supabase.from('crm_leads').select(colunasLead).in('whatsapp', lote)));
+    const respostas = [...porId, ...porTelefone];
+    const vistos = new Set<string>();
+    const leads: any[] = [];
+    for (const r of respostas) for (const l of (r.data || []) as any[]) if (!vistos.has(l.id)) { vistos.add(l.id); leads.push(l); }
 
     // Defesa em profundidade: se a mesma URL aparece em > 1 lead, é foto vazada
     // (UAZAPI as vezes retorna foto cacheada do contato errado). Conta ocorrencias
@@ -164,9 +190,10 @@ export const ChatContactList: React.FC<ChatContactListProps> = ({ selectedContac
       }
     }
 
+    const leadsPorId = new Map(leads.map((l) => [l.id, l]));
     const contactList: ChatContact[] = [];
     for (const [phone, data] of phoneMap) {
-      const lead = leadMap.get(phone);
+      const lead = (data.leadId ? leadsPorId.get(data.leadId) : undefined) || leadMap.get(phone);
       const name = nomeValido(lead?.name) || nomeValido(data.contactName) || nomeValido(data.senderName) || data.groupName || formatPhoneDisplay(phone);
       // Photo priority: chatPic da MENSAGEM (vem do numero correto via webhook)
       // > Instagram da lead > WhatsApp da lead. Antes a lead vinha primeiro,

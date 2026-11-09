@@ -115,7 +115,7 @@ export default function CloudTemplatePicker({ selectedTemplateId, params, onChan
                   <p className="text-sm font-medium">Nenhum template aprovado</p>
                   <p className="text-xs text-muted-foreground">
                     Sincronize com a Meta em <strong>Marketing → Templates WhatsApp</strong> ou crie um novo template na Meta Business Suite.
-                    A campanha por API Oficial só envia templates com status <strong>APPROVED</strong>.
+                    A campanha por API Oficial só envia templates com status <strong>Aprovado</strong>.
                   </p>
                 </div>
               </CardContent>
@@ -137,7 +137,7 @@ export default function CloudTemplatePicker({ selectedTemplateId, params, onChan
                         </p>
                       </div>
                       <Badge variant="outline" className="text-[10px] gap-1 text-emerald-500 border-emerald-500/40">
-                        <CheckCircle2 className="h-2.5 w-2.5" /> APPROVED
+                        <CheckCircle2 className="h-2.5 w-2.5" /> Aprovado
                       </Badge>
                     </div>
                     <TemplatePreview template={t} compact />

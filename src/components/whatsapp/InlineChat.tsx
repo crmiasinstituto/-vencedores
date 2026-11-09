@@ -1806,7 +1806,10 @@ export const InlineChat: React.FC<InlineChatProps> = ({ contact, onOpenContact }
   }, [messages, reactionPickerFor, handleReact, renderChannelBadge, renderMessageContent, getStatusIcon, startEditMessage, handleDeleteMessage, handleCopyMessage, openForward]);
 
   return (
-    <div className="flex flex-col h-full">
+    // O chat tem fundo sempre escuro (estilo WhatsApp). Com o CRM no tema claro, os textos
+    // "text-foreground" ficavam escuros sobre escuro (nome do contato ilegível). A classe
+    // "dark" aqui faz o chat inteiro usar as cores do tema escuro, independente do tema do CRM.
+    <div className="dark flex flex-col h-full text-foreground">
       {/* Header */}
       <div className="bg-gradient-to-r from-[#202c33] to-[#1a252c] px-4 py-3 flex items-center gap-3 border-b border-border/50 flex-shrink-0">
         <div className="relative cursor-pointer" onClick={async () => {
@@ -2251,7 +2254,7 @@ export const InlineChat: React.FC<InlineChatProps> = ({ contact, onOpenContact }
                 refreshMentionState(el.value, el.selectionStart ?? el.value.length);
               }}
               onKeyDown={handleKeyPress}
-              placeholder="Digite uma mensagem... (Shift+Enter quebra linha)"
+              placeholder="Digite uma mensagem..."
               rows={1}
               className="flex-1 bg-[#2a3942] border-none text-[#e9edef] placeholder:text-[#8696a0] focus-visible:ring-0 min-h-[36px] max-h-36 resize-none py-2 px-3 leading-snug overflow-y-auto"
               autoFocus

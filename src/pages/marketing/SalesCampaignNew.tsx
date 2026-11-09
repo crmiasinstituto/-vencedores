@@ -1050,7 +1050,7 @@ function ReviewPanel({
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-[10px] gap-1 text-emerald-500 border-emerald-500/40">
-                    <CheckCircle2 className="h-2.5 w-2.5" /> APPROVED
+                    <CheckCircle2 className="h-2.5 w-2.5" /> Aprovado
                   </Badge>
                   <span className="text-sm font-medium">{selectedTemplate.name}</span>
                   <span className="text-[10px] text-muted-foreground uppercase tracking-wider">

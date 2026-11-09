@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { LeadDetailModal } from '@/components/crm/LeadDetailModal';
+import { nomeValido } from '@/lib/whatsapp-display';
 
 interface SearchResult {
   id: string;
@@ -40,6 +41,8 @@ export function GlobalSearch() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [open, setOpen] = useState(false);
+  const [buscando, setBuscando] = useState(false);
+  const ultimaBusca = useRef(0);
   const navigate = useNavigate();
   const ref = useRef<HTMLDivElement>(null);
 
@@ -57,26 +60,46 @@ export function GlobalSearch() {
   }, []);
 
   useEffect(() => {
-    if (query.length < 2) { setResults([]); return; }
+    const termo = query.trim();
+    if (termo.length < 2) { setResults([]); setBuscando(false); setOpen(false); return; }
 
     const timeout = setTimeout(async () => {
+      // Cada busca ganha um número; só a última mostra resultado (uma resposta lenta de
+      // "ma" não pode sobrescrever a de "marcelle").
+      const minhaBusca = ++ultimaBusca.current;
+      setBuscando(true);
+      setOpen(true);
       const all: SearchResult[] = [];
-      const q = `%${query}%`;
+      // Vírgula e parênteses quebram o filtro "or" do Supabase.
+      const limpo = termo.replace(/[(),]/g, ' ');
+      const q = `%${limpo}%`;
+      const soDigitos = limpo.replace(/\D/g, '');
+      const ehUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(termo);
+      const filtroCrm = ehUuid
+        ? `id.eq.${termo}`
+        : [`name.ilike.${q}`, `email.ilike.${q}`, `whatsapp.ilike.${q}`, soDigitos.length >= 4 && !/[a-zà-ú@]/i.test(limpo) && soDigitos !== limpo ? `whatsapp.ilike.%${soDigitos}%` : null].filter(Boolean).join(',');
 
       const [crmRes, clientRes, vhsRes, leadRes] = await Promise.all([
-        supabase.from('crm_leads').select('id, name, whatsapp, email').or(`name.ilike.${q},whatsapp.ilike.${q},email.ilike.${q}`).limit(5),
+        supabase.from('crm_leads').select('id, name, whatsapp, email').or(filtroCrm).limit(8),
         supabase.from('clients').select('id, company_name, responsible_name').or(`company_name.ilike.${q},responsible_name.ilike.${q}`).limit(5),
         supabase.from('vhs_participants').select('id, name, whatsapp').or(`name.ilike.${q},whatsapp.ilike.${q}`).limit(5),
         supabase.from('leads').select('id, name, whatsapp').or(`name.ilike.${q},whatsapp.ilike.${q}`).limit(5),
       ]);
 
-      crmRes.data?.forEach(r => all.push({ id: r.id, name: r.name, type: 'crm_lead', subtitle: r.whatsapp || r.email || '' }));
+      if (minhaBusca !== ultimaBusca.current) return;
+      crmRes.data?.forEach(r => all.push({
+        id: r.id,
+        name: nomeValido(r.name) || r.email || r.whatsapp || 'Sem nome',
+        type: 'crm_lead',
+        subtitle: [r.email, r.whatsapp].filter(Boolean).join(' · '),
+      }));
       clientRes.data?.forEach(r => all.push({ id: r.id, name: r.company_name, type: 'client', subtitle: r.responsible_name }));
       vhsRes.data?.forEach(r => all.push({ id: r.id, name: r.name, type: 'vhs_participant', subtitle: r.whatsapp }));
       leadRes.data?.forEach(r => all.push({ id: r.id, name: r.name, type: 'lead', subtitle: r.whatsapp }));
 
       setResults(all);
-      setOpen(all.length > 0);
+      setBuscando(false);
+      setOpen(true);
     }, 300);
 
     return () => clearTimeout(timeout);
@@ -149,10 +172,14 @@ export function GlobalSearch() {
       <div ref={ref} className="relative flex-1 max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
-          placeholder="Buscar UUID, nome, WhatsApp..."
+          placeholder="Buscar lead por nome, e-mail ou WhatsApp..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => results.length > 0 && setOpen(true)}
+          onFocus={() => query.trim().length >= 2 && setOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && results[0]) handleSelect(results[0]);
+            if (e.key === 'Escape') setOpen(false);
+          }}
           className="pl-9 h-9 bg-card border-border text-sm"
         />
         {query && (
@@ -162,7 +189,15 @@ export function GlobalSearch() {
         )}
 
         {open && (
-          <div className="absolute top-full mt-1 left-0 right-0 bg-card border border-border rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+          <div className="absolute top-full mt-1 left-0 right-0 bg-card border border-border rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
+            {buscando && results.length === 0 && (
+              <p className="px-3 py-3 text-sm text-muted-foreground">Buscando…</p>
+            )}
+            {!buscando && results.length === 0 && (
+              <p className="px-3 py-3 text-sm text-muted-foreground">
+                Nenhum resultado pra <strong className="text-foreground">"{query.trim()}"</strong>. Tente só uma parte do nome, do e-mail ou os últimos números do WhatsApp.
+              </p>
+            )}
             {results.map((r) => (
               <button
                 key={`${r.type}-${r.id}`}
