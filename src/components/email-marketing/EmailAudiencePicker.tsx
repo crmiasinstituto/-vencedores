@@ -15,9 +15,10 @@ import type { EmailAudienceFilters } from '@/types/email.types';
 interface Props {
   filters: EmailAudienceFilters;
   onChange: (filters: EmailAudienceFilters) => void;
+  canal?: 'email' | 'whatsapp';
 }
 
-export default function EmailAudiencePicker({ filters, onChange }: Props) {
+export default function EmailAudiencePicker({ filters, onChange, canal = 'email' }: Props) {
   const initialTab: 'filter' | 'specific' = (filters.lead_ids?.length ?? 0) > 0 ? 'specific' : 'filter';
   const [tab, setTab] = useState<'filter' | 'specific'>(initialTab);
   const [search, setSearch] = useState('');
@@ -99,7 +100,7 @@ export default function EmailAudiencePicker({ filters, onChange }: Props) {
       </TabsList>
 
       <TabsContent value="filter" className="mt-4">
-        <EmailAudienceBuilder filters={filters} onChange={onChange} />
+        <EmailAudienceBuilder filters={filters} onChange={onChange} canal={canal} />
       </TabsContent>
 
       <TabsContent value="specific" className="space-y-3 mt-4">

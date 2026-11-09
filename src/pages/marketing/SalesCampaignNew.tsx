@@ -42,6 +42,7 @@ import AntiBlockConfig from '@/components/campaigns/AntiBlockConfig';
 import AssignmentRuleConfig from '@/components/campaigns/AssignmentRuleConfig';
 import MarketingPageHeader from '@/components/marketing-mod/MarketingPageHeader';
 import { useWhatsAppInstances } from '@/hooks/useCampaigns';
+import { TemplateBubble } from '@/components/whatsapp/TemplateBubble';
 
 type StepId = 'basic' | 'channel' | 'audience' | 'message' | 'send' | 'assignment' | 'review';
 
@@ -374,7 +375,7 @@ export default function SalesCampaignNew() {
                     <div className={cn(
                       'w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5',
                       isCurrent && 'bg-[#BAA05E] text-white',
-                      !isCurrent && isPast && 'bg-emerald-500/15 text-emerald-700',
+                      !isCurrent && isPast && 'bg-emerald-500/15 text-emerald-500',
                       !isCurrent && !isPast && 'bg-muted text-muted-foreground',
                     )}>
                       {isPast ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
@@ -442,6 +443,7 @@ export default function SalesCampaignNew() {
                 <EmailAudiencePicker
                   filters={filters}
                   onChange={setFilters}
+                  canal="whatsapp"
                 />
               )}
 
@@ -619,7 +621,7 @@ export default function SalesCampaignNew() {
                     </>
                   ) : (
                     /* Cloud API: Meta tem rate-limiting próprio. Sem delays nem limites manuais. */
-                    <Card className="bg-emerald-50/40 border-emerald-200">
+                    <Card className="bg-emerald-500/5 border-emerald-500/30">
                       <CardContent className="p-4 flex items-start gap-3">
                         <Shield className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
                         <div className="space-y-1">
@@ -910,7 +912,7 @@ function ProviderAwareInstanceSelector({
                 {inst.provider === 'cloud_api' ? 'Cloud API · Meta oficial' : 'UAZAPI'}
               </p>
             </div>
-            <span className="text-[10px] px-2 py-0.5 rounded-sm bg-emerald-50 text-emerald-700 font-medium">
+            <span className="text-[10px] px-2 py-0.5 rounded-sm bg-emerald-500/15 text-emerald-500 font-medium">
               CONECTADO
             </span>
           </label>
@@ -1047,7 +1049,7 @@ function ReviewPanel({
             selectedTemplate ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[10px] gap-1 text-emerald-700 border-emerald-200">
+                  <Badge variant="outline" className="text-[10px] gap-1 text-emerald-500 border-emerald-500/40">
                     <CheckCircle2 className="h-2.5 w-2.5" /> APPROVED
                   </Badge>
                   <span className="text-sm font-medium">{selectedTemplate.name}</span>
@@ -1055,9 +1057,7 @@ function ReviewPanel({
                     {selectedTemplate.category} · {selectedTemplate.language}
                   </span>
                 </div>
-                <div className="bg-muted/30 border rounded-md p-3 text-sm whitespace-pre-wrap">
-                  {(selectedTemplate.components || []).find((c: any) => c.type === 'BODY')?.text || '—'}
-                </div>
+                <TemplateBubble components={selectedTemplate.components} />
               </div>
             ) : (
               <p className="text-sm text-amber-700 flex items-center gap-1.5">

@@ -79,7 +79,7 @@ function countVars(text: string): number {
 }
 
 function highlightVariables(text: string) {
-  return text.replace(/(\{\{\s*\d+\s*\}\})/g, '<span class="text-[#917D3D] font-medium bg-[#BAA05E]/15 px-0.5 rounded">$1</span>');
+  return text.replace(/(\{\{\s*\d+\s*\}\})/g, '<span class="text-[#f5d98b] font-medium bg-[#BAA05E]/25 px-0.5 rounded">$1</span>');
 }
 
 /**
@@ -91,9 +91,9 @@ function renderWithExamples(text: string, examples: string[]): string {
     const idx = parseInt(n, 10) - 1;
     const example = examples[idx];
     if (example && example.trim()) {
-      return `<span class="text-[#917D3D] font-medium bg-[#BAA05E]/15 px-0.5 rounded">${escapeHtml(example)}</span>`;
+      return `<span class="text-[#f5d98b] font-medium bg-[#BAA05E]/25 px-0.5 rounded">${escapeHtml(example)}</span>`;
     }
-    return `<span class="text-[#917D3D] font-medium bg-[#BAA05E]/15 px-0.5 rounded font-mono">{{${n}}}</span>`;
+    return `<span class="text-[#f5d98b] font-medium bg-[#BAA05E]/25 px-0.5 rounded font-mono">{{${n}}}</span>`;
   });
 }
 
@@ -998,8 +998,10 @@ function WhatsAppPreview({
   buttons: CloudTemplateButton[];
 }) {
   return (
-    <div className="rounded-2xl bg-[#e5ddd5] p-4">
-      <div className="bg-white rounded-lg shadow-sm max-w-[280px]">
+    <div className="rounded-2xl bg-[#0b141a] p-4 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.04)_1px,transparent_0)] [background-size:18px_18px]">
+      {/* Cores fixas do WhatsApp (tema escuro): antes o balão era branco e o texto herdava a
+          cor clara do tema do CRM, ficando ilegível. */}
+      <div className="bg-[#202c33] text-[#e9edef] rounded-lg rounded-tl-none shadow-md max-w-[300px]">
         {/* Header */}
         {headerFormat !== 'NONE' && (
           <div className="px-3 pt-3">
@@ -1007,17 +1009,17 @@ function WhatsAppPreview({
               <p className="text-sm font-bold" dangerouslySetInnerHTML={{ __html: highlightVariables(headerText) }} />
             )}
             {headerFormat === 'IMAGE' && (
-              <div className="aspect-video bg-muted rounded-md flex items-center justify-center text-[10px] text-muted-foreground">
+              <div className="aspect-video bg-[#111b21] rounded-md flex items-center justify-center text-[10px] text-[#8696a0]">
                 Imagem (preenchida no envio)
               </div>
             )}
             {headerFormat === 'VIDEO' && (
-              <div className="aspect-video bg-muted rounded-md flex items-center justify-center text-[10px] text-muted-foreground">
+              <div className="aspect-video bg-[#111b21] rounded-md flex items-center justify-center text-[10px] text-[#8696a0]">
                 Vídeo (preenchido no envio)
               </div>
             )}
             {headerFormat === 'DOCUMENT' && (
-              <div className="aspect-[2/1] bg-muted rounded-md flex items-center justify-center text-[10px] text-muted-foreground">
+              <div className="aspect-[2/1] bg-[#111b21] rounded-md flex items-center justify-center text-[10px] text-[#8696a0]">
                 📄 Documento
               </div>
             )}
@@ -1028,34 +1030,34 @@ function WhatsAppPreview({
         <div className="px-3 py-2.5">
           {bodyText ? (
             <p
-              className="text-sm whitespace-pre-wrap leading-snug"
+              className="text-[14px] whitespace-pre-wrap leading-[1.45] text-[#e9edef]"
               dangerouslySetInnerHTML={{ __html: renderWithExamples(bodyText, bodyExamples) }}
             />
           ) : (
-            <p className="text-sm text-muted-foreground italic">Seu texto aparece aqui…</p>
+            <p className="text-sm text-[#8696a0] italic">Seu texto aparece aqui…</p>
           )}
         </div>
 
         {/* Footer */}
         {footerText && (
           <div className="px-3 pb-2">
-            <p className="text-[11px] text-muted-foreground italic">{footerText}</p>
+            <p className="text-[12px] text-[#8696a0]">{footerText}</p>
           </div>
         )}
 
         {/* Timestamp */}
         <div className="px-3 pb-2 flex justify-end">
-          <span className="text-[10px] text-muted-foreground">{new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+          <span className="text-[10px] text-[#8696a0]">{new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
         </div>
 
         {/* Buttons */}
         {buttons.length > 0 && (
-          <div className="border-t divide-y">
+          <div className="border-t border-[#2a3942] divide-y divide-[#2a3942]">
             {buttons.map((b, i) => (
               <button
                 key={i}
                 type="button"
-                className="w-full px-3 py-2 text-center text-sm text-[#00a884] font-medium hover:bg-muted/40 transition-colors flex items-center justify-center gap-1.5"
+                className="w-full px-3 py-2.5 text-center text-sm text-[#53bdeb] font-medium hover:bg-white/5 transition-colors flex items-center justify-center gap-1.5"
               >
                 {b.type === 'URL' && <Link2 className="h-3 w-3" />}
                 {b.type === 'PHONE_NUMBER' && <Phone className="h-3 w-3" />}

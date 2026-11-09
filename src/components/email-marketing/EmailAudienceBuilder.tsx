@@ -18,6 +18,8 @@ import type { EmailAudienceFilters } from '@/types/email.types';
 interface Props {
   filters: EmailAudienceFilters;
   onChange: (filters: EmailAudienceFilters) => void;
+  /** Disparo de WhatsApp usa o mesmo construtor, mas o filtro de abertura de e-mail não vale lá. */
+  canal?: 'email' | 'whatsapp';
 }
 
 interface MultiSelectProps {
@@ -138,7 +140,18 @@ function MultiSelect({ label, icon, options, selected, onChange, placeholder = '
   );
 }
 
-export default function EmailAudienceBuilder({ filters, onChange }: Props) {
+export default function EmailAudienceBuilder({ filters, onChange, canal = 'email' }: Props) {
+  const ehWhatsApp = canal === 'whatsapp';
+  // Leads com a trava "Não contatar" (botão no lead ou pediram pra parar) — as RPCs de
+  // audiência já tiram eles; aqui só mostramos quantos são.
+  const { data: bloqueados } = useQuery({
+    queryKey: ['contagem-nao-contatar'],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase.rpc('contagem_nao_contatar' as any);
+      return Number(data || 0);
+    },
+  });
   const { data: opts, isLoading } = useAudienceOptions();
 
   // Campanhas já disparadas, pra filtrar quem abriu/clicou numa delas
@@ -246,8 +259,8 @@ export default function EmailAudienceBuilder({ filters, onChange }: Props) {
             resultado das inclusoes: quem tiver QUALQUER uma destas tags sai da lista. */}
         <div className="space-y-1.5">
           <MultiSelect
-            label="Tags — excluir"
-            icon={<Tag className="h-3 w-3" />}
+            label="🚫 Não enviar para quem tem a tag"
+            icon={<Tag className="h-3 w-3 text-red-400" />}
             options={tagOptions}
             selected={filters.exclude_tags || []}
             onChange={(v) => update('exclude_tags', v)}
@@ -319,7 +332,7 @@ export default function EmailAudienceBuilder({ filters, onChange }: Props) {
         <div className="space-y-1.5 md:col-span-2">
           <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
             <Calendar className="h-3 w-3" />
-            Excluir quem recebeu email nos últimos N dias
+            {ehWhatsApp ? 'Não enviar pra quem recebeu disparo de WhatsApp nos últimos N dias' : 'Excluir quem recebeu email nos últimos N dias'}
           </Label>
           <Input
             type="number"
@@ -334,7 +347,8 @@ export default function EmailAudienceBuilder({ filters, onChange }: Props) {
         </div>
       </div>
 
-      {/* Engajamento */}
+      {/* Engajamento (só e-mail: o disparo de WhatsApp não usa abertura de e-mail) */}
+      {!ehWhatsApp && (
       <div className="border-t pt-4 mt-4">
         <Label className="text-xs font-semibold text-[#BAA05E] uppercase tracking-wider flex items-center gap-1.5 mb-3">
           <MailOpen className="h-3.5 w-3.5" />
@@ -390,14 +404,20 @@ export default function EmailAudienceBuilder({ filters, onChange }: Props) {
         </p>
       </div>
 
+      )}
+
       {/* Exclusao */}
       <div className="border-t border-red-500/20 pt-4 mt-4">
         <Label className="text-xs font-semibold text-red-500 uppercase tracking-wider flex items-center gap-1.5 mb-3">
           <ShieldAlert className="h-3.5 w-3.5" />
           Excluir da audiencia (nao recebem)
         </Label>
-        <p className="text-[10px] text-muted-foreground mb-3">
-          Leads que estiverem nos boards, colunas ou tags abaixo serao EXCLUIDOS do disparo, mesmo que passem nos filtros acima.
+        <p className="text-[11px] text-muted-foreground mb-2">
+          Leads que estiverem nos quadros, colunas ou tags abaixo NÃO recebem, mesmo que passem nos filtros acima.
+        </p>
+        <p className="text-[11px] mb-3 rounded-md border border-red-500/20 bg-red-500/5 px-2.5 py-1.5 text-red-400">
+          🔒 {bloqueados != null ? `${bloqueados.toLocaleString('pt-BR')} lead${bloqueados === 1 ? '' : 's'}` : 'Os leads'} marcado{bloqueados === 1 ? '' : 's'} como
+          <strong> Não contatar</strong> (pelo botão no lead ou porque pediram pra parar) já ficam de fora automaticamente.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <MultiSelect

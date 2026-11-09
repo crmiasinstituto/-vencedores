@@ -11,6 +11,7 @@ import { Search, FileText, AlertCircle, CheckCircle2, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useWhatsAppTemplates } from '@/hooks/useWhatsAppTemplates';
 import type { CloudTemplateParam } from '@/types/campaign.types';
+import { TemplateBubble } from '@/components/whatsapp/TemplateBubble';
 
 const LEAD_FIELDS: Array<{ value: string; label: string; example: string }> = [
   { value: 'nome',             label: 'Nome completo',         example: 'João da Silva' },
@@ -135,7 +136,7 @@ export default function CloudTemplatePicker({ selectedTemplateId, params, onChan
                           {t.category} · {t.language}
                         </p>
                       </div>
-                      <Badge variant="outline" className="text-[10px] gap-1 text-emerald-700 border-emerald-200">
+                      <Badge variant="outline" className="text-[10px] gap-1 text-emerald-500 border-emerald-500/40">
                         <CheckCircle2 className="h-2.5 w-2.5" /> APPROVED
                       </Badge>
                     </div>
@@ -151,13 +152,13 @@ export default function CloudTemplatePicker({ selectedTemplateId, params, onChan
       {/* Template selecionado + mapeamento de variáveis */}
       {selectedTemplateId && selectedTemplate && (
         <div className="space-y-4">
-          <Card className="bg-gradient-to-br from-emerald-50 to-transparent border-emerald-200">
+          <Card className="bg-emerald-500/5 border-emerald-500/30">
             <CardContent className="p-4">
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <div className="flex items-center gap-2 mb-0.5">
-                    <FileText className="h-3.5 w-3.5 text-emerald-700" />
-                    <p className="text-[10px] uppercase tracking-[0.18em] font-medium text-emerald-700">
+                    <FileText className="h-3.5 w-3.5 text-emerald-500" />
+                    <p className="text-[10px] uppercase tracking-[0.18em] font-medium text-emerald-500">
                       Template selecionado
                     </p>
                   </div>
@@ -271,32 +272,12 @@ function TemplatePreview({ template, compact }: { template: any; compact?: boole
 
   if (compact) {
     return (
-      <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">
+      <p className="text-xs text-foreground/80 line-clamp-3 leading-snug">
         {bodyText}
       </p>
     );
   }
 
-  // O balão é branco fixo (imita o WhatsApp), então a cor do texto TEM que ser explícita:
-  // herdando o `foreground` do tema escuro do CRM, ficava texto claro sobre fundo branco.
   const headerImg = header?.format === 'IMAGE' ? header?.example?.header_handle?.[0] : null;
-
-  return (
-    <div
-      className="bg-white text-zinc-900 rounded-lg border p-3 space-y-2 text-sm"
-      style={{ fontFamily: '-apple-system, system-ui, sans-serif', colorScheme: 'light' }}
-    >
-      {headerImg && (
-        <img
-          src={headerImg}
-          alt="Imagem do cabeçalho do template"
-          className="w-full rounded-md border border-zinc-200 object-cover max-h-56"
-          loading="lazy"
-        />
-      )}
-      {header?.text && <p className="font-semibold text-zinc-900">{header.text}</p>}
-      {bodyText && <p className="whitespace-pre-wrap leading-relaxed text-zinc-800">{bodyText}</p>}
-      {footer?.text && <p className="text-xs text-zinc-500 italic">{footer.text}</p>}
-    </div>
-  );
+  return <TemplateBubble components={components} headerImageUrl={headerImg} />;
 }

@@ -22,6 +22,7 @@ import {
   WhatsAppTemplate, WhatsAppTemplateTag,
 } from "@/hooks/useWhatsAppTemplates";
 import MarketingPageHeader from "@/components/marketing-mod/MarketingPageHeader";
+import { TemplateBubble } from "@/components/whatsapp/TemplateBubble";
 
 const STATUS_META: Record<string, { label: string; color: string; icon: any }> = {
   APPROVED: { label: "Aprovado", color: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30", icon: CheckCircle2 },
@@ -464,11 +465,6 @@ function TagPickerPopover({ template }: { template: WhatsAppTemplate }) {
 }
 
 function TemplatePreview({ template }: { template: WhatsAppTemplate }) {
-  const header = (template.components || []).find((c: any) => c.type === "HEADER");
-  const body = (template.components || []).find((c: any) => c.type === "BODY");
-  const footer = (template.components || []).find((c: any) => c.type === "FOOTER");
-  const buttons = (template.components || []).find((c: any) => c.type === "BUTTONS");
-
   return (
     <>
       <DialogHeader>
@@ -478,30 +474,8 @@ function TemplatePreview({ template }: { template: WhatsAppTemplate }) {
         </DialogDescription>
       </DialogHeader>
 
-      <div className="bg-[#E5DDD5] rounded-lg p-6 my-4 max-h-[480px] overflow-y-auto">
-        <div className="bg-white rounded-lg p-3 max-w-sm shadow-sm">
-          {header?.text && (
-            <p className="font-semibold text-sm mb-1.5">{header.text}</p>
-          )}
-          {body?.text && (
-            <p className="text-sm whitespace-pre-line text-gray-800">{body.text}</p>
-          )}
-          {footer?.text && (
-            <p className="text-xs text-gray-500 mt-2">{footer.text}</p>
-          )}
-          {buttons?.buttons && (
-            <div className="mt-3 -mx-3 -mb-3 border-t">
-              {buttons.buttons.map((btn: any, i: number) => (
-                <div
-                  key={i}
-                  className="text-center text-sm text-blue-600 py-2.5 border-b last:border-b-0 last:rounded-b-lg cursor-pointer"
-                >
-                  {btn.text}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      <div className="my-4 max-h-[520px] overflow-y-auto">
+        <TemplateBubble components={template.components} />
       </div>
     </>
   );

@@ -58,8 +58,14 @@ interface FlowEdge { id?: string; source: string; target: string; sourceHandle?:
 const LEAD_FIELD_ALIASES: Record<string, string> = { sales_score: "lead_score", sales_stage: "column_name" };
 const UPDATABLE_LEAD_FIELDS = new Set(["lead_score", "source", "priority", "evento"]);
 
+// Nome lixo de importação ("null", "nan") vira vazio em vez de aparecer na mensagem.
+function nomeLimpo(n: string | null | undefined): string {
+  const t = String(n || "").trim();
+  return /^(null|nan|undefined|none|-)$/i.test(t) ? "" : t;
+}
+
 function fillLeadVars(text: string, lead: { name?: string | null } | null): string {
-  const nome = lead?.name || "";
+  const nome = nomeLimpo(lead?.name);
   return text
     .replace(/\{\{\s*nome\s*\}\}/g, nome)
     .replace(/\{\{\s*primeiro_nome\s*\}\}/g, nome.split(" ")[0]);
@@ -395,12 +401,12 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
       if (message) {
         const { data: lead, error: leadErr } = await supabase
           .from("crm_leads")
-          .select("whatsapp, name, whatsapp_opt_in")
+          .select("whatsapp, name, whatsapp_opt_in, nao_contatar")
           .eq("id", leadId)
           .single();
-        if (leadErr || !lead?.whatsapp || !lead.whatsapp_opt_in) {
+        if (leadErr || !lead?.whatsapp || !lead.whatsapp_opt_in || lead.nao_contatar) {
           await registrarFalhaAutomacao(supabase, run, node, leadId,
-            `WhatsApp não foi enviado — ${leadErr ? leadErr.message : !lead?.whatsapp ? "lead sem WhatsApp" : "lead sem permissão de WhatsApp (opt-in)"}`);
+            `WhatsApp não foi enviado — ${leadErr ? leadErr.message : !lead?.whatsapp ? "lead sem WhatsApp" : lead.nao_contatar ? "lead marcado como NÃO CONTATAR" : "lead sem permissão de WhatsApp (opt-in)"}`);
         } else {
           // Onboarding URL única do lead (Masterclass IA wizard)
           let onboardingUrl = "";
@@ -413,8 +419,8 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
           } catch (e) { /* tolera, segue sem o link */ }
 
           const text = message
-            .replace(/\{\{nome\}\}/g, lead.name || "")
-            .replace(/\{\{primeiro_nome\}\}/g, (lead.name || "").split(" ")[0])
+            .replace(/\{\{nome\}\}/g, nomeLimpo(lead.name))
+            .replace(/\{\{primeiro_nome\}\}/g, (nomeLimpo(lead.name)).split(" ")[0])
             .replace(/\{\{onboarding_url\}\}/g, onboardingUrl)
             .replace(/\{\{link_plataforma\}\}/g, onboardingUrl)
             .replace(/\{\{acessar_plataforma\}\}/g, onboardingUrl);
@@ -431,16 +437,16 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
       if (groupLink) {
         const { data: lead, error: leadErr } = await supabase
           .from("crm_leads")
-          .select("whatsapp, name, whatsapp_opt_in")
+          .select("whatsapp, name, whatsapp_opt_in, nao_contatar")
           .eq("id", leadId)
           .single();
-        if (leadErr || !lead?.whatsapp || !lead.whatsapp_opt_in) {
+        if (leadErr || !lead?.whatsapp || !lead.whatsapp_opt_in || lead.nao_contatar) {
           await registrarFalhaAutomacao(supabase, run, node, leadId,
-            `Convite do grupo não foi enviado — ${leadErr ? leadErr.message : !lead?.whatsapp ? "lead sem WhatsApp" : "lead sem permissão de WhatsApp (opt-in)"}`);
+            `Convite do grupo não foi enviado — ${leadErr ? leadErr.message : !lead?.whatsapp ? "lead sem WhatsApp" : lead.nao_contatar ? "lead marcado como NÃO CONTATAR" : "lead sem permissão de WhatsApp (opt-in)"}`);
         } else {
           const text = ((message ? message + "\n\n" : "") + groupLink)
-            .replace(/\{\{nome\}\}/g, lead.name || "")
-            .replace(/\{\{primeiro_nome\}\}/g, (lead.name || "").split(" ")[0]);
+            .replace(/\{\{nome\}\}/g, nomeLimpo(lead.name))
+            .replace(/\{\{primeiro_nome\}\}/g, (nomeLimpo(lead.name)).split(" ")[0]);
           await enviarUazapiTexto(supabase, run, node, leadId, "Convite do grupo", lead.whatsapp, text);
         }
       }
@@ -457,11 +463,12 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
         // vazio e o passo pulava sem enviar e sem avisar. {{empresa}} fica vazio.
         const { data: lead, error: leadErr } = await supabase
           .from("crm_leads")
-          .select("whatsapp, name, whatsapp_opt_in")
+          .select("whatsapp, name, whatsapp_opt_in, nao_contatar")
           .eq("id", leadId)
           .single();
         const motivoPulo = leadErr ? `erro ao ler o lead: ${leadErr.message}`
           : !lead?.whatsapp ? "lead sem WhatsApp"
+          : lead.nao_contatar ? "lead marcado como NÃO CONTATAR"
           : !lead.whatsapp_opt_in ? "lead sem permissão de WhatsApp (opt-in)" : null;
         if (motivoPulo) {
           console.warn(`[run ${run.id}] WhatsApp pulado: ${motivoPulo}`);
@@ -472,11 +479,11 @@ async function executeNode(supabase: any, run: any, node: FlowNode) {
             metadata: { automation_id: run.automation_id, run_id: run.id, node_id: node.id },
           });
         }
-        if (lead?.whatsapp && lead.whatsapp_opt_in) {
+        if (lead?.whatsapp && lead.whatsapp_opt_in && !lead.nao_contatar) {
           const resolvedParams = rawParams.map((p: string) =>
             p
-              .replace(/\{\{nome\}\}/g, lead.name || "")
-              .replace(/\{\{primeiro_nome\}\}/g, (lead.name || "").split(" ")[0])
+              .replace(/\{\{nome\}\}/g, nomeLimpo(lead.name))
+              .replace(/\{\{primeiro_nome\}\}/g, (nomeLimpo(lead.name)).split(" ")[0])
               .replace(/\{\{empresa\}\}/g, ""),
           );
           // Com mais de um número na API oficial, o modelo só existe na conta (WABA) onde foi

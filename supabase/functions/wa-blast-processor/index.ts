@@ -35,6 +35,8 @@ function formatPhone(phone: string): string {
 function normalizeName(raw: string): string {
   if (!raw) return "";
   let name = raw.trim();
+  // 3,9 mil leads vieram da planilha com nome "null"/"nan": sem isso a mensagem sai "Olá Null".
+  if (/^(null|nan|undefined|none|-)$/i.test(name)) return "";
   if (/^[A-Za-zÀ-ú]( [A-Za-zÀ-ú]){2,}$/.test(name)) name = name.replace(/ /g, "");
   return name
     .toLowerCase()
@@ -232,7 +234,7 @@ async function processCampaign(supabase: any, campaign: any) {
   const batchSize = isCloudApi ? 50 : 2;
   const { data: pending, error: pErr } = await supabase
     .from("wa_campaign_leads")
-    .select("id, lead_id, whatsapp, assigned_to, lead:crm_leads(id, name, email, whatsapp, company_name, onboarding_token)")
+    .select("id, lead_id, whatsapp, assigned_to, lead:crm_leads(id, name, email, whatsapp, company_name, onboarding_token, tags, nao_contatar)")
     .eq("campaign_id", campaign.id)
     .eq("status", "pending")
     .order("created_at", { ascending: true })
@@ -283,12 +285,15 @@ async function processCampaign(supabase: any, campaign: any) {
   for (let i = 0; i < pending.length; i++) {
     const cl: any = pending[i];
     const lead = cl.lead;
-    if (!lead || !cl.whatsapp) {
+    // Quem pediu pra parar DEPOIS que a campanha montou a fila (respondeu "não tenho
+    // interesse", foi marcado "Não contatar" ou a Meta devolveu opt-out) não recebe.
+    const bloqueado = !!lead && (lead.nao_contatar === true || (lead.tags || []).includes("whatsapp_optout"));
+    if (!lead || !cl.whatsapp || bloqueado) {
       await supabase
         .from("wa_campaign_leads")
         .update({
           status: "skipped",
-          error_message: !lead ? "lead nao encontrado" : "sem whatsapp",
+          error_message: !lead ? "lead nao encontrado" : !cl.whatsapp ? "sem whatsapp" : "nao contatar (pediu pra parar)",
           updated_at: new Date().toISOString(),
         })
         .eq("id", cl.id);

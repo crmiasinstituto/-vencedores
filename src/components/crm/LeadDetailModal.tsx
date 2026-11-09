@@ -29,6 +29,7 @@ import { LeadInsightsTab } from './LeadInsightsTab';
 import { LeadDataTab } from './lead-view/LeadDataTab';
 import { LeadDossierTab } from './lead-view/LeadDossierTab';
 import AgentPauseControl from './AgentPauseControl';
+import { NaoContatarButton } from './NaoContatarButton';
 import ActivateAsMemberButton from './ActivateAsMemberButton';
 import { WhatsAppLeadTab } from './lead-view/WhatsAppLeadTab';
 import { InstagramEvolutionTab } from './lead-view/InstagramEvolutionTab';
@@ -532,6 +533,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                             onActivated={() => window.dispatchEvent(new Event('refresh-lead'))}
                           />
                         )}
+                        <NaoContatarButton leadId={lead.id} />
                         <AgentPauseControl leadId={lead.id} />
                       </div>
                     </div>

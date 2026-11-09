@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatInstancePhone, shortInstanceName, getInstanceTag, describeInstance, InstanceIdentity } from '@/lib/whatsappInstance';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { nomeValido, previewMensagem } from '@/lib/whatsapp-display';
 
 export interface ChatContact {
   id: string;
@@ -87,7 +88,7 @@ export const ChatContactList: React.FC<ChatContactListProps> = ({ selectedContac
         const groupName = meta?.groupName || null;
         const chatPic = meta?.chat_details_pic || meta?.chat_imagePreview || meta?.chat_image || null;
         const lastSender = isGroup ? (meta?.senderName || null) : null;
-        let preview = msg.message_type !== 'text' ? `📎 ${msg.message_type}` : (msg.content || '');
+        let preview = previewMensagem(msg.message_type, msg.content);
         
         phoneMap.set(phone, {
           phone, leadId: msg.lead_id, boardId: msg.board_id,
@@ -166,7 +167,7 @@ export const ChatContactList: React.FC<ChatContactListProps> = ({ selectedContac
     const contactList: ChatContact[] = [];
     for (const [phone, data] of phoneMap) {
       const lead = leadMap.get(phone);
-      const name = lead?.name || data.contactName || data.senderName || data.groupName || formatPhoneDisplay(phone);
+      const name = nomeValido(lead?.name) || nomeValido(data.contactName) || nomeValido(data.senderName) || data.groupName || formatPhoneDisplay(phone);
       // Photo priority: chatPic da MENSAGEM (vem do numero correto via webhook)
       // > Instagram da lead > WhatsApp da lead. Antes a lead vinha primeiro,
       // o que misturava fotos quando dois leads tinham telefones que normalizavam
@@ -222,7 +223,7 @@ export const ChatContactList: React.FC<ChatContactListProps> = ({ selectedContac
 
         setContacts(prev => {
           const existing = prev.find(c => c.id === phone);
-          const preview = newMsg.message_type !== 'text' ? `📎 ${newMsg.message_type}` : (newMsg.content || '');
+          const preview = previewMensagem(newMsg.message_type, newMsg.content);
 
           if (existing) {
             const updated: ChatContact = {
@@ -239,7 +240,7 @@ export const ChatContactList: React.FC<ChatContactListProps> = ({ selectedContac
             }
             return [updated, ...prev.filter(c => c.id !== phone)];
           } else {
-            const contactName = meta?.contact_name || (newMsg.direction === 'inbound' ? meta?.senderName : null) || meta?.groupName || formatPhoneDisplay(phone);
+            const contactName = nomeValido(meta?.contact_name) || (newMsg.direction === 'inbound' ? nomeValido(meta?.senderName) : null) || meta?.groupName || formatPhoneDisplay(phone);
             const newContact: ChatContact = {
               id: phone, leadId: newMsg.lead_id, name: contactName, phone,
               profilePic: meta?.chat_details_pic || null, lastMessage: preview,
@@ -304,7 +305,7 @@ export const ChatContactList: React.FC<ChatContactListProps> = ({ selectedContac
           // id unico: usa o telefone quando existe, senao o proprio leadId,
           // pra nunca colidir o key do React entre leads sem telefone
           id: p || `lead:${l.id}`,
-          leadId: l.id, name: l.name,
+          leadId: l.id, name: nomeValido(l.name) || formatPhoneDisplay(p) || 'Sem nome',
           phone: p,
           profilePic: l.instagram_profile_pic_url || l.whatsapp_profile_pic_url || null,
           lastMessage: null, lastMessageAt: null, unreadCount: 0, boardId: l.board_id,

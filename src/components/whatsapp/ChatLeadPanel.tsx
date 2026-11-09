@@ -7,6 +7,8 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { ChatContact } from './ChatContactList';
 import { LeadDetailModal } from '@/components/crm/LeadDetailModal';
+import { nomeValido } from '@/lib/whatsapp-display';
+import { NaoContatarButton } from '@/components/crm/NaoContatarButton';
 
 interface LeadInfo {
   id: string;
@@ -61,7 +63,7 @@ export const ChatLeadPanel: React.FC<ChatLeadPanelProps> = ({ contact }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [whatsappPic, setWhatsappPic] = useState<string | null>(null);
   const [instagramPic, setInstagramPic] = useState<string | null>(null);
-  const [contactName, setContactName] = useState<string>(contact.name);
+  const [contactName, setContactName] = useState<string>(nomeValido(contact.name) || contact.phone);
   const [isFetchingDetails, setIsFetchingDetails] = useState(false);
   const [showLeadModal, setShowLeadModal] = useState(false);
   const [leadColumns, setLeadColumns] = useState<{ id: string; name: string }[]>([]);
@@ -85,7 +87,7 @@ export const ChatLeadPanel: React.FC<ChatLeadPanelProps> = ({ contact }) => {
           const waName = details.lead_name || details.wa_name || details.wa_contactName || details.name || null;
           if (pic) setWhatsappPic(pic);
           // Only use WhatsApp name if no CRM lead name exists
-          if (waName && waName.length > 1 && !lead?.name) setContactName(waName);
+          if (nomeValido(waName) && waName.length > 1 && !nomeValido(lead?.name)) setContactName(waName);
 
           // Update CRM lead if found
           if (lead?.id) {
@@ -109,7 +111,7 @@ export const ChatLeadPanel: React.FC<ChatLeadPanelProps> = ({ contact }) => {
     setLastContact(null);
     setWhatsappPic(null);
     setInstagramPic(null);
-    setContactName(contact.name);
+    setContactName(nomeValido(contact.name) || contact.phone);
 
     const fetchData = async () => {
       setIsLoading(true);
@@ -158,7 +160,7 @@ export const ChatLeadPanel: React.FC<ChatLeadPanelProps> = ({ contact }) => {
         };
         setLead(leadInfo);
         if (leadInfo.instagram_profile_pic_url) setInstagramPic(leadInfo.instagram_profile_pic_url);
-        if (leadInfo.name) setContactName(leadInfo.name);
+        if (nomeValido(leadInfo.name)) setContactName(leadInfo.name);
 
         const { data: salesData } = await supabase
           .from('sales_events')
@@ -182,8 +184,8 @@ export const ChatLeadPanel: React.FC<ChatLeadPanelProps> = ({ contact }) => {
         const meta = lastMsgWithMeta[0].metadata as any;
         const metaPic = meta.chat_details_pic || meta.chat_imagePreview || meta.chat_image || null;
         if (metaPic) setWhatsappPic(metaPic);
-        if (meta.chat_details_name && !foundLead) setContactName(meta.chat_details_name);
-        if (meta.senderName && !foundLead && contactName === contact.name) setContactName(meta.senderName);
+        if (nomeValido(meta.chat_details_name) && !foundLead) setContactName(meta.chat_details_name);
+        if (nomeValido(meta.senderName) && !foundLead && contactName === contact.name) setContactName(meta.senderName);
       }
 
       // Last message
@@ -302,6 +304,11 @@ export const ChatLeadPanel: React.FC<ChatLeadPanelProps> = ({ contact }) => {
           {isFetchingDetails ? <RefreshCw className="w-3 h-3 animate-spin mr-1" /> : <Zap className="w-3 h-3 mr-1" />}
           {isFetchingDetails ? 'Sincronizando...' : 'Sincronizar dados'}
         </Button>
+        {lead && (
+          <div className="mt-2 flex justify-center">
+            <NaoContatarButton leadId={lead.id} />
+          </div>
+        )}
         {lead && (
           <Button
             variant="outline"

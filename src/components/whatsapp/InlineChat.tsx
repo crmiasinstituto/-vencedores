@@ -18,6 +18,8 @@ import { LeadDetailModal } from '@/components/crm/LeadDetailModal';
 import { EmojiPicker } from './EmojiPicker';
 import { VideoPTVRecorder } from './VideoPTVRecorder';
 import { AudioPlayer } from './AudioPlayer';
+import { nomeValido } from '@/lib/whatsapp-display';
+import { TemplateExtras } from './TemplateExtras';
 
 // Transforma URLs (http/https) em links clicaveis dentro de texto puro.
 // O split com grupo de captura mantem as URLs como pedacos proprios; o teste
@@ -280,7 +282,7 @@ export const InlineChat: React.FC<InlineChatProps> = ({ contact, onOpenContact }
   useEffect(() => {
     if (contact.leadId) {
       supabase.from('crm_leads').select('name').eq('id', contact.leadId).single()
-        .then(({ data }) => { if (data?.name) setLeadName(data.name); });
+        .then(({ data }) => { setLeadName(nomeValido(data?.name)); });
     } else {
       setLeadName(null);
     }
@@ -1783,6 +1785,9 @@ export const InlineChat: React.FC<InlineChatProps> = ({ contact, onOpenContact }
                   {isOutbound && getStatusIcon(msg.status)}
                 </div>
               )}
+              {msg.message_type === 'template' && (
+                <TemplateExtras templateName={msg.metadata?.template_name} isOutbound={isOutbound} />
+              )}
               {Array.isArray(msg.metadata?.reactions) && msg.metadata.reactions.length > 0 && (
                 <div className={`absolute -bottom-3 ${isOutbound ? 'right-2' : 'left-2'} flex gap-0.5 bg-[#1a252c] border border-border rounded-full px-1.5 py-0.5 shadow-md`}>
                   {Array.from(new Set(msg.metadata.reactions.map((r: MsgReaction) => r.emoji))).slice(0, 3).map(emo => (
@@ -1827,7 +1832,7 @@ export const InlineChat: React.FC<InlineChatProps> = ({ contact, onOpenContact }
         <div className="flex-1 min-w-0 cursor-pointer" onClick={() => {
           if (contact.leadId) setShowLeadDetail(true);
         }}>
-          <h3 className="font-semibold text-sm text-foreground truncate hover:text-primary transition-colors">{leadName || contact.name}</h3>
+          <h3 className="font-semibold text-sm text-foreground truncate hover:text-primary transition-colors">{leadName || nomeValido(contact.name) || contact.phone}</h3>
           <p className="text-xs text-muted-foreground flex items-center gap-1">
             <Phone className="w-3 h-3" /> {contact.phone}
             {!contact.leadId && <span className="text-amber-400 ml-1">(clique na foto para criar lead)</span>}
